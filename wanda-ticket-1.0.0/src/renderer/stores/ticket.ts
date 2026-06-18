@@ -190,6 +190,7 @@ export const useTicketStore = defineStore('ticket', {
       this.selectedSeats = []
     },
     resetQueryAfterCityChange() {
+      ++this.showtimeRequestSerial
       this.query.cinema = ''
       this.query.movie = ''
       this.query.date = ''
@@ -200,9 +201,11 @@ export const useTicketStore = defineStore('ticket', {
       this.dates = []
       this.showtimes = []
       this.showtimeItems = []
+      this.loadingShowtimes = false
       this.clearSeatSelection()
     },
     resetQueryAfterCinemaChange() {
+      ++this.showtimeRequestSerial
       this.query.movie = ''
       this.query.date = ''
       this.query.showtime = ''
@@ -340,7 +343,7 @@ export const useTicketStore = defineStore('ticket', {
         this.showtimeError = this.movies.length > 0 ? '' : '当前影院暂无可选影片'
         useLogsStore().addLog('购票查询', account.phone, `影院场次加载成功：${this.movies.length} 部影片`)
       } catch (error) {
-        if (requestSerial !== this.showtimeRequestSerial) {
+        if (requestSerial !== this.showtimeRequestSerial || cinemaId !== this.query.cinema) {
           return
         }
 

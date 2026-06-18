@@ -195,6 +195,18 @@ assertMatches(
   /const requestSerial = \+\+this\.showtimeRequestSerial[\s\S]*?fetchCinemaShowtime[\s\S]*?requestSerial !== this\.showtimeRequestSerial[\s\S]*?this\.rawShowtimeData =/,
   '影院场次请求防异步串台'
 )
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /resetQueryAfterCityChange\(\)[\s\S]*?\+\+this\.showtimeRequestSerial/,
+  '切换城市时失效旧场次请求'
+)
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /catch \(error\)[\s\S]*?requestSerial !== this\.showtimeRequestSerial \|\| cinemaId !== this\.query\.cinema[\s\S]*?this\.showtimeError = message/,
+  '场次失败路径防旧影院覆盖'
+)
 for (const label of [
   'showtimeFilmInf',
   'showtimeFilmDateInf',
