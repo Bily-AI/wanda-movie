@@ -206,31 +206,50 @@ export const useAccountsStore = defineStore('accounts', {
         return
       }
 
+      let status: Awaited<ReturnType<typeof checkLoginStatus>>
+
       try {
-        const status = await checkLoginStatus(account.ck, account.userIdentifier)
-        account.status = 'normal'
-        account.statusText = '正常'
-        account.isPayMember = Boolean(status.userInfo?.isPayMember)
-
-        if (status.userInfo?.mobile) {
-          account.phone = status.userInfo.mobile
-        }
-
-        if (status.userInfo?.userIdentifier) {
-          account.userIdentifier = status.userInfo.userIdentifier
-        }
-
-        this.loginForm.message = '当前账号状态正常'
-        await this.saveAccounts()
-        useLogsStore().addLog('万达登录', account.phone, '账号状态正常')
+        status = await checkLoginStatus(account.ck, account.userIdentifier)
       } catch (error) {
         const message = getErrorMessage(error, '万达账号登录已失效')
         account.status = 'expired'
         account.statusText = '失效'
         this.loginForm.message = message
-        await this.saveAccounts()
+
+        try {
+          await this.saveAccounts()
+        } catch (saveError) {
+          const saveMessage = getErrorMessage(saveError, '账号状态保存失败')
+          this.loginForm.message = `${message}；${saveMessage}`
+        }
+
         useLogsStore().addLog('万达登录', account.phone, `账号状态失效：${message}`)
+        return
       }
+
+      account.status = 'normal'
+      account.statusText = '正常'
+      account.isPayMember = Boolean(status.userInfo?.isPayMember)
+
+      if (status.userInfo?.mobile) {
+        account.phone = status.userInfo.mobile
+      }
+
+      if (status.userInfo?.userIdentifier) {
+        account.userIdentifier = status.userInfo.userIdentifier
+      }
+
+      try {
+        await this.saveAccounts()
+      } catch (error) {
+        const message = getErrorMessage(error, '账号状态正常，但保存失败')
+        this.loginForm.message = message
+        useLogsStore().addLog('万达登录', account.phone, `账号状态保存失败：${message}`)
+        return
+      }
+
+      this.loginForm.message = '当前账号状态正常'
+      useLogsStore().addLog('万达登录', account.phone, '账号状态正常')
     }
   }
 })

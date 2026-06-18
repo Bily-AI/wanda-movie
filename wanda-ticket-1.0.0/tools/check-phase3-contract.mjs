@@ -19,6 +19,12 @@ function assertNotIncludes(file, content, label) {
   }
 }
 
+function assertMatches(file, content, pattern, label) {
+  if (!pattern.test(content)) {
+    throw new Error(`${file} 缺少 ${label}`)
+  }
+}
+
 const packageJson = read('package.json')
 const ipc = read('src/shared/ipc.ts')
 const core = read('src/shared/wandaCore.ts')
@@ -108,17 +114,53 @@ for (const label of ['sendLoginCode', 'loginWandaAccount', 'checkCurrentLoginSta
   assertIncludes('src/renderer/stores/accounts.ts', accountsStore, label)
 }
 
-for (const label of ['requestPhone', '请重新获取验证码', 'if (!result.ok)', 'state.loginForm.message']) {
-  assertIncludes('src/renderer/stores/accounts.ts', accountsStore, label)
-}
+assertMatches(
+  'src/renderer/stores/accounts.ts',
+  accountsStore,
+  /state\.loginForm\.message\.trim\(\)[\s\S]*?if \(message\)[\s\S]*?return message[\s\S]*?state\.accounts\.find/,
+  '登录消息优先于当前账号状态'
+)
+assertMatches(
+  'src/renderer/stores/accounts.ts',
+  accountsStore,
+  /this\.loginForm\.requestId = ''[\s\S]*?this\.loginForm\.requestPhone = ''[\s\S]*?sendVerifyCode\(phone\)[\s\S]*?this\.loginForm\.requestId = result\.requestID[\s\S]*?this\.loginForm\.requestPhone = phone/,
+  '验证码请求号绑定当前手机号'
+)
+assertMatches(
+  'src/renderer/stores/accounts.ts',
+  accountsStore,
+  /if \(this\.loginForm\.requestPhone !== phone\)[\s\S]*?请重新获取验证码[\s\S]*?return[\s\S]*?loginWithCode\(phone, code, this\.loginForm\.requestId\)/,
+  '登录前校验验证码手机号'
+)
+assertMatches(
+  'src/renderer/stores/accounts.ts',
+  accountsStore,
+  /await this\.saveAccounts\(\)[\s\S]*?this\.loginForm\.message = '登录成功，账号已保存'/,
+  '保存成功后再提示账号已保存'
+)
+assertMatches(
+  'src/renderer/stores/accounts.ts',
+  accountsStore,
+  /if \(!result\.ok\)[\s\S]*?throw new Error\(result\.error \|\| '账号保存失败'\)/,
+  '本地保存失败向上抛出'
+)
+assertMatches(
+  'src/renderer/stores/accounts.ts',
+  accountsStore,
+  /let status[\s\S]*?try \{[\s\S]*?status = await checkLoginStatus[\s\S]*?\} catch \(error\)[\s\S]*?account\.status = 'expired'/,
+  '状态接口失败才标记账号失效'
+)
 
 for (const label of ['@click="accountsStore.sendLoginCode"', '@click="accountsStore.loginWandaAccount"']) {
   assertIncludes('src/renderer/views/TicketView.vue', ticketView, label)
 }
 
-for (const label of ['!accountsStore.loginForm.requestId', 'accountsStore.loginForm.sending || accountsStore.loginForm.loggingIn']) {
-  assertIncludes('src/renderer/views/TicketView.vue', ticketView, label)
-}
+assertMatches(
+  'src/renderer/views/TicketView.vue',
+  ticketView,
+  /class="full-button"[\s\S]*?:disabled="[\s\S]*?accountsStore\.loginForm\.sending[\s\S]*?accountsStore\.loginForm\.loggingIn[\s\S]*?!accountsStore\.loginForm\.requestId[\s\S]*?"[\s\S]*?@click="accountsStore\.loginWandaAccount"/,
+  '登录按钮禁用无 requestId 和 loading 状态'
+)
 
 assertIncludes('src/renderer/stores/logs.ts', logsStore, 'addLog')
 assertIncludes('src/renderer/stores/logs.ts', logsStore, 'maskAccount')
