@@ -25,6 +25,22 @@ function assertMatches(file, content, pattern, label) {
   }
 }
 
+function sliceRequired(file, content, startLabel, endLabel, label) {
+  const start = content.indexOf(startLabel)
+
+  if (start < 0) {
+    throw new Error(`${file} 缺少 ${label}`)
+  }
+
+  const end = content.indexOf(endLabel, start + startLabel.length)
+
+  if (end < 0) {
+    throw new Error(`${file} 缺少 ${label}`)
+  }
+
+  return content.slice(start, end)
+}
+
 const packageJson = read('package.json')
 const ipc = read('src/shared/ipc.ts')
 const core = read('src/shared/wandaCore.ts')
@@ -278,10 +294,25 @@ assertMatches(
   /const seatSerial = \+\+this\.seatRequestSerial[\s\S]*?const dId = this\.currentShowtime\.dId[\s\S]*?fetchRealTimeSeat\(dId[\s\S]*?seatSerial !== this\.seatRequestSerial \|\| this\.currentShowtime\?\.dId !== dId/,
   '座位请求防旧场次覆盖'
 )
-assertMatches(
+const loadRealTimeSeatsBlock = sliceRequired(
   'src/renderer/stores/ticket.ts',
   ticketStore,
-  /catch \(error\)[\s\S]*?seatSerial !== this\.seatRequestSerial \|\| this\.currentShowtime\?\.dId !== dId[\s\S]*?this\.clearSeatData\(\)/,
+  'async loadRealTimeSeats()',
+  'toggleSeat(seat: SeatNode)',
+  '实时座位加载函数'
+)
+const loadRealTimeSeatsCatch = sliceRequired(
+  'src/renderer/stores/ticket.ts',
+  loadRealTimeSeatsBlock,
+  'catch (error)',
+  'finally',
+  '实时座位失败路径'
+)
+
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  loadRealTimeSeatsCatch,
+  /if \(seatSerial !== this\.seatRequestSerial \|\| this\.currentShowtime\?\.dId !== dId\)[\s\S]*?return[\s\S]*?const message[\s\S]*?this\.clearSeatData\(\)/,
   '座位失败路径防旧场次覆盖'
 )
 assertMatches(
