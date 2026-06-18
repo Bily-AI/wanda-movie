@@ -1,8 +1,16 @@
+import CryptoJS from 'crypto-js'
+
 import { WANDA_HOSTS } from '@shared/wandaCore'
 import type { WandaApiResponse } from '@shared/wandaTicketTypes'
 
 export type WandaQuery = Record<string, string | number | boolean | undefined>
 export type WandaBody = Record<string, string | number | boolean | undefined>
+
+const WANDA_VERSION = '9.3.2'
+const WANDA_CHANNEL = '1_2'
+const DEFAULT_WANDA_MODEL = 'iPhone'
+const DEFAULT_SHUMEI_BOX_ID = 'wanda-ticket-tool'
+const WANDA_USER_AGENT = 'okhttp/4.12.0'
 
 function getWandaApp() {
   if (typeof window === 'undefined') {
@@ -10,6 +18,21 @@ function getWandaApp() {
   }
 
   return window.wandaApp
+}
+
+function getWandaRuntimeConfig() {
+  const signSalt = String(import.meta.env.VITE_WANDA_SIGN_SALT || '').trim()
+
+  if (!signSalt) {
+    throw new Error('缺少万达签名盐配置 VITE_WANDA_SIGN_SALT')
+  }
+
+  return {
+    signSalt,
+    model: String(import.meta.env.VITE_WANDA_MODEL || DEFAULT_WANDA_MODEL).trim() || DEFAULT_WANDA_MODEL,
+    shumeiBoxId:
+      String(import.meta.env.VITE_WANDA_SHUMEI_BOX_ID || DEFAULT_SHUMEI_BOX_ID).trim() || DEFAULT_SHUMEI_BOX_ID
+  }
 }
 
 function buildRequestPath(url: string): string {
@@ -44,15 +67,46 @@ export function buildWandaHeaders(
   userIdentifier = ''
 ): Record<string, string> {
   const timestamp = String(Date.now())
+  const { signSalt, model, shumeiBoxId } = getWandaRuntimeConfig()
+  const check = CryptoJS.MD5(`${signSalt}${timestamp}${path}${body}`).toString()
+  const mxApi = {
+    systemVersion: '13',
+    height: 852,
+    'Accept-Encoding': 'gzip',
+    ts: timestamp,
+    ver: WANDA_VERSION,
+    _mi_: ck,
+    json: true,
+    appId: 2,
+    cCode: WANDA_CHANNEL,
+    check,
+    model,
+    sCode: 'Wanda',
+    width: 393,
+    ShumeiBoxId: shumeiBoxId
+  }
 
-  return {
-    'Content-Type': 'application/x-www-form-urlencoded',
+  const headers: Record<string, string> = {
+    'MX-API': JSON.stringify(mxApi),
+    'Accept-Encoding': 'gzip',
+    Connection: 'Keep-Alive',
+    'User-Agent': WANDA_USER_AGENT,
+    ShumeiBoxId: shumeiBoxId,
+    'X-RY-CHANNEL': WANDA_CHANNEL,
     'X-RY-TIMESTAMP': timestamp,
+    'X-RY-VERSION': WANDA_VERSION,
     'X-RY-TOKEN': ck,
     'X-RY-USER': userIdentifier,
-    'X-RY-PATH': path,
-    'X-RY-BODY': body
+    'X-RY-CHECK': check,
+    'X-RY-MODEL': model,
+    'X-RY-SIGN': check
   }
+
+  if (body) {
+    headers['Content-Type'] = 'application/x-www-form-urlencoded'
+  }
+
+  return headers
 }
 
 export async function wandaGet<T>(

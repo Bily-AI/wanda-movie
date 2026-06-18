@@ -13,6 +13,12 @@ function assertIncludes(file, content, label) {
   }
 }
 
+function assertNotIncludes(file, content, label) {
+  if (content.includes(label)) {
+    throw new Error(`${file} 不应包含 ${label}`)
+  }
+}
+
 const packageJson = read('package.json')
 const ipc = read('src/shared/ipc.ts')
 const core = read('src/shared/wandaCore.ts')
@@ -46,6 +52,20 @@ for (const label of ['buildWandaUrl', 'toFormBody', 'wandaGet', 'wandaPost', 'bu
   assertIncludes('src/renderer/services/wandaRequest.ts', requestService, label)
 }
 
+for (const label of [
+  'MX-API',
+  'X-RY-CHANNEL',
+  'X-RY-CHECK',
+  'X-RY-SIGN',
+  'X-RY-MODEL',
+  'ShumeiBoxId',
+  'User-Agent',
+  'VITE_WANDA_SIGN_SALT',
+  'MD5('
+]) {
+  assertIncludes('src/renderer/services/wandaRequest.ts', requestService, label)
+}
+
 for (const label of ['sendVerifyCode', 'loginWithCode', 'checkLoginStatus']) {
   assertIncludes('src/renderer/services/wandaAuthApi.ts', authApi, label)
 }
@@ -57,5 +77,12 @@ for (const label of ['fetchCinemaShowtime', 'fetchCinemaDetail']) {
 for (const label of ['fetchRealTimeSeat', 'createTicketOrder', 'cancelTicketOrder']) {
   assertIncludes('src/renderer/services/seatApi.ts', seatApi, label)
 }
+
+assertIncludes('src/renderer/services/seatApi.ts', seatApi, 'WANDA_API_PATHS.ORDER_CREATE_TICKET')
+assertNotIncludes(
+  'src/renderer/services/seatApi.ts',
+  seatApi.replaceAll('WANDA_API_PATHS.ORDER_CREATE_TICKET', ''),
+  'WANDA_API_PATHS.ORDER_CREATE'
+)
 
 console.log('第三阶段请求边界契约检查通过')
