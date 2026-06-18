@@ -1,0 +1,41 @@
+# 旧 Electron 打包产物作为只读事实源，不纳入新项目提交
+win-ia32-unpacked/
+
+# 新工程依赖与产物
+wanda-ticket-1.0.0/node_modules/
+wanda-ticket-1.0.0/out/
+wanda-ticket-1.0.0/dist/
+wanda-ticket-1.0.0/dist-electron/
+wanda-ticket-1.0.0/release/
+wanda-ticket-1.0.0/.electron-vite/
+wanda-ticket-1.0.0/.vite/
+
+# 本地运行数据
+wanda-ticket-1.0.0/data/
+wanda-ticket-1.0.0/logs/
+
+# 根目录兼容规则
+node_modules/
+dist/
+dist-electron/
+.vite/
+*.log
+.env
+.env.*
+!/.env.example
+!wanda-ticket-1.0.0/.env.example
+
+# 系统与编辑器文件
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# 如果未来临时取消旧包整体忽略，仍不提交本地账号和代理配置
+win-ia32-unpacked/config/accounts.json
+win-ia32-unpacked/config/proxy.json
+win-ia32-unpacked/resources/app/config/accounts.json
+win-ia32-unpacked/resources/app/config/proxy.json
+
+# 旧包结构化索引可本地生成，但不提交大型 JSON 缓存
+docs/old-package-index.json
