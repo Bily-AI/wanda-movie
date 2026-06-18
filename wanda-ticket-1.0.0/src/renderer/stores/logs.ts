@@ -23,6 +23,22 @@ export const useLogsStore = defineStore('logs', {
     }
   },
   actions: {
+    addLog(type: string, account: string, detail: string) {
+      this.records.unshift({
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        time: new Date().toLocaleString('zh-CN', { hour12: false }),
+        type,
+        account: this.maskAccount(account),
+        detail
+      })
+    },
+    maskAccount(account: string) {
+      if (account.length < 7) {
+        return account
+      }
+
+      return `${account.slice(0, 3)}****${account.slice(-4)}`
+    },
     clearFilters() {
       this.filters.type = ''
       this.filters.keyword = ''

@@ -27,6 +27,9 @@ const requestService = read('src/renderer/services/wandaRequest.ts')
 const authApi = read('src/renderer/services/wandaAuthApi.ts')
 const cinemaApi = read('src/renderer/services/cinemaApi.ts')
 const seatApi = read('src/renderer/services/seatApi.ts')
+const accountsStore = read('src/renderer/stores/accounts.ts')
+const logsStore = read('src/renderer/stores/logs.ts')
+const ticketView = read('src/renderer/views/TicketView.vue')
 
 assertIncludes('package.json', packageJson, '"check:phase3"')
 assertIncludes('src/shared/ipc.ts', ipc, 'Record<string, unknown> | string')
@@ -100,5 +103,16 @@ assertNotIncludes(
   seatApi.replaceAll('WANDA_API_PATHS.ORDER_CREATE_TICKET', ''),
   'WANDA_API_PATHS.ORDER_CREATE'
 )
+
+for (const label of ['sendLoginCode', 'loginWandaAccount', 'checkCurrentLoginStatus', 'requestId']) {
+  assertIncludes('src/renderer/stores/accounts.ts', accountsStore, label)
+}
+
+for (const label of ['@click="accountsStore.sendLoginCode"', '@click="accountsStore.loginWandaAccount"']) {
+  assertIncludes('src/renderer/views/TicketView.vue', ticketView, label)
+}
+
+assertIncludes('src/renderer/stores/logs.ts', logsStore, 'addLog')
+assertIncludes('src/renderer/stores/logs.ts', logsStore, 'maskAccount')
 
 console.log('第三阶段请求边界契约检查通过')

@@ -83,12 +83,21 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
           </el-input>
           <div class="login-code-row">
             <el-input v-model="accountsStore.loginForm.code" placeholder="验证码" />
-            <el-button type="primary" :disabled="!accountsStore.loginForm.phone">获取验证码</el-button>
+            <el-button
+              type="primary"
+              :loading="accountsStore.loginForm.sending"
+              :disabled="!accountsStore.loginForm.phone"
+              @click="accountsStore.sendLoginCode"
+            >
+              获取验证码
+            </el-button>
           </div>
           <el-button
             class="full-button"
             type="primary"
+            :loading="accountsStore.loginForm.loggingIn"
             :disabled="!accountsStore.loginForm.phone || !accountsStore.loginForm.code"
+            @click="accountsStore.loginWandaAccount"
           >
             登录
           </el-button>
@@ -96,7 +105,7 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
 
         <div class="login-status">
           <span class="status-dot" />
-          未登录
+          {{ accountsStore.loginStatusText }}
         </div>
       </section>
     </aside>
