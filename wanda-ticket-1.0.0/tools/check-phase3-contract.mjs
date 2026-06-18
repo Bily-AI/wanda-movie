@@ -281,9 +281,16 @@ assertMatches(
 assertMatches(
   'src/renderer/stores/ticket.ts',
   ticketStore,
+  /catch \(error\)[\s\S]*?seatSerial !== this\.seatRequestSerial \|\| this\.currentShowtime\?\.dId !== dId[\s\S]*?this\.clearSeatData\(\)/,
+  '座位失败路径防旧场次覆盖'
+)
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
   /if \(!account\?\.ck \|\| !account\.userIdentifier \|\| !this\.currentShowtime\)[\s\S]*?this\.clearSeatData\(\)/,
   '座位前置失败清空旧座位'
 )
+assertIncludes('src/renderer/stores/ticket.ts', ticketStore, 'maxSeatCount: 8')
 assertIncludes('src/renderer/stores/ticket.ts', ticketStore, 'this.selectedSeatNodes.length < this.maxSeatCount')
 assertIncludes('src/renderer/components/SeatMap.vue', seatMap, 'coordx')
 assertIncludes('src/renderer/components/SeatMap.vue', seatMap, 'coordy')
