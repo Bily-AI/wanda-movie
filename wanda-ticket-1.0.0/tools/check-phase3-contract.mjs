@@ -39,6 +39,8 @@ const ticketStore = read('src/renderer/stores/ticket.ts')
 const ticketView = read('src/renderer/views/TicketView.vue')
 const appVue = read('src/renderer/App.vue')
 const mainLocalData = read('src/main/localData.ts')
+const seatMap = read('src/renderer/components/SeatMap.vue')
+const selectedSeatList = read('src/renderer/components/SelectedSeatList.vue')
 
 assertIncludes('package.json', packageJson, '"check:phase3"')
 assertIncludes('src/shared/ipc.ts', ipc, 'Record<string, unknown> | string')
@@ -239,5 +241,26 @@ for (const label of [
 ]) {
   assertIncludes('src/renderer/views/TicketView.vue', ticketView, label)
 }
+
+for (const label of [
+  'loadRealTimeSeats',
+  'normalizeSeats',
+  'toggleSeat',
+  'seatNodes',
+  'selectedSeatNodes',
+  'seatData',
+  'loadingSeats'
+]) {
+  assertIncludes('src/renderer/stores/ticket.ts', ticketStore, label)
+}
+
+for (const label of ['SeatMap', 'SelectedSeatList', '@click="ticketStore.loadRealTimeSeats"']) {
+  assertIncludes('src/renderer/views/TicketView.vue', ticketView, label)
+}
+
+assertIncludes('src/renderer/stores/ticket.ts', ticketStore, 'fetchRealTimeSeat')
+assertIncludes('src/renderer/components/SeatMap.vue', seatMap, 'coordx')
+assertIncludes('src/renderer/components/SeatMap.vue', seatMap, 'coordy')
+assertIncludes('src/renderer/components/SelectedSeatList.vue', selectedSeatList, 'selectedSeats')
 
 console.log('第三阶段请求边界契约检查通过')

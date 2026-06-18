@@ -10,6 +10,8 @@ import {
   UserFilled
 } from '@element-plus/icons-vue'
 
+import SeatMap from '@renderer/components/SeatMap.vue'
+import SelectedSeatList from '@renderer/components/SelectedSeatList.vue'
 import { useAccountsStore } from '@renderer/stores/accounts'
 import { useTicketStore } from '@renderer/stores/ticket'
 import type { WandaAccount } from '@shared/localData'
@@ -217,7 +219,15 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
                   :value="showtime.value"
                 />
               </el-select>
-              <el-button type="primary" :icon="Refresh" :disabled="!ticketStore.canRefreshSeats">刷新座位</el-button>
+              <el-button
+                type="primary"
+                :icon="Refresh"
+                :loading="ticketStore.loadingSeats"
+                :disabled="!ticketStore.canRefreshSeats"
+                @click="ticketStore.loadRealTimeSeats"
+              >
+                刷新座位
+              </el-button>
             </div>
 
             <span />
@@ -240,7 +250,17 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
         <div class="screen-line">银幕</div>
 
         <div class="seat-stage">
-          <el-empty description="请选择城市、影院、影片、日期和场次后刷新座位" />
+          <el-empty
+            v-if="ticketStore.seatNodes.length === 0"
+            :description="ticketStore.seatError || '请选择城市、影院、影片、日期和场次后刷新座位'"
+          />
+          <div v-else class="seat-scroll">
+            <SeatMap
+              :seats="ticketStore.seatNodes"
+              :selected-seats="ticketStore.selectedSeatNodes"
+              @select="ticketStore.toggleSeat"
+            />
+          </div>
         </div>
 
         <div class="seat-legend">
@@ -294,7 +314,7 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
           <span>已选座位</span>
           <span>{{ ticketStore.selectedSeatCount }} / {{ ticketStore.maxSeatCount }}</span>
         </header>
-        <div class="side-empty">暂未选择座位</div>
+        <SelectedSeatList :selected-seats="ticketStore.selectedSeatNodes" />
       </section>
     </aside>
 
@@ -505,6 +525,12 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
   min-height: 220px;
   display: grid;
   place-items: center;
+}
+
+.seat-scroll {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
 }
 
 .seat-legend {

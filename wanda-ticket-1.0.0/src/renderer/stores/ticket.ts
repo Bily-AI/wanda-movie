@@ -1,7 +1,18 @@
 import { defineStore } from 'pinia'
 
 import { fetchCinemaShowtime } from '@renderer/services/cinemaApi'
-import type { CinemaRecord, CityRecord, ShowtimeItem } from '@shared/wandaTicketTypes'
+import { fetchRealTimeSeat } from '@renderer/services/seatApi'
+import type {
+  CinemaRecord,
+  CityRecord,
+  RawSeat,
+  RealTimeSeats,
+  SeatArea,
+  SeatNode,
+  SeatStatus,
+  SeatZone,
+  ShowtimeItem
+} from '@shared/wandaTicketTypes'
 import { useAccountsStore } from './accounts'
 import { useLogsStore } from './logs'
 
@@ -132,6 +143,15 @@ function filmMatches(film: unknown, filmId: string): boolean {
   return firstText(record.filmId, record.movieId, record.id, showtimeFilmName(record)) === filmId
 }
 
+function getSeatStatus(status: unknown): SeatStatus {
+  return Number(status) === 1 ? 'available' : 'occupied'
+}
+
+function toNumber(value: unknown, fallback = 0): number {
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue) ? numberValue : fallback
+}
+
 export const useTicketStore = defineStore('ticket', {
   state: () => ({
     query: {
@@ -155,6 +175,11 @@ export const useTicketStore = defineStore('ticket', {
     showtimeRequestSerial: 0,
     showtimeItems: [] as ShowtimeItem[],
     showtimeError: '',
+    seatData: null as RealTimeSeats | null,
+    seatNodes: [] as SeatNode[],
+    selectedSeatNodes: [] as SeatNode[],
+    loadingSeats: false,
+    seatError: '',
     paymentActivity: '',
     selectedPaymentCards: [] as string[],
     selectedCoupons: [] as string[],
@@ -187,6 +212,7 @@ export const useTicketStore = defineStore('ticket', {
   },
   actions: {
     clearSeatSelection() {
+      this.selectedSeatNodes = []
       this.selectedSeats = []
     },
     resetQueryAfterCityChange() {
@@ -201,6 +227,7 @@ export const useTicketStore = defineStore('ticket', {
       this.dates = []
       this.showtimes = []
       this.showtimeItems = []
+      this.clearSeatData()
       this.loadingShowtimes = false
       this.clearSeatSelection()
     },
@@ -215,6 +242,7 @@ export const useTicketStore = defineStore('ticket', {
       this.dates = []
       this.showtimes = []
       this.showtimeItems = []
+      this.clearSeatData()
       this.clearSeatSelection()
     },
     resetQueryAfterMovieChange() {
@@ -224,6 +252,7 @@ export const useTicketStore = defineStore('ticket', {
       this.dates = []
       this.showtimes = []
       this.showtimeItems = []
+      this.clearSeatData()
       this.clearSeatSelection()
     },
     resetQueryAfterDateChange() {
@@ -231,6 +260,13 @@ export const useTicketStore = defineStore('ticket', {
       this.currentShowtime = null
       this.showtimes = []
       this.showtimeItems = []
+      this.clearSeatData()
+      this.clearSeatSelection()
+    },
+    clearSeatData() {
+      this.seatData = null
+      this.seatNodes = []
+      this.seatError = ''
       this.clearSeatSelection()
     },
     addCityRecord(item: unknown, cityMap: Map<string, CityRecord>) {
@@ -441,7 +477,93 @@ export const useTicketStore = defineStore('ticket', {
     setShowtime() {
       this.currentShowtime = this.showtimeItems.find((item) => item.dId === this.query.showtime) ?? null
       this.showtimeError = this.currentShowtime ? '' : '请选择真实场次'
+      this.clearSeatData()
       this.clearSeatSelection()
+    },
+    getSeatZone(areaCode: string): SeatZone {
+      const zoneMap: Record<string, SeatZone> = {
+        '1': 'normal',
+        '32': 'preferred',
+        '33': 'discount',
+        '36': 'wplus'
+      }
+
+      return zoneMap[areaCode] ?? 'normal'
+    },
+    normalizeSeats(data: RealTimeSeats): SeatNode[] {
+      const areas = Array.isArray(data.area) ? data.area : []
+
+      return areas.flatMap((area: SeatArea) => {
+        const seats = Array.isArray(area.seat) ? area.seat : []
+        const areaCode = firstText(area.areaPrice?.areaCode, area.areaId, '1')
+        const price = toNumber(area.areaPrice?.salesPrice) / 100
+
+        return seats.map((seat: RawSeat) => {
+          const rowLabel = firstText(seat.row)
+          const columnLabel = firstText(seat.column)
+          const seatId = firstText(seat.seatId)
+          const areaId = firstText(area.areaId, seat.areaId)
+
+          return {
+            id: `${areaId}-${seatId || `${rowLabel}-${columnLabel}`}`,
+            rowLabel,
+            columnLabel,
+            coordx: toNumber(seat.coordx),
+            coordy: toNumber(seat.coordy),
+            status: getSeatStatus(seat.status),
+            zone: this.getSeatZone(areaCode),
+            price,
+            seatId,
+            areaId,
+            raw: seat
+          }
+        })
+      })
+    },
+    async loadRealTimeSeats() {
+      const account = useAccountsStore().currentAccount
+
+      if (!account?.ck || !account.userIdentifier || !this.currentShowtime) {
+        this.seatError = '请先选择已登录万达账号和真实场次'
+        return
+      }
+
+      this.loadingSeats = true
+      this.seatError = ''
+
+      try {
+        this.seatData = await fetchRealTimeSeat(this.currentShowtime.dId, account.ck, account.userIdentifier)
+        this.seatNodes = this.normalizeSeats(this.seatData)
+        this.clearSeatSelection()
+        useLogsStore().addLog('座位', account.phone, `座位数据获取成功，共 ${this.seatNodes.length} 座`)
+      } catch (error) {
+        const message = error instanceof Error && error.message ? error.message : '座位数据获取失败'
+        this.clearSeatData()
+        this.seatError = message
+        useLogsStore().addLog('座位', account.phone, `座位数据获取失败：${message}`)
+      } finally {
+        this.loadingSeats = false
+      }
+    },
+    toggleSeat(seat: SeatNode) {
+      if (seat.status === 'occupied') {
+        return
+      }
+
+      const exists = this.selectedSeatNodes.some((item) => item.id === seat.id)
+
+      if (exists) {
+        this.selectedSeatNodes = this.selectedSeatNodes.filter((item) => item.id !== seat.id)
+      } else if (this.selectedSeatNodes.length < this.maxSeatCount) {
+        this.selectedSeatNodes.push(seat)
+      }
+
+      this.selectedSeats = this.selectedSeatNodes.map((item) => ({
+        id: item.id,
+        rowName: item.rowLabel,
+        columnName: item.columnLabel,
+        areaName: item.zone
+      }))
     }
   }
 })
