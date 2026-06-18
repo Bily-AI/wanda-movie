@@ -108,7 +108,15 @@ for (const label of ['sendLoginCode', 'loginWandaAccount', 'checkCurrentLoginSta
   assertIncludes('src/renderer/stores/accounts.ts', accountsStore, label)
 }
 
+for (const label of ['requestPhone', '请重新获取验证码', 'if (!result.ok)', 'state.loginForm.message']) {
+  assertIncludes('src/renderer/stores/accounts.ts', accountsStore, label)
+}
+
 for (const label of ['@click="accountsStore.sendLoginCode"', '@click="accountsStore.loginWandaAccount"']) {
+  assertIncludes('src/renderer/views/TicketView.vue', ticketView, label)
+}
+
+for (const label of ['!accountsStore.loginForm.requestId', 'accountsStore.loginForm.sending || accountsStore.loginForm.loggingIn']) {
   assertIncludes('src/renderer/views/TicketView.vue', ticketView, label)
 }
 

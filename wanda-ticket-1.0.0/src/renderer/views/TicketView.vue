@@ -86,7 +86,7 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
             <el-button
               type="primary"
               :loading="accountsStore.loginForm.sending"
-              :disabled="!accountsStore.loginForm.phone"
+              :disabled="accountsStore.loginForm.sending || accountsStore.loginForm.loggingIn || !accountsStore.loginForm.phone"
               @click="accountsStore.sendLoginCode"
             >
               获取验证码
@@ -96,7 +96,13 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
             class="full-button"
             type="primary"
             :loading="accountsStore.loginForm.loggingIn"
-            :disabled="!accountsStore.loginForm.phone || !accountsStore.loginForm.code"
+            :disabled="
+              accountsStore.loginForm.sending ||
+              accountsStore.loginForm.loggingIn ||
+              !accountsStore.loginForm.phone ||
+              !accountsStore.loginForm.code ||
+              !accountsStore.loginForm.requestId
+            "
             @click="accountsStore.loginWandaAccount"
           >
             登录

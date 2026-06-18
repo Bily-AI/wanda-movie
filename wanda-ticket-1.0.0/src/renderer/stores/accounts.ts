@@ -28,6 +28,7 @@ export const useAccountsStore = defineStore('accounts', {
       phone: '',
       code: '',
       requestId: '',
+      requestPhone: '',
       sending: false,
       loggingIn: false,
       message: ''
@@ -52,13 +53,19 @@ export const useAccountsStore = defineStore('accounts', {
       return state.selectedAccountIds.length
     },
     loginStatusText(state) {
+      const message = state.loginForm.message.trim()
+
+      if (message) {
+        return message
+      }
+
       const account = state.accounts.find((item) => item.id === state.currentAccountId)
 
       if (account) {
         return `${account.phone} | ${account.statusText}`
       }
 
-      return state.loginForm.message || '未登录'
+      return '未登录'
     }
   },
   actions: {
@@ -74,11 +81,19 @@ export const useAccountsStore = defineStore('accounts', {
       this.currentAccountId = result.data.currentAccountId
     },
     async saveAccounts() {
-      await getWandaApp()?.writeLocalData('accounts', {
+      const result = await getWandaApp()?.writeLocalData('accounts', {
         groups: this.groups,
         accounts: this.accounts,
         currentAccountId: this.currentAccountId
       })
+
+      if (!result) {
+        throw new Error('本地存储不可用，账号未保存')
+      }
+
+      if (!result.ok) {
+        throw new Error(result.error || '账号保存失败')
+      }
     },
     setSelectedAccountIds(ids: string[]) {
       this.selectedAccountIds = ids
@@ -98,16 +113,22 @@ export const useAccountsStore = defineStore('accounts', {
         return
       }
 
+      this.loginForm.requestId = ''
+      this.loginForm.requestPhone = ''
+      this.loginForm.code = ''
       this.loginForm.sending = true
       this.loginForm.message = '正在发送验证码'
 
       try {
         const result = await sendVerifyCode(phone)
         this.loginForm.requestId = result.requestID
+        this.loginForm.requestPhone = phone
         this.loginForm.message = '验证码已发送'
         useLogsStore().addLog('万达登录', phone, '验证码发送成功')
       } catch (error) {
         const message = getErrorMessage(error, '验证码发送失败')
+        this.loginForm.requestId = ''
+        this.loginForm.requestPhone = ''
         this.loginForm.message = message
         useLogsStore().addLog('万达登录', phone, `验证码发送失败：${message}`)
       } finally {
@@ -120,6 +141,11 @@ export const useAccountsStore = defineStore('accounts', {
 
       if (!phone || !code || !this.loginForm.requestId) {
         this.loginForm.message = '请输入手机号、验证码并先获取验证码'
+        return
+      }
+
+      if (this.loginForm.requestPhone !== phone) {
+        this.loginForm.message = '手机号已变化，请重新获取验证码'
         return
       }
 
@@ -160,8 +186,9 @@ export const useAccountsStore = defineStore('accounts', {
         this.selectedAccountIds = [account.id]
         this.loginForm.code = ''
         this.loginForm.requestId = ''
-        this.loginForm.message = '登录成功，账号已保存'
+        this.loginForm.requestPhone = ''
         await this.saveAccounts()
+        this.loginForm.message = '登录成功，账号已保存'
         useLogsStore().addLog('万达登录', phone, '登录成功，账号已保存')
       } catch (error) {
         const message = getErrorMessage(error, '万达账号登录失败')
@@ -175,6 +202,7 @@ export const useAccountsStore = defineStore('accounts', {
       const account = this.currentAccount
 
       if (!account?.ck || !account.userIdentifier) {
+        this.loginForm.message = '请选择已登录万达账号'
         return
       }
 
