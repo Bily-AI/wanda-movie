@@ -8,9 +8,14 @@ export type WandaBody = Record<string, string | number | boolean | undefined>
 
 const WANDA_VERSION = '9.3.2'
 const WANDA_CHANNEL = '1_2'
+const WANDA_SYSTEM_VERSION = '13'
 const DEFAULT_WANDA_MODEL = 'iPhone'
 const DEFAULT_SHUMEI_BOX_ID = 'wanda-ticket-tool'
 const WANDA_USER_AGENT = 'okhttp/4.12.0'
+
+export interface WandaPostOptions {
+  signatureBody?: string
+}
 
 function getWandaApp() {
   if (typeof window === 'undefined') {
@@ -31,7 +36,8 @@ function getWandaRuntimeConfig() {
     signSalt,
     model: String(import.meta.env.VITE_WANDA_MODEL || DEFAULT_WANDA_MODEL).trim() || DEFAULT_WANDA_MODEL,
     shumeiBoxId:
-      String(import.meta.env.VITE_WANDA_SHUMEI_BOX_ID || DEFAULT_SHUMEI_BOX_ID).trim() || DEFAULT_SHUMEI_BOX_ID
+      String(import.meta.env.VITE_WANDA_SHUMEI_BOX_ID || DEFAULT_SHUMEI_BOX_ID).trim() || DEFAULT_SHUMEI_BOX_ID,
+    mxCid: String(import.meta.env.VITE_WANDA_MX_CID || '').trim()
   }
 }
 
@@ -67,10 +73,10 @@ export function buildWandaHeaders(
   userIdentifier = ''
 ): Record<string, string> {
   const timestamp = String(Date.now())
-  const { signSalt, model, shumeiBoxId } = getWandaRuntimeConfig()
+  const { signSalt, model, shumeiBoxId, mxCid } = getWandaRuntimeConfig()
   const check = CryptoJS.MD5(`${signSalt}${timestamp}${path}${body}`).toString()
   const mxApi = {
-    systemVersion: '13',
+    systemVersion: WANDA_SYSTEM_VERSION,
     height: 852,
     'Accept-Encoding': 'gzip',
     ts: timestamp,
@@ -88,12 +94,15 @@ export function buildWandaHeaders(
 
   const headers: Record<string, string> = {
     'MX-API': JSON.stringify(mxApi),
+    'MX-CID': mxCid,
+    'Accept-Charset': 'UTF-8,*',
     'Accept-Encoding': 'gzip',
     Connection: 'Keep-Alive',
     'User-Agent': WANDA_USER_AGENT,
     ShumeiBoxId: shumeiBoxId,
     'X-RY-CHANNEL': WANDA_CHANNEL,
     'X-RY-TIMESTAMP': timestamp,
+    'X-RY-SYSTEM-VER': WANDA_SYSTEM_VERSION,
     'X-RY-VERSION': WANDA_VERSION,
     'X-RY-TOKEN': ck,
     'X-RY-USER': userIdentifier,
@@ -135,12 +144,14 @@ export async function wandaPost<T>(
   path: string,
   body: WandaBody,
   ck = '',
-  userIdentifier = ''
+  userIdentifier = '',
+  options: WandaPostOptions = {}
 ): Promise<WandaApiResponse<T>> {
   const formBody = toFormBody(body)
   const url = buildWandaUrl(host, path)
+  const signatureBody = options.signatureBody ?? formBody
   const headers = {
-    ...buildWandaHeaders(path, formBody, ck, userIdentifier),
+    ...buildWandaHeaders(path, signatureBody, ck, userIdentifier),
     Host: host,
     'Content-Length': String(new TextEncoder().encode(formBody).length)
   }

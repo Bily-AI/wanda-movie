@@ -60,15 +60,29 @@ for (const label of [
   'X-RY-MODEL',
   'ShumeiBoxId',
   'User-Agent',
+  'X-RY-SYSTEM-VER',
+  'Accept-Charset',
+  'MX-CID',
   'VITE_WANDA_SIGN_SALT',
+  'VITE_WANDA_MX_CID',
   'MD5('
 ]) {
   assertIncludes('src/renderer/services/wandaRequest.ts', requestService, label)
 }
 
+assertIncludes('src/renderer/services/wandaRequest.ts', requestService, 'WandaPostOptions')
+assertIncludes('src/renderer/services/wandaRequest.ts', requestService, 'signatureBody')
+assertIncludes(
+  'src/renderer/services/wandaRequest.ts',
+  requestService,
+  '.filter(([, value]) => value !== undefined)'
+)
+
 for (const label of ['sendVerifyCode', 'loginWithCode', 'checkLoginStatus']) {
   assertIncludes('src/renderer/services/wandaAuthApi.ts', authApi, label)
 }
+
+assertIncludes('src/renderer/services/wandaAuthApi.ts', authApi, "cinemaId: ''")
 
 for (const label of ['fetchCinemaShowtime', 'fetchCinemaDetail']) {
   assertIncludes('src/renderer/services/cinemaApi.ts', cinemaApi, label)
@@ -79,6 +93,8 @@ for (const label of ['fetchRealTimeSeat', 'createTicketOrder', 'cancelTicketOrde
 }
 
 assertIncludes('src/renderer/services/seatApi.ts', seatApi, 'WANDA_API_PATHS.ORDER_CREATE_TICKET')
+assertIncludes('src/renderer/services/seatApi.ts', seatApi, "replaceAll('%7C', '|')")
+assertIncludes('src/renderer/services/seatApi.ts', seatApi, 'totalPrice <= 0')
 assertNotIncludes(
   'src/renderer/services/seatApi.ts',
   seatApi.replaceAll('WANDA_API_PATHS.ORDER_CREATE_TICKET', ''),

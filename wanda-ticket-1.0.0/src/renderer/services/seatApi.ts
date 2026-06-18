@@ -1,6 +1,6 @@
 import { WANDA_API_PATHS } from '@shared/wandaCore'
 import type { RealTimeSeats, TicketOrderResult } from '@shared/wandaTicketTypes'
-import { WANDA_HOSTS, wandaGet, wandaPost } from './wandaRequest'
+import { WANDA_HOSTS, toFormBody, wandaGet, wandaPost, type WandaBody } from './wandaRequest'
 
 function assertNotBlank(value: string, message: string): void {
   if (!value.trim()) {
@@ -45,22 +45,26 @@ export async function createTicketOrder(
     throw new Error('座位 ID 不能为空')
   }
 
-  if (!Number.isFinite(totalPrice)) {
-    throw new Error('订单金额不能为空')
+  if (!Number.isFinite(totalPrice) || totalPrice <= 0) {
+    throw new Error('订单金额必须大于 0')
   }
+
+  const body: WandaBody = {
+    retailerCode: 'MX',
+    mobile,
+    seatId: seatIds.join('|'),
+    totalPrice,
+    dId
+  }
+  const signatureBody = toFormBody(body).replaceAll('%7C', '|')
 
   const response = await wandaPost<TicketOrderResult>(
     WANDA_HOSTS.GATEWAY,
     WANDA_API_PATHS.ORDER_CREATE_TICKET,
-    {
-      retailerCode: 'MX',
-      mobile,
-      seatId: seatIds.join('|'),
-      totalPrice,
-      dId
-    },
+    body,
     ck,
-    userIdentifier
+    userIdentifier,
+    { signatureBody }
   )
   const data = response.data
 
