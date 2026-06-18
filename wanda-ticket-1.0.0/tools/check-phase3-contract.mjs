@@ -16,11 +16,26 @@ function assertIncludes(file, content, label) {
 const packageJson = read('package.json')
 const ipc = read('src/shared/ipc.ts')
 const core = read('src/shared/wandaCore.ts')
+const types = read('src/shared/wandaTicketTypes.ts')
 
 assertIncludes('package.json', packageJson, '"check:phase3"')
 assertIncludes('src/shared/ipc.ts', ipc, 'Record<string, unknown> | string')
 assertIncludes('src/shared/wandaCore.ts', core, 'ORDER_CREATE_TICKET')
 assertIncludes('src/shared/wandaCore.ts', core, '/order/create_order.api')
 assertIncludes('src/shared/wandaCore.ts', core, "typeof request.body !== 'string'")
+
+for (const label of [
+  'WandaLoginRequestId',
+  'WandaLoginResult',
+  'CityRecord',
+  'CinemaRecord',
+  'ShowtimeFilm',
+  'RealTimeSeats',
+  'RawSeat',
+  'SeatNode',
+  'TicketOrderResult'
+]) {
+  assertIncludes('src/shared/wandaTicketTypes.ts', types, label)
+}
 
 console.log('第三阶段请求边界契约检查通过')
