@@ -32,7 +32,7 @@ export type LocalDataWriteResult = IpcResult<boolean>
 
 export interface WandaHttpRequest {
   url: string
-  headers?: Record<string, unknown> & Record<string, string>
+  headers?: Record<string, unknown>
   params?: Record<string, unknown>
   body?: Record<string, unknown> | string
 }
