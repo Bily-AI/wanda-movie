@@ -407,7 +407,7 @@ const index = {
   externalServices: {
     baiduOcr: matchGroup(mainText, /(https:\/\/aip\.baidubce\.com\/[^'"]+)/g),
     alipay: matchGroup(mainText, /(http:\/\/mcgw\.alipay\.com\/gateway\.do)/g),
-    oldAuth: matchGroup(allCode, /(http:\/\/fn1\.sxjrj\.cn\/Api\?AppId=10002)/g),
+    oldAuth: matchGroup(allCode, /(http:\/\/fn1\.sxjrj\.cn\/Api)/g),
     update: matchGroup(mainText, /(http:\/\/qp\.sxjrj\.cn\/update\/[^'"]+)/g)
   },
   renderer: {
