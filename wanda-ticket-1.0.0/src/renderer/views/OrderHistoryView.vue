@@ -1,14 +1,27 @@
 <script setup lang="ts">
 import { Download, Refresh, Search } from '@element-plus/icons-vue'
+
+import { useOrdersStore } from '@renderer/stores/orders'
+
+const ordersStore = useOrdersStore()
 </script>
 
 <template>
   <section class="orders-page table-page">
     <header class="page-toolbar">
       <strong class="page-title">历史订单</strong>
-      <el-input placeholder="搜索手机号/订单号/影片..." :prefix-icon="Search" />
-      <el-select placeholder="订单状态" />
-      <el-date-picker type="daterange" start-placeholder="开始日期" end-placeholder="结束日期" />
+      <el-input v-model="ordersStore.filters.keyword" placeholder="搜索手机号/订单号/影片..." :prefix-icon="Search" />
+      <el-select v-model="ordersStore.filters.status" placeholder="订单状态" clearable>
+        <el-option label="待处理" value="pending" />
+        <el-option label="已完成" value="completed" />
+        <el-option label="已取消" value="cancelled" />
+      </el-select>
+      <el-date-picker
+        v-model="ordersStore.filters.dateRange"
+        type="daterange"
+        start-placeholder="开始日期"
+        end-placeholder="结束日期"
+      />
       <el-button type="primary" :icon="Search">搜索</el-button>
       <el-button :icon="Refresh">刷新</el-button>
       <span class="toolbar-spacer" />
@@ -18,19 +31,19 @@ import { Download, Refresh, Search } from '@element-plus/icons-vue'
     <section class="summary-grid">
       <div class="summary-card">
         <span>今日订单</span>
-        <strong>0</strong>
+        <strong>{{ ordersStore.summary.today }}</strong>
       </div>
       <div class="summary-card summary-card--warning">
         <span>待处理</span>
-        <strong>0</strong>
+        <strong>{{ ordersStore.summary.pending }}</strong>
       </div>
       <div class="summary-card summary-card--success">
         <span>已完成</span>
-        <strong>0</strong>
+        <strong>{{ ordersStore.summary.completed }}</strong>
       </div>
       <div class="summary-card summary-card--danger">
         <span>总金额</span>
-        <strong>¥0.00</strong>
+        <strong>{{ ordersStore.totalAmountText }}</strong>
       </div>
     </section>
 

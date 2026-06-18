@@ -4,6 +4,8 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { IPC_CHANNELS, type OldPackageIndexResult } from '../shared/ipc'
+import { registerLocalDataHandlers } from './localData'
+import { registerWandaHttpHandlers } from './wandaHttp'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -104,6 +106,9 @@ async function readOldPackageIndex(): Promise<OldPackageIndexResult> {
 }
 
 function registerIpcHandlers(): void {
+  registerLocalDataHandlers()
+  registerWandaHttpHandlers()
+
   ipcMain.handle(IPC_CHANNELS.WINDOW_MINIMIZE, (event) => {
     getWindowFromEvent(event)?.minimize()
   })

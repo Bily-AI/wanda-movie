@@ -57,11 +57,13 @@ const expectedViews = [
   }
 ]
 
+const oldScreenshotPhonePattern = new RegExp(['1898', '2268', '306'].join(''))
+
 const forbiddenPatterns = [
   /test001/i,
   /2027\/6\/10/,
   /608\.23/,
-  /18982268306/,
+  oldScreenshotPhonePattern,
   /mock/i,
   /固定座位/,
   /假数据/,

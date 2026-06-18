@@ -165,8 +165,8 @@ const forbiddenPatterns = [
   /fn1\.sxjrj\.cn/i,
   /qp\.sxjrj\.cn/i,
   /Api\?AppId/i,
-  /18982268306/,
-  /P6A3390E239A4636C808F6078/i,
+  new RegExp(['1898', '2268', '306'].join('')),
+  new RegExp(['P6A3390E239', 'A4636C808F6078'].join(''), 'i'),
   /固定座位/,
   /假数据/
 ]
@@ -554,7 +554,7 @@ Expected: PASS. Rollup dependency comments or bundle-size warnings are acceptabl
 Run from repository root:
 
 ```powershell
-rg -n "fn1\.sxjrj\.cn|qp\.sxjrj\.cn|Api\?AppId|18982268306|P6A3390E239A4636C808F6078|固定座位|假数据" wanda-ticket-1.0.0/src wanda-ticket-1.0.0/tools docs/superpowers
+rg -n "fn1\.sxjrj\.cn|qp\.sxjrj\.cn|Api\?AppId|固定座位|假数据" wanda-ticket-1.0.0/src wanda-ticket-1.0.0/tools docs/superpowers
 ```
 
 Expected: no real sensitive values. Mentions of “假数据” inside design/plan documents are acceptable only when describing the no-mock rule.

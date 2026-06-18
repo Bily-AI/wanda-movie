@@ -9,6 +9,17 @@ import {
   Search,
   UserFilled
 } from '@element-plus/icons-vue'
+
+import { useAccountsStore } from '@renderer/stores/accounts'
+import { useTicketStore } from '@renderer/stores/ticket'
+import type { WandaAccount } from '@shared/localData'
+
+const accountsStore = useAccountsStore()
+const ticketStore = useTicketStore()
+
+function handleAccountSelectionChange(rows: WandaAccount[]): void {
+  accountsStore.setSelectedAccountIds(rows.map((row) => row.id))
+}
 </script>
 
 <template>
@@ -17,22 +28,43 @@ import {
       <section class="panel account-panel">
         <div class="account-toolbar">
           <el-icon class="toolbar-icon"><UserFilled /></el-icon>
-          <el-select size="small" placeholder="分组" />
-          <el-button size="small" :icon="Refresh" />
-          <el-input size="small" placeholder="搜索..." :prefix-icon="Search" />
+          <el-select v-model="accountsStore.selectedGroupId" size="small" placeholder="分组">
+            <el-option
+              v-for="group in accountsStore.groups"
+              :key="group.id"
+              :label="group.name"
+              :value="group.id"
+            />
+          </el-select>
+          <el-button size="small" :icon="Refresh" @click="accountsStore.loadAccounts()" />
+          <el-input
+            v-model="accountsStore.searchKeyword"
+            size="small"
+            placeholder="搜索..."
+            :prefix-icon="Search"
+          />
         </div>
 
-        <el-table class="account-table" :data="[]" height="100%" empty-text="暂无数据">
+        <el-table
+          class="account-table"
+          :data="accountsStore.filteredAccounts"
+          height="100%"
+          row-key="id"
+          empty-text="暂无数据"
+          @selection-change="handleAccountSelectionChange"
+        >
           <el-table-column type="selection" width="40" />
           <el-table-column prop="phone" label="手机号" min-width="130" />
           <el-table-column prop="remark" label="备注" min-width="88" />
-          <el-table-column prop="status" label="状态" width="72" />
+          <el-table-column prop="statusText" label="状态" width="72" />
         </el-table>
 
         <div class="account-actions">
-          <span>已选 0 项</span>
-          <el-button size="small" disabled>移动到分组</el-button>
-          <el-button size="small" disabled>取消选择</el-button>
+          <span>已选 {{ accountsStore.selectedCount }} 项</span>
+          <el-button size="small" :disabled="accountsStore.selectedCount === 0">移动到分组</el-button>
+          <el-button size="small" :disabled="accountsStore.selectedCount === 0" @click="accountsStore.cancelSelection">
+            取消选择
+          </el-button>
         </div>
       </section>
 
@@ -46,14 +78,20 @@ import {
         </header>
 
         <div class="login-form">
-          <el-input placeholder="请输入手机号">
+          <el-input v-model="accountsStore.loginForm.phone" placeholder="请输入手机号">
             <template #prepend>+86</template>
           </el-input>
           <div class="login-code-row">
-            <el-input placeholder="验证码" />
-            <el-button type="primary">获取验证码</el-button>
+            <el-input v-model="accountsStore.loginForm.code" placeholder="验证码" />
+            <el-button type="primary" :disabled="!accountsStore.loginForm.phone">获取验证码</el-button>
           </div>
-          <el-button class="full-button" type="primary" disabled>登录</el-button>
+          <el-button
+            class="full-button"
+            type="primary"
+            :disabled="!accountsStore.loginForm.phone || !accountsStore.loginForm.code"
+          >
+            登录
+          </el-button>
         </div>
 
         <div class="login-status">
@@ -75,27 +113,99 @@ import {
         <div class="query-layout">
           <div class="query-form">
             <label>搜索：</label>
-            <el-input placeholder="使用首字母或者汉字搜索" />
+            <el-input v-model="ticketStore.query.keyword" placeholder="使用首字母或者汉字搜索" />
 
             <label>城市：</label>
-            <el-select placeholder="选择或搜索城市" />
+            <el-select
+              v-model="ticketStore.query.city"
+              filterable
+              allow-create
+              default-first-option
+              placeholder="选择或搜索城市"
+              @change="ticketStore.resetQueryAfterCityChange"
+            >
+              <el-option
+                v-for="city in ticketStore.cities"
+                :key="city.value"
+                :label="city.label"
+                :value="city.value"
+              />
+            </el-select>
 
             <label>影院：</label>
             <div>
-              <el-select placeholder="选择或搜索影院" />
+              <el-select
+                v-model="ticketStore.query.cinema"
+                filterable
+                allow-create
+                default-first-option
+                placeholder="选择或搜索影院"
+                @change="ticketStore.resetQueryAfterCinemaChange"
+              >
+                <el-option
+                  v-for="cinema in ticketStore.cinemas"
+                  :key="cinema.value"
+                  :label="cinema.label"
+                  :value="cinema.value"
+                />
+              </el-select>
               <p class="field-tip">可直接输入影院名称或首字母搜索</p>
             </div>
 
             <label>影片：</label>
-            <el-select placeholder="请先选择影院" disabled />
+            <el-select
+              v-model="ticketStore.query.movie"
+              filterable
+              allow-create
+              default-first-option
+              placeholder="请先选择影院"
+              :disabled="!ticketStore.canSelectMovie"
+              @change="ticketStore.resetQueryAfterMovieChange"
+            >
+              <el-option
+                v-for="movie in ticketStore.movies"
+                :key="movie.value"
+                :label="movie.label"
+                :value="movie.value"
+              />
+            </el-select>
 
             <label>日期：</label>
-            <el-select placeholder="请先选择影片" disabled />
+            <el-select
+              v-model="ticketStore.query.date"
+              filterable
+              allow-create
+              default-first-option
+              placeholder="请先选择影片"
+              :disabled="!ticketStore.canSelectDate"
+              @change="ticketStore.resetQueryAfterDateChange"
+            >
+              <el-option
+                v-for="date in ticketStore.dates"
+                :key="date.value"
+                :label="date.label"
+                :value="date.value"
+              />
+            </el-select>
 
             <label>场次：</label>
             <div class="showtime-row">
-              <el-select placeholder="请先选择日期" disabled />
-              <el-button type="primary" :icon="Refresh" disabled>刷新座位</el-button>
+              <el-select
+                v-model="ticketStore.query.showtime"
+                filterable
+                allow-create
+                default-first-option
+                placeholder="请先选择日期"
+                :disabled="!ticketStore.canSelectShowtime"
+              >
+                <el-option
+                  v-for="showtime in ticketStore.showtimes"
+                  :key="showtime.value"
+                  :label="showtime.label"
+                  :value="showtime.value"
+                />
+              </el-select>
+              <el-button type="primary" :icon="Refresh" :disabled="!ticketStore.canRefreshSeats">刷新座位</el-button>
             </div>
           </div>
 
@@ -109,7 +219,7 @@ import {
             <el-icon><Grid /></el-icon>
             选座信息
           </span>
-          <span>已选 0 座</span>
+          <span>已选 {{ ticketStore.selectedSeatCount }} 座</span>
         </header>
 
         <div class="screen-line">银幕</div>
@@ -144,14 +254,14 @@ import {
         <header class="panel-header">支付活动</header>
         <div class="side-line">
           <span>活动价</span>
-          <el-select size="small" placeholder="无活动" disabled />
+          <el-select v-model="ticketStore.paymentActivity" size="small" placeholder="无活动" />
         </div>
       </section>
 
       <section class="panel side-panel">
         <header class="panel-header">
           <span>支付卡</span>
-          <span>已选 0 / 0 张</span>
+          <span>已选 {{ ticketStore.selectedPaymentCards.length }} / 0 张</span>
         </header>
         <div class="side-empty">暂无可用支付卡</div>
       </section>
@@ -159,7 +269,7 @@ import {
       <section class="panel side-panel">
         <header class="panel-header">
           <span>兑换券</span>
-          <span>已选 0 张 | 可兑 0 / 需 0 张</span>
+          <span>已选 {{ ticketStore.selectedCoupons.length }} 张 | 可兑 0 / 需 0 张</span>
         </header>
         <div class="side-empty">暂无可用兑换券</div>
       </section>
@@ -167,7 +277,7 @@ import {
       <section class="panel side-panel">
         <header class="panel-header">
           <span>已选座位</span>
-          <span>0 / 8</span>
+          <span>{{ ticketStore.selectedSeatCount }} / {{ ticketStore.maxSeatCount }}</span>
         </header>
         <div class="side-empty">暂未选择座位</div>
       </section>
@@ -178,9 +288,11 @@ import {
       <el-button :icon="Picture">图片识别</el-button>
       <el-button :icon="Key">文本识别</el-button>
       <span class="bottom-spacer" />
-      <el-button type="warning" disabled>取消选择</el-button>
-      <el-button type="success" disabled>确认选座</el-button>
-      <el-button type="primary" disabled>提交支付</el-button>
+      <el-button type="warning" :disabled="ticketStore.selectedSeatCount === 0" @click="ticketStore.clearSeatSelection">
+        取消选择
+      </el-button>
+      <el-button type="success" :disabled="ticketStore.selectedSeatCount === 0">确认选座</el-button>
+      <el-button type="primary" :disabled="ticketStore.selectedSeatCount === 0">提交支付</el-button>
     </footer>
   </section>
 </template>

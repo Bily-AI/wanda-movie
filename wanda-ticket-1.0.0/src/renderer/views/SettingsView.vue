@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { Delete, InfoFilled, Monitor, Refresh, Setting, Tickets, Wallet } from '@element-plus/icons-vue'
+
+import { useSettingsStore } from '@renderer/stores/settings'
+
+const settingsStore = useSettingsStore()
 </script>
 
 <template>
@@ -33,7 +37,7 @@ import { Delete, InfoFilled, Monitor, Refresh, Setting, Tickets, Wallet } from '
           <span>记住窗口位置</span>
           <small>启动时恢复上次关闭时的窗口位置和大小</small>
         </div>
-        <el-switch :model-value="true" disabled />
+        <el-switch v-model="settingsStore.rememberWindow" />
       </div>
     </section>
 
@@ -47,14 +51,14 @@ import { Delete, InfoFilled, Monitor, Refresh, Setting, Tickets, Wallet } from '
           <span>下单成功后自动关闭弹窗</span>
           <small>购票支付成功后自动关闭支付弹窗</small>
         </div>
-        <el-switch :model-value="true" disabled />
+        <el-switch v-model="settingsStore.autoClosePaymentWindow" />
       </div>
       <div class="setting-row">
         <div>
           <span>支付卡显示方式</span>
           <small>选择支付卡在购票页面的展示形式</small>
         </div>
-        <el-radio-group model-value="列表" size="small" disabled>
+        <el-radio-group v-model="settingsStore.paymentCardDisplay" size="small">
           <el-radio-button label="列表" />
           <el-radio-button label="卡片" />
         </el-radio-group>
@@ -64,7 +68,7 @@ import { Delete, InfoFilled, Monitor, Refresh, Setting, Tickets, Wallet } from '
           <span>取票码面板模板</span>
           <small>选择取票成功后的面板展示样式</small>
         </div>
-        <el-radio-group model-value="默认" size="small" disabled>
+        <el-radio-group v-model="settingsStore.ticketCodeTemplate" size="small">
           <el-radio-button label="默认" />
           <el-radio-button label="万达风格" />
         </el-radio-group>
@@ -77,10 +81,10 @@ import { Delete, InfoFilled, Monitor, Refresh, Setting, Tickets, Wallet } from '
         <strong>自动支付设置</strong>
       </header>
       <div class="setting-row setting-row--compact">
-        <el-switch :model-value="false" disabled />
-        <el-input placeholder="输入支付宝手机号" disabled />
-        <el-input placeholder="输入支付密码" disabled />
-        <el-button :icon="Refresh" disabled>刷新设备</el-button>
+        <el-switch v-model="settingsStore.autoPayment.enabled" />
+        <el-input v-model="settingsStore.autoPayment.phone" placeholder="输入支付宝手机号" />
+        <el-input v-model="settingsStore.autoPayment.password" placeholder="输入支付密码" show-password />
+        <el-button :icon="Refresh">刷新设备</el-button>
       </div>
       <p class="setting-warning">
         手动支付一次缓存支付宝登录信息以后再开启自动支付功能，否则会出现不确定错误或导致无限验证。
@@ -92,16 +96,19 @@ import { Delete, InfoFilled, Monitor, Refresh, Setting, Tickets, Wallet } from '
         <el-icon><Setting /></el-icon>
         <strong>业务请求头参数</strong>
       </header>
-      <div class="setting-row">
-        <div>
-          <span>设备指纹/型号/用户ID</span>
-          <small>用于后续真实业务请求参数迁移</small>
-        </div>
-        <el-button :icon="Refresh" disabled>刷新参数</el-button>
+      <div class="request-grid">
+        <el-input v-model="settingsStore.requestParams.deviceFingerprint" placeholder="设备指纹" />
+        <el-input v-model="settingsStore.requestParams.model" placeholder="设备型号" />
+        <el-input v-model="settingsStore.requestParams.userId" placeholder="用户ID" />
+        <el-input v-model="settingsStore.requestParams.shumeiBoxId" placeholder="ShumeiBoxId" />
+        <el-input v-model="settingsStore.requestParams.ios" placeholder="ios" />
+        <el-input v-model="settingsStore.requestParams.screen" placeholder="screen" />
+        <el-input v-model="settingsStore.requestParams.width" placeholder="width" />
+        <el-input v-model="settingsStore.requestParams.height" placeholder="height" />
+        <el-input v-model="settingsStore.requestParams.build" placeholder="build" />
+        <el-input v-model="settingsStore.requestParams.languageType" placeholder="language_type" />
       </div>
-      <pre class="param-preview">设备指纹：未生成
-设备型号：未生成
-用户标识：未生成</pre>
+      <pre class="param-preview">{{ settingsStore.requestParamsPreview }}</pre>
     </section>
 
     <section class="setting-card">
@@ -114,7 +121,14 @@ import { Delete, InfoFilled, Monitor, Refresh, Setting, Tickets, Wallet } from '
           <span>代理提取API</span>
           <small>活动礼包和业务请求可复用旧版代理设置</small>
         </div>
-        <el-input placeholder="例如：https://example.com/api/getip" disabled />
+        <el-input v-model="settingsStore.proxyApi" placeholder="例如：https://example.com/api/getip" />
+      </div>
+      <div class="setting-row">
+        <div>
+          <span>使用代理IP</span>
+          <small>旧版代理配置字段为 useProxy</small>
+        </div>
+        <el-switch v-model="settingsStore.useProxyIp" />
       </div>
     </section>
 
@@ -204,7 +218,7 @@ import { Delete, InfoFilled, Monitor, Refresh, Setting, Tickets, Wallet } from '
 .setting-row {
   min-height: 64px;
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) auto;
+  grid-template-columns: minmax(260px, 1fr) minmax(220px, 420px);
   gap: 18px;
   align-items: center;
   padding: 12px 18px;
@@ -238,6 +252,14 @@ import { Delete, InfoFilled, Monitor, Refresh, Setting, Tickets, Wallet } from '
   margin: 0;
   padding: 0 18px 18px;
   color: #f56c6c;
+}
+
+.request-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #eef2f8;
 }
 
 .param-preview {

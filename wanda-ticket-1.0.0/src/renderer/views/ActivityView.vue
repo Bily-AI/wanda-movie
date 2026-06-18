@@ -1,24 +1,42 @@
 <script setup lang="ts">
 import { Refresh, Search } from '@element-plus/icons-vue'
+
+import { useSettingsStore } from '@renderer/stores/settings'
+
+const settingsStore = useSettingsStore()
 </script>
 
 <template>
   <section class="activity-page">
     <header class="activity-toolbar">
       <span>选择城市/影院：</span>
-      <el-select placeholder="城市" />
-      <el-select placeholder="影院" />
+      <el-select
+        v-model="settingsStore.activity.city"
+        filterable
+        allow-create
+        default-first-option
+        placeholder="城市"
+      />
+      <el-select
+        v-model="settingsStore.activity.cinema"
+        filterable
+        allow-create
+        default-first-option
+        placeholder="影院"
+      />
       <el-button type="primary" :icon="Refresh">刷新</el-button>
-      <el-input placeholder="输入礼包ID/activityCode" />
-      <el-button type="success" :icon="Search" disabled>获取详情</el-button>
+      <el-input v-model="settingsStore.activity.activityCode" placeholder="输入礼包ID/activityCode" />
+      <el-button type="success" :icon="Search" :disabled="!settingsStore.activity.activityCode">
+        获取详情
+      </el-button>
     </header>
 
     <section class="panel gifts-panel">
       <header class="panel-title">
         <span>可购买礼包</span>
         <div class="proxy-row">
-          <el-input size="small" placeholder="代理提取API" />
-          <el-checkbox>使用代理IP</el-checkbox>
+          <el-input v-model="settingsStore.proxyApi" size="small" placeholder="代理提取API" />
+          <el-checkbox v-model="settingsStore.useProxyIp">使用代理IP</el-checkbox>
         </div>
       </header>
       <el-empty description="请选择城市和影院后加载活动礼包" />

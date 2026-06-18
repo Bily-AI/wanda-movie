@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Close,
@@ -17,12 +17,18 @@ import {
 } from '@element-plus/icons-vue'
 
 import { useAppStore } from './stores/app'
+import { useAccountsStore } from './stores/accounts'
+import { useSettingsStore } from './stores/settings'
 
 const appStore = useAppStore()
+const accountsStore = useAccountsStore()
+const settingsStore = useSettingsStore()
 const route = useRoute()
 const router = useRouter()
 
 const version = computed(() => appStore.version)
+let localDataLoaded = false
+let settingsSaveTimer: ReturnType<typeof setTimeout> | undefined
 
 const navItems = [
   { path: '/ticket', label: '购票', icon: Ticket },
@@ -35,9 +41,37 @@ const navItems = [
   { path: '/settings', label: '设置', icon: Setting }
 ]
 
-onMounted(() => {
-  void appStore.initialize()
+onMounted(async () => {
+  await Promise.all([appStore.initialize(), accountsStore.loadAccounts(), settingsStore.loadSettings()])
+  localDataLoaded = true
 })
+
+watch(
+  () => ({
+    rememberWindow: settingsStore.rememberWindow,
+    autoClosePaymentWindow: settingsStore.autoClosePaymentWindow,
+    paymentCardDisplay: settingsStore.paymentCardDisplay,
+    ticketCodeTemplate: settingsStore.ticketCodeTemplate,
+    autoPayment: settingsStore.autoPayment,
+    requestParams: settingsStore.requestParams,
+    proxyApi: settingsStore.proxyApi,
+    useProxyIp: settingsStore.useProxyIp
+  }),
+  () => {
+    if (!localDataLoaded) {
+      return
+    }
+
+    if (settingsSaveTimer) {
+      clearTimeout(settingsSaveTimer)
+    }
+
+    settingsSaveTimer = setTimeout(() => {
+      void settingsStore.saveSettings()
+    }, 400)
+  },
+  { deep: true }
+)
 
 function isActive(path: string) {
   return route.path === path
