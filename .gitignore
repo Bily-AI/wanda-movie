@@ -20,6 +20,7 @@ dist/
 dist-electron/
 .vite/
 *.log
+*.tsbuildinfo
 .env
 .env.*
 !/.env.example
