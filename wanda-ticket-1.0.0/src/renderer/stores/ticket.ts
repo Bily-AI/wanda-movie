@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 
 import { fetchCinemaShowtime } from '@renderer/services/cinemaApi'
-import { fetchRealTimeSeat } from '@renderer/services/seatApi'
+import { cancelTicketOrder, createTicketOrder, fetchRealTimeSeat } from '@renderer/services/seatApi'
 import type {
   CinemaRecord,
   CityRecord,
@@ -181,6 +181,10 @@ export const useTicketStore = defineStore('ticket', {
     loadingSeats: false,
     seatRequestSerial: 0,
     seatError: '',
+    currentOrderId: '',
+    currentOrderMessage: '',
+    orderCreating: false,
+    orderCancelling: false,
     paymentActivity: '',
     selectedPaymentCards: [] as string[],
     selectedCoupons: [] as string[],
@@ -209,6 +213,9 @@ export const useTicketStore = defineStore('ticket', {
     },
     selectedSeatCount(state) {
       return state.selectedSeats.length
+    },
+    selectedSeatTotalPrice(state) {
+      return state.selectedSeatNodes.reduce((sum, seat) => sum + seat.price, 0)
     }
   },
   actions: {
@@ -561,6 +568,66 @@ export const useTicketStore = defineStore('ticket', {
         if (seatSerial === this.seatRequestSerial) {
           this.loadingSeats = false
         }
+      }
+    },
+    async createCurrentOrder() {
+      const account = useAccountsStore().currentAccount
+
+      if (this.currentOrderId) {
+        this.currentOrderMessage = '已有待处理订单，请先取消当前订单'
+        return
+      }
+
+      if (!account?.ck || !account.userIdentifier || !account.phone || !this.currentShowtime || this.selectedSeatNodes.length === 0) {
+        this.currentOrderMessage = '请先选择已登录账号、真实场次和座位'
+        return
+      }
+
+      this.orderCreating = true
+      this.currentOrderMessage = ''
+
+      try {
+        const result = await createTicketOrder(
+          this.currentShowtime.dId,
+          this.selectedSeatNodes.map((seat) => seat.seatId),
+          Math.round(this.selectedSeatTotalPrice * 100),
+          account.phone,
+          account.ck,
+          account.userIdentifier
+        )
+
+        this.currentOrderId = result.orderId
+        this.currentOrderMessage = result.bizMsg || '订单创建成功'
+        useLogsStore().addLog('订单', account.phone, `订单创建成功：${result.orderId}`)
+      } catch (error) {
+        const message = error instanceof Error && error.message ? error.message : '订单创建失败'
+        this.currentOrderMessage = message
+        useLogsStore().addLog('订单', account.phone, `订单创建失败：${message}`)
+      } finally {
+        this.orderCreating = false
+      }
+    },
+    async cancelCurrentOrder() {
+      const account = useAccountsStore().currentAccount
+
+      if (!account?.ck || !account.userIdentifier || !this.currentOrderId) {
+        this.currentOrderMessage = '暂无可取消订单'
+        return
+      }
+
+      this.orderCancelling = true
+
+      try {
+        await cancelTicketOrder(this.currentOrderId, account.ck, account.userIdentifier)
+        useLogsStore().addLog('订单', account.phone, `订单已取消：${this.currentOrderId}`)
+        this.currentOrderMessage = '订单已取消'
+        this.currentOrderId = ''
+      } catch (error) {
+        const message = error instanceof Error && error.message ? error.message : '订单取消失败'
+        this.currentOrderMessage = message
+        useLogsStore().addLog('订单', account.phone, `订单取消失败：${message}`)
+      } finally {
+        this.orderCancelling = false
       }
     },
     toggleSeat(seat: SeatNode) {

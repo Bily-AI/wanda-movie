@@ -282,7 +282,19 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
             全局订单信息
           </span>
         </header>
-        <div class="side-empty">暂无订单</div>
+        <div v-if="ticketStore.currentOrderId" class="order-summary">
+          <p>订单号：{{ ticketStore.currentOrderId }}</p>
+          <p>{{ ticketStore.currentOrderMessage }}</p>
+          <el-button
+            size="small"
+            type="warning"
+            :loading="ticketStore.orderCancelling"
+            @click="ticketStore.cancelCurrentOrder"
+          >
+            取消订单
+          </el-button>
+        </div>
+        <div v-else class="side-empty">{{ ticketStore.currentOrderMessage || '暂无订单' }}</div>
       </section>
 
       <section class="panel side-panel">
@@ -327,7 +339,22 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
         取消选择
       </el-button>
       <el-button type="success" :disabled="ticketStore.selectedSeatCount === 0">确认选座</el-button>
-      <el-button type="primary" :disabled="ticketStore.selectedSeatCount === 0">提交支付</el-button>
+      <el-popconfirm
+        title="确认创建电影票订单？本阶段不会发起支付。"
+        confirm-button-text="确认"
+        cancel-button-text="取消"
+        @confirm="ticketStore.createCurrentOrder"
+      >
+        <template #reference>
+          <el-button
+            type="primary"
+            :loading="ticketStore.orderCreating"
+            :disabled="ticketStore.selectedSeatCount === 0 || ticketStore.orderCreating"
+          >
+            提交支付
+          </el-button>
+        </template>
+      </el-popconfirm>
     </footer>
   </section>
 </template>
@@ -569,6 +596,18 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
   display: grid;
   place-items: center;
   color: var(--app-muted);
+  text-align: center;
+}
+
+.order-summary {
+  padding: 12px 16px;
+  color: var(--app-text);
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.order-summary p {
+  margin: 0 0 8px;
 }
 
 .side-line {

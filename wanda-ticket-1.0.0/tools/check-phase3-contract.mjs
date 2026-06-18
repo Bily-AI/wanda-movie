@@ -327,4 +327,50 @@ assertIncludes('src/renderer/components/SeatMap.vue', seatMap, 'coordx')
 assertIncludes('src/renderer/components/SeatMap.vue', seatMap, 'coordy')
 assertIncludes('src/renderer/components/SelectedSeatList.vue', selectedSeatList, 'selectedSeats')
 
+for (const label of [
+  'createCurrentOrder',
+  'cancelCurrentOrder',
+  'currentOrderId',
+  'orderCreating',
+  'orderCancelling',
+  'selectedSeatTotalPrice'
+]) {
+  assertIncludes('src/renderer/stores/ticket.ts', ticketStore, label)
+}
+
+assertIncludes('src/renderer/stores/ticket.ts', ticketStore, 'createTicketOrder')
+assertIncludes('src/renderer/stores/ticket.ts', ticketStore, 'cancelTicketOrder')
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /createTicketOrder\([\s\S]*?this\.currentShowtime\.dId[\s\S]*?this\.selectedSeatNodes\.map\(\(seat\) => seat\.seatId\)[\s\S]*?Math\.round\(this\.selectedSeatTotalPrice \* 100\)/,
+  '创建订单必须使用当前真实场次、已选座位和分单位总价'
+)
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /if \(!account\?\.ck \|\| !account\.userIdentifier \|\| !account\.phone \|\| !this\.currentShowtime \|\| this\.selectedSeatNodes\.length === 0\)/,
+  '创建订单必须校验账号、场次和座位'
+)
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /if \(this\.currentOrderId\)[\s\S]*?return/,
+  '已有订单时不能重复创建'
+)
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /cancelTicketOrder\(this\.currentOrderId, account\.ck, account\.userIdentifier\)/,
+  '取消订单必须调用真实取消接口'
+)
+
+for (const label of ['ticketStore.createCurrentOrder', 'ticketStore.cancelCurrentOrder', 'currentOrderId']) {
+  assertIncludes('src/renderer/views/TicketView.vue', ticketView, label)
+}
+
+assertIncludes('src/renderer/views/TicketView.vue', ticketView, '<el-popconfirm')
+assertIncludes('src/renderer/views/TicketView.vue', ticketView, '@confirm="ticketStore.createCurrentOrder"')
+assertNotIncludes('src/renderer/views/TicketView.vue', ticketView, '@click="ticketStore.createCurrentOrder"')
+
 console.log('第三阶段请求边界契约检查通过')
