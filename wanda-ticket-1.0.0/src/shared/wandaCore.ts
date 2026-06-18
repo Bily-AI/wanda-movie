@@ -16,6 +16,7 @@ export const WANDA_API_PATHS = {
   SHOWTIME_BY_CINEMA: '/showtime/by_cinema.api',
   CINEMA_BY_CINEMA_ID: '/cinema/by_cinemaid.api',
   ORDER_REAL_TIME_SEAT: '/order/real_time_seat.api',
+  ORDER_CREATE_TICKET: '/order/create_order.api',
   ORDER_CREATE: '/order/create.api',
   ORDER_CANCEL: '/order/cancel.api',
   ORDER_PREPAY: '/order/prepay.api',
@@ -86,8 +87,8 @@ export function validateWandaRequest(request: WandaHttpRequest): string | null {
     return '万达请求 params 必须是对象'
   }
 
-  if (request.body !== undefined && !isRecord(request.body)) {
-    return '万达请求 body 必须是对象'
+  if (request.body !== undefined && !isRecord(request.body) && typeof request.body !== 'string') {
+    return '万达请求 body 必须是对象或字符串'
   }
 
   return null

@@ -11,6 +11,7 @@
     "typecheck": "vue-tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json",
     "check:renderer": "node tools/check-renderer-contract.mjs",
     "check:phase2": "node tools/check-phase2-contract.mjs",
+    "check:phase3": "node tools/check-phase3-contract.mjs",
     "index:old": "node tools/old-package-index.mjs"
   },
   "dependencies": {

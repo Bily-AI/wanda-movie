@@ -30,14 +30,11 @@ export type LocalDataResult<T extends LocalDataFileName> = IpcResult<LocalDataMa
 
 export type LocalDataWriteResult = IpcResult<boolean>
 
-export type WandaHttpHeaders = Record<string, string>
-
 export interface WandaHttpRequest {
   url: string
-  headers?: WandaHttpHeaders
-  body?: unknown
+  headers?: Record<string, unknown> & Record<string, string>
   params?: Record<string, unknown>
-  useProxy?: boolean
+  body?: Record<string, unknown> | string
 }
 
 export type WandaHttpResult = IpcResult<unknown>
