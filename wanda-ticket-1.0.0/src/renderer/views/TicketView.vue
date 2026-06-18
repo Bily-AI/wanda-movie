@@ -137,7 +137,7 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
               allow-create
               default-first-option
               placeholder="选择或搜索城市"
-              @change="ticketStore.resetQueryAfterCityChange"
+              @change="ticketStore.selectCity"
             >
               <el-option
                 v-for="city in ticketStore.cities"
@@ -155,7 +155,8 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
                 allow-create
                 default-first-option
                 placeholder="选择或搜索影院"
-                @change="ticketStore.resetQueryAfterCinemaChange"
+                :loading="ticketStore.loadingShowtimes"
+                @change="ticketStore.loadCinemaShowtimes"
               >
                 <el-option
                   v-for="cinema in ticketStore.cinemas"
@@ -175,7 +176,7 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
               default-first-option
               placeholder="请先选择影院"
               :disabled="!ticketStore.canSelectMovie"
-              @change="ticketStore.resetQueryAfterMovieChange"
+              @change="ticketStore.selectMovie"
             >
               <el-option
                 v-for="movie in ticketStore.movies"
@@ -193,7 +194,7 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
               default-first-option
               placeholder="请先选择影片"
               :disabled="!ticketStore.canSelectDate"
-              @change="ticketStore.resetQueryAfterDateChange"
+              @change="ticketStore.selectDate"
             >
               <el-option
                 v-for="date in ticketStore.dates"
@@ -212,6 +213,7 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
                 default-first-option
                 placeholder="请先选择日期"
                 :disabled="!ticketStore.canSelectShowtime"
+                @change="ticketStore.setShowtime"
               >
                 <el-option
                   v-for="showtime in ticketStore.showtimes"
@@ -222,6 +224,9 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
               </el-select>
               <el-button type="primary" :icon="Refresh" :disabled="!ticketStore.canRefreshSeats">刷新座位</el-button>
             </div>
+
+            <span />
+            <p v-if="ticketStore.showtimeError" class="query-error">{{ ticketStore.showtimeError }}</p>
           </div>
 
           <div class="poster-panel" aria-label="影片海报区域" />
@@ -457,6 +462,12 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
 
 .field-tip {
   margin: 4px 0 0;
+  color: #f56c6c;
+  font-size: 12px;
+}
+
+.query-error {
+  margin: 0;
   color: #f56c6c;
   font-size: 12px;
 }

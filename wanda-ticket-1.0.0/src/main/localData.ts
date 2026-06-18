@@ -65,6 +65,105 @@ async function backupBrokenFile(name: LocalDataFileName): Promise<void> {
   }
 }
 
+function toText(value: unknown): string {
+  return typeof value === 'string' || typeof value === 'number' ? String(value) : ''
+}
+
+function normalizeSeedCityData(city: unknown[]): LocalDataMap['city'] {
+  const cities: unknown[] = []
+  const cinemas: unknown[] = []
+
+  for (const item of city) {
+    if (!isPlainObject(item)) {
+      continue
+    }
+
+    const id = toText(item.CityID)
+    const name = toText(item.CityName)
+
+    if (!id || !name) {
+      continue
+    }
+
+    cities.push({ id, name, cityId: id, cityName: name, raw: item })
+
+    const cmList = Array.isArray(item.CmList) ? item.CmList : []
+
+    for (const cinema of cmList) {
+      if (!isPlainObject(cinema)) {
+        continue
+      }
+
+      const cinemaId = toText(cinema.CmID)
+      const cinemaName = toText(cinema.MyCmName) || toText(cinema.CmName)
+
+      if (!cinemaId || !cinemaName) {
+        continue
+      }
+
+      cinemas.push({
+        id: cinemaId,
+        cinemaId,
+        cityId: toText(cinema.CityID) || id,
+        name: cinemaName,
+        cinemaName,
+        address: toText(cinema.CmAdd),
+        raw: cinema
+      })
+    }
+  }
+
+  return {
+    cities,
+    cinemas,
+    city,
+    updatedAt: new Date().toISOString()
+  }
+}
+
+function isEmptyCityData(data: LocalDataMap['city']): boolean {
+  return data.cities.length === 0 && data.cinemas.length === 0 && data.city.length === 0
+}
+
+async function readSeedCityData(): Promise<LocalDataMap['city'] | null> {
+  const candidatePaths = [
+    join(process.cwd(), '..', 'win-ia32-unpacked', 'config', 'city.json'),
+    join(process.cwd(), '..', 'win-ia32-unpacked', 'resources', 'app', 'config', 'city.json'),
+    join(app.getAppPath(), '..', 'win-ia32-unpacked', 'config', 'city.json'),
+    join(app.getAppPath(), '..', 'win-ia32-unpacked', 'resources', 'app', 'config', 'city.json')
+  ]
+
+  for (const cityPath of candidatePaths) {
+    try {
+      const content = await readFile(cityPath, 'utf-8')
+      const parsed = JSON.parse(content) as { city?: unknown[] }
+      const city = Array.isArray(parsed.city) ? parsed.city : []
+
+      return normalizeSeedCityData(city)
+    } catch (error) {
+      if (isMissingFileError(error)) {
+        continue
+      }
+
+      return null
+    }
+  }
+
+  return null
+}
+
+async function defaultLocalData<T extends LocalDataFileName>(name: T): Promise<LocalDataMap[T]> {
+  if (name === 'city') {
+    const seeded = await readSeedCityData()
+
+    if (seeded) {
+      return seeded as LocalDataMap[T]
+    }
+  }
+
+  return cloneDefaultLocalData(name)
+}
+
 export async function writeLocalDataFile<T extends LocalDataFileName>(
   name: T,
   data: LocalDataMap[T]
@@ -79,9 +178,20 @@ export async function readLocalDataFile<T extends LocalDataFileName>(name: T): P
   try {
     const content = await readFile(localDataPath(name), 'utf-8')
     const parsed = JSON.parse(content) as unknown
-    return mergeWithDefault(cloneDefaultLocalData(name), parsed)
+    const merged = mergeWithDefault(cloneDefaultLocalData(name), parsed)
+
+    if (name === 'city' && isEmptyCityData(merged as LocalDataMap['city'])) {
+      const seeded = await readSeedCityData()
+
+      if (seeded) {
+        await writeLocalDataFile(name, seeded as LocalDataMap[T])
+        return seeded as LocalDataMap[T]
+      }
+    }
+
+    return merged
   } catch (error) {
-    const defaults = cloneDefaultLocalData(name)
+    const defaults = await defaultLocalData(name)
 
     if (!isMissingFileError(error)) {
       await backupBrokenFile(name)

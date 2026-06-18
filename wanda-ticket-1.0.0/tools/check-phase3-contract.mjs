@@ -35,7 +35,10 @@ const cinemaApi = read('src/renderer/services/cinemaApi.ts')
 const seatApi = read('src/renderer/services/seatApi.ts')
 const accountsStore = read('src/renderer/stores/accounts.ts')
 const logsStore = read('src/renderer/stores/logs.ts')
+const ticketStore = read('src/renderer/stores/ticket.ts')
 const ticketView = read('src/renderer/views/TicketView.vue')
+const appVue = read('src/renderer/App.vue')
+const mainLocalData = read('src/main/localData.ts')
 
 assertIncludes('package.json', packageJson, '"check:phase3"')
 assertIncludes('src/shared/ipc.ts', ipc, 'Record<string, unknown> | string')
@@ -164,5 +167,36 @@ assertMatches(
 
 assertIncludes('src/renderer/stores/logs.ts', logsStore, 'addLog')
 assertIncludes('src/renderer/stores/logs.ts', logsStore, 'maskAccount')
+
+for (const label of [
+  'loadCityData',
+  'selectCity',
+  'loadCinemaShowtimes',
+  'selectMovie',
+  'selectDate',
+  'setShowtime',
+  'rawShowtimeData',
+  'currentShowtime',
+  'showtimeItems'
+]) {
+  assertIncludes('src/renderer/stores/ticket.ts', ticketStore, label)
+}
+
+for (const label of ['CityID', 'CityName', 'CmList', 'CmID', 'CmName', 'MyCmName', 'CmAdd']) {
+  assertIncludes('src/main/localData.ts', mainLocalData, label)
+}
+
+assertIncludes('src/main/localData.ts', mainLocalData, 'readSeedCityData')
+assertIncludes('src/renderer/App.vue', appVue, 'ticketStore.loadCityData()')
+
+for (const label of [
+  '@change="ticketStore.selectCity"',
+  '@change="ticketStore.loadCinemaShowtimes"',
+  '@change="ticketStore.selectMovie"',
+  '@change="ticketStore.selectDate"',
+  '@change="ticketStore.setShowtime"'
+]) {
+  assertIncludes('src/renderer/views/TicketView.vue', ticketView, label)
+}
 
 console.log('第三阶段请求边界契约检查通过')

@@ -83,6 +83,7 @@ export interface CityLocalData {
   cities: unknown[]
   cinemas: unknown[]
   updatedAt: string
+  city: unknown[]
 }
 
 export interface LocalDataMap {
@@ -133,7 +134,8 @@ export const DEFAULT_LOCAL_DATA: LocalDataMap = {
   city: {
     cities: [],
     cinemas: [],
-    updatedAt: ''
+    updatedAt: '',
+    city: []
   }
 }
 

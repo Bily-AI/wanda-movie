@@ -19,10 +19,12 @@ import {
 import { useAppStore } from './stores/app'
 import { useAccountsStore } from './stores/accounts'
 import { useSettingsStore } from './stores/settings'
+import { useTicketStore } from './stores/ticket'
 
 const appStore = useAppStore()
 const accountsStore = useAccountsStore()
 const settingsStore = useSettingsStore()
+const ticketStore = useTicketStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -42,7 +44,12 @@ const navItems = [
 ]
 
 onMounted(async () => {
-  await Promise.all([appStore.initialize(), accountsStore.loadAccounts(), settingsStore.loadSettings()])
+  await Promise.all([
+    appStore.initialize(),
+    accountsStore.loadAccounts(),
+    settingsStore.loadSettings(),
+    ticketStore.loadCityData()
+  ])
   localDataLoaded = true
 })
 
