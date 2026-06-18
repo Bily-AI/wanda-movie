@@ -4,11 +4,27 @@ import axios, { type AxiosRequestConfig } from 'axios'
 import { IPC_CHANNELS, type WandaHttpRequest, type WandaHttpResult } from '../shared/ipc'
 import { validateWandaRequest } from '../shared/wandaCore'
 
+function normalizeHeaders(headers?: Record<string, unknown>): AxiosRequestConfig['headers'] {
+  if (!headers) {
+    return undefined
+  }
+
+  const normalizedHeaders: Record<string, string> = {}
+
+  for (const [key, value] of Object.entries(headers)) {
+    if (value !== null && value !== undefined) {
+      normalizedHeaders[key] = String(value)
+    }
+  }
+
+  return normalizedHeaders
+}
+
 function buildAxiosConfig(method: 'GET' | 'POST', request: WandaHttpRequest): AxiosRequestConfig {
   return {
     method,
     url: request.url,
-    headers: request.headers,
+    headers: normalizeHeaders(request.headers),
     params: request.params,
     data: method === 'POST' ? request.body : undefined,
     timeout: 30000,
