@@ -179,6 +179,7 @@ export const useTicketStore = defineStore('ticket', {
     seatNodes: [] as SeatNode[],
     selectedSeatNodes: [] as SeatNode[],
     loadingSeats: false,
+    seatRequestSerial: 0,
     seatError: '',
     paymentActivity: '',
     selectedPaymentCards: [] as string[],
@@ -264,8 +265,10 @@ export const useTicketStore = defineStore('ticket', {
       this.clearSeatSelection()
     },
     clearSeatData() {
+      ++this.seatRequestSerial
       this.seatData = null
       this.seatNodes = []
+      this.loadingSeats = false
       this.seatError = ''
       this.clearSeatSelection()
     },
@@ -524,25 +527,40 @@ export const useTicketStore = defineStore('ticket', {
       const account = useAccountsStore().currentAccount
 
       if (!account?.ck || !account.userIdentifier || !this.currentShowtime) {
+        this.clearSeatData()
         this.seatError = '请先选择已登录万达账号和真实场次'
         return
       }
 
+      const seatSerial = ++this.seatRequestSerial
+      const dId = this.currentShowtime.dId
       this.loadingSeats = true
       this.seatError = ''
 
       try {
-        this.seatData = await fetchRealTimeSeat(this.currentShowtime.dId, account.ck, account.userIdentifier)
+        const seatData = await fetchRealTimeSeat(dId, account.ck, account.userIdentifier)
+
+        if (seatSerial !== this.seatRequestSerial || this.currentShowtime?.dId !== dId) {
+          return
+        }
+
+        this.seatData = seatData
         this.seatNodes = this.normalizeSeats(this.seatData)
         this.clearSeatSelection()
         useLogsStore().addLog('座位', account.phone, `座位数据获取成功，共 ${this.seatNodes.length} 座`)
       } catch (error) {
+        if (seatSerial !== this.seatRequestSerial || this.currentShowtime?.dId !== dId) {
+          return
+        }
+
         const message = error instanceof Error && error.message ? error.message : '座位数据获取失败'
         this.clearSeatData()
         this.seatError = message
         useLogsStore().addLog('座位', account.phone, `座位数据获取失败：${message}`)
       } finally {
-        this.loadingSeats = false
+        if (seatSerial === this.seatRequestSerial) {
+          this.loadingSeats = false
+        }
       }
     },
     toggleSeat(seat: SeatNode) {

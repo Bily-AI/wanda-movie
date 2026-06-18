@@ -249,7 +249,8 @@ for (const label of [
   'seatNodes',
   'selectedSeatNodes',
   'seatData',
-  'loadingSeats'
+  'loadingSeats',
+  'seatRequestSerial'
 ]) {
   assertIncludes('src/renderer/stores/ticket.ts', ticketStore, label)
 }
@@ -259,6 +260,31 @@ for (const label of ['SeatMap', 'SelectedSeatList', '@click="ticketStore.loadRea
 }
 
 assertIncludes('src/renderer/stores/ticket.ts', ticketStore, 'fetchRealTimeSeat')
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /function getSeatStatus\(status: unknown\)[\s\S]*?Number\(status\) === 1/,
+  '只有 status 1 可选'
+)
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /areaPrice\?\.areaCode[\s\S]*?areaPrice\?\.salesPrice[\s\S]*?const areaId = firstText\(area\.areaId, seat\.areaId\)/,
+  '使用旧包区域价格和外层 areaId'
+)
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /const seatSerial = \+\+this\.seatRequestSerial[\s\S]*?const dId = this\.currentShowtime\.dId[\s\S]*?fetchRealTimeSeat\(dId[\s\S]*?seatSerial !== this\.seatRequestSerial \|\| this\.currentShowtime\?\.dId !== dId/,
+  '座位请求防旧场次覆盖'
+)
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /if \(!account\?\.ck \|\| !account\.userIdentifier \|\| !this\.currentShowtime\)[\s\S]*?this\.clearSeatData\(\)/,
+  '座位前置失败清空旧座位'
+)
+assertIncludes('src/renderer/stores/ticket.ts', ticketStore, 'this.selectedSeatNodes.length < this.maxSeatCount')
 assertIncludes('src/renderer/components/SeatMap.vue', seatMap, 'coordx')
 assertIncludes('src/renderer/components/SeatMap.vue', seatMap, 'coordy')
 assertIncludes('src/renderer/components/SelectedSeatList.vue', selectedSeatList, 'selectedSeats')
