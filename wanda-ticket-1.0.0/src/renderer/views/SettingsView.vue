@@ -1,0 +1,250 @@
+<script setup lang="ts">
+import { Delete, InfoFilled, Monitor, Refresh, Setting, Tickets, Wallet } from '@element-plus/icons-vue'
+</script>
+
+<template>
+  <section class="settings-page">
+    <header class="settings-title">
+      <h1>设置</h1>
+      <p>管理应用偏好与系统配置</p>
+    </header>
+
+    <section class="setting-card">
+      <header>
+        <el-icon><Setting /></el-icon>
+        <strong>外观设置</strong>
+      </header>
+      <div class="setting-row">
+        <div>
+          <span>界面样式</span>
+          <small>沿用旧版桌面操作布局</small>
+        </div>
+        <el-tag>默认</el-tag>
+      </div>
+    </section>
+
+    <section class="setting-card">
+      <header>
+        <el-icon><Monitor /></el-icon>
+        <strong>窗口设置</strong>
+      </header>
+      <div class="setting-row">
+        <div>
+          <span>记住窗口位置</span>
+          <small>启动时恢复上次关闭时的窗口位置和大小</small>
+        </div>
+        <el-switch :model-value="true" disabled />
+      </div>
+    </section>
+
+    <section class="setting-card">
+      <header>
+        <el-icon><Tickets /></el-icon>
+        <strong>购票设置</strong>
+      </header>
+      <div class="setting-row">
+        <div>
+          <span>下单成功后自动关闭弹窗</span>
+          <small>购票支付成功后自动关闭支付弹窗</small>
+        </div>
+        <el-switch :model-value="true" disabled />
+      </div>
+      <div class="setting-row">
+        <div>
+          <span>支付卡显示方式</span>
+          <small>选择支付卡在购票页面的展示形式</small>
+        </div>
+        <el-radio-group model-value="列表" size="small" disabled>
+          <el-radio-button label="列表" />
+          <el-radio-button label="卡片" />
+        </el-radio-group>
+      </div>
+      <div class="setting-row">
+        <div>
+          <span>取票码面板模板</span>
+          <small>选择取票成功后的面板展示样式</small>
+        </div>
+        <el-radio-group model-value="默认" size="small" disabled>
+          <el-radio-button label="默认" />
+          <el-radio-button label="万达风格" />
+        </el-radio-group>
+      </div>
+    </section>
+
+    <section class="setting-card">
+      <header>
+        <el-icon><Wallet /></el-icon>
+        <strong>自动支付设置</strong>
+      </header>
+      <div class="setting-row setting-row--compact">
+        <el-switch :model-value="false" disabled />
+        <el-input placeholder="输入支付宝手机号" disabled />
+        <el-input placeholder="输入支付密码" disabled />
+        <el-button :icon="Refresh" disabled>刷新设备</el-button>
+      </div>
+      <p class="setting-warning">
+        手动支付一次缓存支付宝登录信息以后再开启自动支付功能，否则会出现不确定错误或导致无限验证。
+      </p>
+    </section>
+
+    <section class="setting-card">
+      <header>
+        <el-icon><Setting /></el-icon>
+        <strong>业务请求头参数</strong>
+      </header>
+      <div class="setting-row">
+        <div>
+          <span>设备指纹/型号/用户ID</span>
+          <small>用于后续真实业务请求参数迁移</small>
+        </div>
+        <el-button :icon="Refresh" disabled>刷新参数</el-button>
+      </div>
+      <pre class="param-preview">设备指纹：未生成
+设备型号：未生成
+用户标识：未生成</pre>
+    </section>
+
+    <section class="setting-card">
+      <header>
+        <el-icon><Setting /></el-icon>
+        <strong>代理API设置</strong>
+      </header>
+      <div class="setting-row">
+        <div>
+          <span>代理提取API</span>
+          <small>活动礼包和业务请求可复用旧版代理设置</small>
+        </div>
+        <el-input placeholder="例如：https://example.com/api/getip" disabled />
+      </div>
+    </section>
+
+    <section class="setting-card">
+      <header>
+        <el-icon><Delete /></el-icon>
+        <strong>数据管理</strong>
+      </header>
+      <div class="setting-row">
+        <div>
+          <span>清除缓存数据</span>
+          <small>清除本地缓存，下次启动将重新加载数据</small>
+        </div>
+        <el-button type="danger" plain disabled>清除缓存</el-button>
+      </div>
+    </section>
+
+    <section class="setting-card">
+      <header>
+        <el-icon><InfoFilled /></el-icon>
+        <strong>关于</strong>
+      </header>
+      <div class="setting-row">
+        <span>应用名称</span>
+        <strong>万达快速出票</strong>
+      </div>
+      <div class="setting-row">
+        <span>当前版本</span>
+        <strong>1.0.0</strong>
+      </div>
+      <div class="setting-row">
+        <span>运行环境</span>
+        <strong>Electron + Vue 3</strong>
+      </div>
+    </section>
+  </section>
+</template>
+
+<style scoped>
+.settings-page {
+  min-width: 980px;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 12px 24px 28px;
+}
+
+.settings-title {
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.settings-title h1 {
+  margin: 0;
+  color: var(--app-text);
+  font-size: 24px;
+}
+
+.settings-title p {
+  margin: 4px 0 0;
+  color: var(--app-muted);
+}
+
+.setting-card {
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface);
+  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+}
+
+.setting-card header {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--app-border);
+  color: var(--app-text);
+}
+
+.setting-card header :deep(.el-icon) {
+  color: var(--app-accent);
+}
+
+.setting-row {
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  padding: 12px 18px;
+  border-bottom: 1px solid #eef2f8;
+  color: var(--app-subtle);
+}
+
+.setting-row:last-child {
+  border-bottom: 0;
+}
+
+.setting-row div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.setting-row span {
+  color: var(--app-text);
+}
+
+.setting-row small {
+  color: var(--app-muted);
+}
+
+.setting-row--compact {
+  grid-template-columns: auto 200px 200px 110px;
+}
+
+.setting-warning {
+  margin: 0;
+  padding: 0 18px 18px;
+  color: #f56c6c;
+}
+
+.param-preview {
+  margin: 0;
+  padding: 0 18px 18px 38px;
+  color: var(--app-muted);
+  font-family: Consolas, 'Courier New', monospace;
+  white-space: pre-wrap;
+}
+</style>

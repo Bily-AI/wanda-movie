@@ -9,6 +9,7 @@
     "build": "npm run typecheck && electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "vue-tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json",
+    "check:renderer": "node tools/check-renderer-contract.mjs",
     "index:old": "node tools/old-package-index.mjs"
   },
   "dependencies": {

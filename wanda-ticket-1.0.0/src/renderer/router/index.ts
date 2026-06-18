@@ -1,18 +1,13 @@
-import { defineComponent, h } from 'vue'
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
 
-function createPlaceholderPage(name: string, title: string) {
-  return defineComponent({
-    name,
-    setup() {
-      return () =>
-        h('section', { class: 'route-placeholder' }, [
-          h('h1', { class: 'route-placeholder__title' }, title),
-          h('p', { class: 'route-placeholder__text' }, '暂无数据')
-        ])
-    }
-  })
-}
+import ActivityView from '../views/ActivityView.vue'
+import ExchangeCouponView from '../views/ExchangeCouponView.vue'
+import LogView from '../views/LogView.vue'
+import MemberView from '../views/MemberView.vue'
+import OrderHistoryView from '../views/OrderHistoryView.vue'
+import SettingsView from '../views/SettingsView.vue'
+import StoredValueCardView from '../views/StoredValueCardView.vue'
+import TicketView from '../views/TicketView.vue'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -22,49 +17,49 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/ticket',
     name: 'ticket',
-    component: createPlaceholderPage('TicketPlaceholder', '购票'),
+    component: TicketView,
     meta: { title: '购票' }
   },
   {
     path: '/orders',
     name: 'orders',
-    component: createPlaceholderPage('OrdersPlaceholder', '历史订单'),
+    component: OrderHistoryView,
     meta: { title: '历史订单' }
   },
   {
     path: '/stored-card',
     name: 'stored-card',
-    component: createPlaceholderPage('StoredCardPlaceholder', '储值卡'),
+    component: StoredValueCardView,
     meta: { title: '储值卡' }
   },
   {
     path: '/voucher',
     name: 'voucher',
-    component: createPlaceholderPage('VoucherPlaceholder', '兑换券'),
+    component: ExchangeCouponView,
     meta: { title: '兑换券' }
   },
   {
     path: '/member',
     name: 'member',
-    component: createPlaceholderPage('MemberPlaceholder', '会员'),
+    component: MemberView,
     meta: { title: '会员' }
   },
   {
     path: '/activity',
     name: 'activity',
-    component: createPlaceholderPage('ActivityPlaceholder', '活动'),
+    component: ActivityView,
     meta: { title: '活动' }
   },
   {
     path: '/log',
     name: 'log',
-    component: createPlaceholderPage('LogPlaceholder', '日志'),
+    component: LogView,
     meta: { title: '日志' }
   },
   {
     path: '/settings',
     name: 'settings',
-    component: createPlaceholderPage('SettingsPlaceholder', '设置'),
+    component: SettingsView,
     meta: { title: '设置' }
   }
 ]
