@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { watch } from 'vue'
+
 import {
   Connection,
   Grid,
@@ -22,6 +24,15 @@ const ticketStore = useTicketStore()
 function handleAccountSelectionChange(rows: WandaAccount[]): void {
   accountsStore.setSelectedAccountIds(rows.map((row) => row.id))
 }
+
+watch(
+  () => accountsStore.currentAccountId,
+  (currentAccountId, previousAccountId) => {
+    if (currentAccountId !== previousAccountId) {
+      ticketStore.handleAccountChanged()
+    }
+  }
+)
 </script>
 
 <template>
@@ -290,6 +301,7 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
             type="warning"
             :loading="ticketStore.orderCancelling"
             @click="ticketStore.cancelCurrentOrder"
+            :disabled="ticketStore.orderCancelling"
           >
             取消订单
           </el-button>

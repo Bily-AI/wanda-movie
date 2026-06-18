@@ -216,14 +216,20 @@ assertMatches(
 assertMatches(
   'src/renderer/stores/ticket.ts',
   ticketStore,
+  /async loadCinemaShowtimes\(\)[\s\S]*?const accountId = account\.id[\s\S]*?accountId !== useAccountsStore\(\)\.currentAccount\?\.id[\s\S]*?this\.rawShowtimeData =/,
+  '影院场次请求必须防账号切换旧响应覆盖'
+)
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
   /resetQueryAfterCityChange\(\)[\s\S]*?\+\+this\.showtimeRequestSerial/,
   '切换城市时失效旧场次请求'
 )
 assertMatches(
   'src/renderer/stores/ticket.ts',
   ticketStore,
-  /catch \(error\)[\s\S]*?requestSerial !== this\.showtimeRequestSerial \|\| cinemaId !== this\.query\.cinema[\s\S]*?this\.showtimeError = message/,
-  '场次失败路径防旧影院覆盖'
+  /catch \(error\)[\s\S]*?requestSerial !== this\.showtimeRequestSerial[\s\S]*?cinemaId !== this\.query\.cinema[\s\S]*?accountId !== useAccountsStore\(\)\.currentAccount\?\.id[\s\S]*?this\.showtimeError = message/,
+  '场次失败路径防旧影院和旧账号覆盖'
 )
 for (const label of [
   'showtimeFilmInf',
@@ -291,8 +297,14 @@ assertMatches(
 assertMatches(
   'src/renderer/stores/ticket.ts',
   ticketStore,
-  /const seatSerial = \+\+this\.seatRequestSerial[\s\S]*?const dId = this\.currentShowtime\.dId[\s\S]*?fetchRealTimeSeat\(dId[\s\S]*?seatSerial !== this\.seatRequestSerial \|\| this\.currentShowtime\?\.dId !== dId/,
-  '座位请求防旧场次覆盖'
+  /const seatSerial = \+\+this\.seatRequestSerial[\s\S]*?const dId = this\.currentShowtime\.dId[\s\S]*?fetchRealTimeSeat\(dId[\s\S]*?seatSerial !== this\.seatRequestSerial[\s\S]*?this\.currentShowtime\?\.dId !== dId[\s\S]*?accountId !== useAccountsStore\(\)\.currentAccount\?\.id/,
+  '座位请求防旧场次和旧账号覆盖'
+)
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /async loadRealTimeSeats\(\)[\s\S]*?const accountId = account\.id[\s\S]*?accountId !== useAccountsStore\(\)\.currentAccount\?\.id[\s\S]*?this\.seatData =/,
+  '座位请求必须防账号切换旧响应覆盖'
 )
 const loadRealTimeSeatsBlock = sliceRequired(
   'src/renderer/stores/ticket.ts',
@@ -312,8 +324,8 @@ const loadRealTimeSeatsCatch = sliceRequired(
 assertMatches(
   'src/renderer/stores/ticket.ts',
   loadRealTimeSeatsCatch,
-  /if \(seatSerial !== this\.seatRequestSerial \|\| this\.currentShowtime\?\.dId !== dId\)[\s\S]*?return[\s\S]*?const message[\s\S]*?this\.clearSeatData\(\)/,
-  '座位失败路径防旧场次覆盖'
+  /seatSerial !== this\.seatRequestSerial[\s\S]*?this\.currentShowtime\?\.dId !== dId[\s\S]*?accountId !== useAccountsStore\(\)\.currentAccount\?\.id[\s\S]*?return[\s\S]*?const message[\s\S]*?this\.clearSeatData\(\)/,
+  '座位失败路径防旧场次和旧账号覆盖'
 )
 assertMatches(
   'src/renderer/stores/ticket.ts',
@@ -364,14 +376,29 @@ assertMatches(
   /cancelTicketOrder\(this\.currentOrderId, account\.ck, account\.userIdentifier\)/,
   '取消订单必须调用真实取消接口'
 )
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /if \(this\.orderCancelling\)[\s\S]*?return[\s\S]*?cancelTicketOrder/,
+  '取消订单必须防重复提交'
+)
 
 for (const label of ['ticketStore.createCurrentOrder', 'ticketStore.cancelCurrentOrder', 'currentOrderId']) {
   assertIncludes('src/renderer/views/TicketView.vue', ticketView, label)
 }
 
+assertIncludes('src/renderer/stores/ticket.ts', ticketStore, 'handleAccountChanged')
+assertIncludes('src/renderer/views/TicketView.vue', ticketView, 'watch(')
+assertIncludes('src/renderer/views/TicketView.vue', ticketView, 'ticketStore.handleAccountChanged()')
 assertIncludes('src/renderer/views/TicketView.vue', ticketView, '<el-popconfirm')
 assertIncludes('src/renderer/views/TicketView.vue', ticketView, '@confirm="ticketStore.createCurrentOrder"')
 assertNotIncludes('src/renderer/views/TicketView.vue', ticketView, '@click="ticketStore.createCurrentOrder"')
+assertMatches(
+  'src/renderer/views/TicketView.vue',
+  ticketView,
+  /@click="ticketStore\.cancelCurrentOrder"[\s\S]*?:disabled="ticketStore\.orderCancelling"/,
+  '取消订单按钮必须禁用重复点击'
+)
 
 const forbidden = [
   /\b1\d{10}\b/,

@@ -183,6 +183,7 @@ export const useTicketStore = defineStore('ticket', {
     seatError: '',
     currentOrderId: '',
     currentOrderMessage: '',
+    currentOrderAccountId: '',
     orderCreating: false,
     orderCancelling: false,
     paymentActivity: '',
@@ -279,6 +280,15 @@ export const useTicketStore = defineStore('ticket', {
       this.seatError = ''
       this.clearSeatSelection()
     },
+    handleAccountChanged() {
+      this.resetQueryAfterCinemaChange()
+      this.loadingShowtimes = false
+      this.loadingSeats = false
+
+      if (this.currentOrderId) {
+        this.currentOrderMessage = '账号已切换，请切回创建订单的账号取消订单'
+      }
+    },
     addCityRecord(item: unknown, cityMap: Map<string, CityRecord>) {
       const record = asRecord(item)
       const id = firstText(record.id, record.cityId, record.cityid, record.CityID, record.code)
@@ -374,13 +384,18 @@ export const useTicketStore = defineStore('ticket', {
       }
 
       const requestSerial = ++this.showtimeRequestSerial
+      const accountId = account.id
       this.loadingShowtimes = true
       this.showtimeError = ''
 
       try {
         const rawShowtimeData = await fetchCinemaShowtime(cinemaId, account.ck, account.userIdentifier)
 
-        if (requestSerial !== this.showtimeRequestSerial || cinemaId !== this.query.cinema) {
+        if (
+          requestSerial !== this.showtimeRequestSerial ||
+          cinemaId !== this.query.cinema ||
+          accountId !== useAccountsStore().currentAccount?.id
+        ) {
           return
         }
 
@@ -389,7 +404,11 @@ export const useTicketStore = defineStore('ticket', {
         this.showtimeError = this.movies.length > 0 ? '' : '当前影院暂无可选影片'
         useLogsStore().addLog('购票查询', account.phone, `影院场次加载成功：${this.movies.length} 部影片`)
       } catch (error) {
-        if (requestSerial !== this.showtimeRequestSerial || cinemaId !== this.query.cinema) {
+        if (
+          requestSerial !== this.showtimeRequestSerial ||
+          cinemaId !== this.query.cinema ||
+          accountId !== useAccountsStore().currentAccount?.id
+        ) {
           return
         }
 
@@ -541,13 +560,18 @@ export const useTicketStore = defineStore('ticket', {
 
       const seatSerial = ++this.seatRequestSerial
       const dId = this.currentShowtime.dId
+      const accountId = account.id
       this.loadingSeats = true
       this.seatError = ''
 
       try {
         const seatData = await fetchRealTimeSeat(dId, account.ck, account.userIdentifier)
 
-        if (seatSerial !== this.seatRequestSerial || this.currentShowtime?.dId !== dId) {
+        if (
+          seatSerial !== this.seatRequestSerial ||
+          this.currentShowtime?.dId !== dId ||
+          accountId !== useAccountsStore().currentAccount?.id
+        ) {
           return
         }
 
@@ -556,7 +580,11 @@ export const useTicketStore = defineStore('ticket', {
         this.clearSeatSelection()
         useLogsStore().addLog('座位', account.phone, `座位数据获取成功，共 ${this.seatNodes.length} 座`)
       } catch (error) {
-        if (seatSerial !== this.seatRequestSerial || this.currentShowtime?.dId !== dId) {
+        if (
+          seatSerial !== this.seatRequestSerial ||
+          this.currentShowtime?.dId !== dId ||
+          accountId !== useAccountsStore().currentAccount?.id
+        ) {
           return
         }
 
@@ -597,6 +625,7 @@ export const useTicketStore = defineStore('ticket', {
         )
 
         this.currentOrderId = result.orderId
+        this.currentOrderAccountId = account.id
         this.currentOrderMessage = result.bizMsg || '订单创建成功'
         useLogsStore().addLog('订单', account.phone, `订单创建成功：${result.orderId}`)
       } catch (error) {
@@ -610,8 +639,18 @@ export const useTicketStore = defineStore('ticket', {
     async cancelCurrentOrder() {
       const account = useAccountsStore().currentAccount
 
+      if (this.orderCancelling) {
+        this.currentOrderMessage = '订单取消中，请勿重复提交'
+        return
+      }
+
       if (!account?.ck || !account.userIdentifier || !this.currentOrderId) {
         this.currentOrderMessage = '暂无可取消订单'
+        return
+      }
+
+      if (this.currentOrderAccountId && this.currentOrderAccountId !== account.id) {
+        this.currentOrderMessage = '请切回创建订单的账号取消订单'
         return
       }
 
@@ -622,6 +661,7 @@ export const useTicketStore = defineStore('ticket', {
         useLogsStore().addLog('订单', account.phone, `订单已取消：${this.currentOrderId}`)
         this.currentOrderMessage = '订单已取消'
         this.currentOrderId = ''
+        this.currentOrderAccountId = ''
       } catch (error) {
         const message = error instanceof Error && error.message ? error.message : '订单取消失败'
         this.currentOrderMessage = message
