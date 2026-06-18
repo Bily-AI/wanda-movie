@@ -104,7 +104,7 @@ function normalizeSeedCityData(city: unknown[]): LocalDataMap['city'] {
       cinemas.push({
         id: cinemaId,
         cinemaId,
-        cityId: toText(cinema.CityID) || id,
+        cityId: id,
         name: cinemaName,
         cinemaName,
         address: toText(cinema.CmAdd),
@@ -126,12 +126,17 @@ function isEmptyCityData(data: LocalDataMap['city']): boolean {
 }
 
 async function readSeedCityData(): Promise<LocalDataMap['city'] | null> {
+  const resourcesPath = typeof process.resourcesPath === 'string' ? process.resourcesPath : ''
   const candidatePaths = [
+    join(app.getAppPath(), 'config', 'city.json'),
+    join(app.getAppPath(), '..', 'config', 'city.json'),
+    resourcesPath ? join(resourcesPath, 'app', 'config', 'city.json') : '',
+    resourcesPath ? join(resourcesPath, '..', 'config', 'city.json') : '',
     join(process.cwd(), '..', 'win-ia32-unpacked', 'config', 'city.json'),
     join(process.cwd(), '..', 'win-ia32-unpacked', 'resources', 'app', 'config', 'city.json'),
     join(app.getAppPath(), '..', 'win-ia32-unpacked', 'config', 'city.json'),
     join(app.getAppPath(), '..', 'win-ia32-unpacked', 'resources', 'app', 'config', 'city.json')
-  ]
+  ].filter((value, index, values) => Boolean(value) && values.indexOf(value) === index)
 
   for (const cityPath of candidatePaths) {
     try {
@@ -145,7 +150,7 @@ async function readSeedCityData(): Promise<LocalDataMap['city'] | null> {
         continue
       }
 
-      return null
+      continue
     }
   }
 

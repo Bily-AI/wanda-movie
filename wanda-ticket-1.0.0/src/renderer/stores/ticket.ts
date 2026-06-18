@@ -152,6 +152,7 @@ export const useTicketStore = defineStore('ticket', {
     rawShowtimeData: null as unknown,
     currentShowtime: null as ShowtimeItem | null,
     loadingShowtimes: false,
+    showtimeRequestSerial: 0,
     showtimeItems: [] as ShowtimeItem[],
     showtimeError: '',
     paymentActivity: '',
@@ -171,7 +172,14 @@ export const useTicketStore = defineStore('ticket', {
       return Boolean(state.query.date && state.showtimes.length > 0)
     },
     canRefreshSeats(state) {
-      return Boolean(state.query.city && state.query.cinema && state.query.movie && state.query.date && state.query.showtime)
+      return Boolean(
+        state.query.city &&
+          state.query.cinema &&
+          state.query.movie &&
+          state.query.date &&
+          state.query.showtime &&
+          state.currentShowtime
+      )
     },
     selectedSeatCount(state) {
       return state.selectedSeats.length
@@ -309,26 +317,40 @@ export const useTicketStore = defineStore('ticket', {
     async loadCinemaShowtimes() {
       this.resetQueryAfterCinemaChange()
       const account = useAccountsStore().currentAccount
+      const cinemaId = this.query.cinema
 
-      if (!account?.ck || !account.userIdentifier || !this.query.cinema) {
+      if (!account?.ck || !account.userIdentifier || !cinemaId) {
         this.showtimeError = '请先选择已登录万达账号和影院'
         return
       }
 
+      const requestSerial = ++this.showtimeRequestSerial
       this.loadingShowtimes = true
       this.showtimeError = ''
 
       try {
-        this.rawShowtimeData = await fetchCinemaShowtime(this.query.cinema, account.ck, account.userIdentifier)
+        const rawShowtimeData = await fetchCinemaShowtime(cinemaId, account.ck, account.userIdentifier)
+
+        if (requestSerial !== this.showtimeRequestSerial || cinemaId !== this.query.cinema) {
+          return
+        }
+
+        this.rawShowtimeData = rawShowtimeData
         this.movies = this.extractMovies(this.rawShowtimeData)
         this.showtimeError = this.movies.length > 0 ? '' : '当前影院暂无可选影片'
         useLogsStore().addLog('购票查询', account.phone, `影院场次加载成功：${this.movies.length} 部影片`)
       } catch (error) {
+        if (requestSerial !== this.showtimeRequestSerial) {
+          return
+        }
+
         const message = error instanceof Error && error.message ? error.message : '影院场次加载失败'
         this.showtimeError = message
         useLogsStore().addLog('购票查询', account.phone, `影院场次加载失败：${message}`)
       } finally {
-        this.loadingShowtimes = false
+        if (requestSerial === this.showtimeRequestSerial) {
+          this.loadingShowtimes = false
+        }
       }
     },
     extractMovies(raw: unknown): TicketOption[] {
@@ -415,6 +437,7 @@ export const useTicketStore = defineStore('ticket', {
     },
     setShowtime() {
       this.currentShowtime = this.showtimeItems.find((item) => item.dId === this.query.showtime) ?? null
+      this.showtimeError = this.currentShowtime ? '' : '请选择真实场次'
       this.clearSeatSelection()
     }
   }

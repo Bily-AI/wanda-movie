@@ -175,9 +175,35 @@ for (const label of [
   'selectMovie',
   'selectDate',
   'setShowtime',
+  'showtimeRequestSerial',
   'rawShowtimeData',
   'currentShowtime',
   'showtimeItems'
+]) {
+  assertIncludes('src/renderer/stores/ticket.ts', ticketStore, label)
+}
+
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /canRefreshSeats\(state\)[\s\S]*?state\.currentShowtime/,
+  '刷新座位必须依赖真实 currentShowtime'
+)
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /const requestSerial = \+\+this\.showtimeRequestSerial[\s\S]*?fetchCinemaShowtime[\s\S]*?requestSerial !== this\.showtimeRequestSerial[\s\S]*?this\.rawShowtimeData =/,
+  '影院场次请求防异步串台'
+)
+for (const label of [
+  'showtimeFilmInf',
+  'showtimeFilmDateInf',
+  'showtimesInf',
+  'showtimeList',
+  'showtimeId',
+  'realtime',
+  'filmList',
+  'versionLanguage'
 ]) {
   assertIncludes('src/renderer/stores/ticket.ts', ticketStore, label)
 }
@@ -187,7 +213,10 @@ for (const label of ['CityID', 'CityName', 'CmList', 'CmID', 'CmName', 'MyCmName
 }
 
 assertIncludes('src/main/localData.ts', mainLocalData, 'readSeedCityData')
+assertIncludes('src/main/localData.ts', mainLocalData, 'process.resourcesPath')
+assertIncludes('src/main/localData.ts', mainLocalData, 'continue')
 assertIncludes('src/renderer/App.vue', appVue, 'ticketStore.loadCityData()')
+assertNotIncludes('src/renderer/views/TicketView.vue', ticketView, 'allow-create')
 
 for (const label of [
   '@change="ticketStore.selectCity"',

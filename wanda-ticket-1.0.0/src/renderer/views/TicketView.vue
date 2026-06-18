@@ -134,7 +134,6 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
             <el-select
               v-model="ticketStore.query.city"
               filterable
-              allow-create
               default-first-option
               placeholder="选择或搜索城市"
               @change="ticketStore.selectCity"
@@ -152,7 +151,6 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
               <el-select
                 v-model="ticketStore.query.cinema"
                 filterable
-                allow-create
                 default-first-option
                 placeholder="选择或搜索影院"
                 :loading="ticketStore.loadingShowtimes"
@@ -172,7 +170,6 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
             <el-select
               v-model="ticketStore.query.movie"
               filterable
-              allow-create
               default-first-option
               placeholder="请先选择影院"
               :disabled="!ticketStore.canSelectMovie"
@@ -190,7 +187,6 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
             <el-select
               v-model="ticketStore.query.date"
               filterable
-              allow-create
               default-first-option
               placeholder="请先选择影片"
               :disabled="!ticketStore.canSelectDate"
@@ -209,7 +205,6 @@ function handleAccountSelectionChange(rows: WandaAccount[]): void {
               <el-select
                 v-model="ticketStore.query.showtime"
                 filterable
-                allow-create
                 default-first-option
                 placeholder="请先选择日期"
                 :disabled="!ticketStore.canSelectShowtime"
