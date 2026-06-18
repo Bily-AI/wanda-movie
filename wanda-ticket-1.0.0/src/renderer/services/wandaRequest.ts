@@ -32,7 +32,7 @@ export function buildWandaUrl(host: string, path: string, query: WandaQuery = {}
 
 export function toFormBody(body: WandaBody): string {
   return Object.entries(body)
-    .filter(([, value]) => value !== undefined && value !== '')
+    .filter(([, value]) => value !== undefined)
     .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
     .join('&')
 }
