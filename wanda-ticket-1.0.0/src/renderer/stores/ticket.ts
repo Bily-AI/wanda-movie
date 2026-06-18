@@ -573,8 +573,8 @@ export const useTicketStore = defineStore('ticket', {
     async createCurrentOrder() {
       const account = useAccountsStore().currentAccount
 
-      if (this.currentOrderId) {
-        this.currentOrderMessage = '已有待处理订单，请先取消当前订单'
+      if (this.currentOrderId || this.orderCreating) {
+        this.currentOrderMessage = this.currentOrderId ? '已有待处理订单，请先取消当前订单' : '订单创建中，请勿重复提交'
         return
       }
 

@@ -355,8 +355,8 @@ assertMatches(
 assertMatches(
   'src/renderer/stores/ticket.ts',
   ticketStore,
-  /if \(this\.currentOrderId\)[\s\S]*?return/,
-  '已有订单时不能重复创建'
+  /if \(this\.currentOrderId \|\| this\.orderCreating\)[\s\S]*?return[\s\S]*?createTicketOrder/,
+  '已有订单或正在创建订单时不能重复创建'
 )
 assertMatches(
   'src/renderer/stores/ticket.ts',
