@@ -373,4 +373,29 @@ assertIncludes('src/renderer/views/TicketView.vue', ticketView, '<el-popconfirm'
 assertIncludes('src/renderer/views/TicketView.vue', ticketView, '@confirm="ticketStore.createCurrentOrder"')
 assertNotIncludes('src/renderer/views/TicketView.vue', ticketView, '@click="ticketStore.createCurrentOrder"')
 
+const forbidden = [
+  /\b1\d{10}\b/,
+  /CK:\s*[A-Za-z0-9]/,
+  /ck=[A-Za-z0-9]/,
+  /token=[A-Za-z0-9]/,
+  /password\s*[:=]\s*['"][^'"]+['"]/,
+  /secret\s*[:=]\s*['"][^'"]+['"]/
+]
+
+for (const [file, content] of [
+  ['src/renderer/services/wandaRequest.ts', requestService],
+  ['src/renderer/services/wandaAuthApi.ts', authApi],
+  ['src/renderer/services/cinemaApi.ts', cinemaApi],
+  ['src/renderer/services/seatApi.ts', seatApi],
+  ['src/renderer/stores/accounts.ts', accountsStore],
+  ['src/renderer/stores/ticket.ts', ticketStore],
+  ['src/renderer/views/TicketView.vue', ticketView]
+]) {
+  for (const pattern of forbidden) {
+    if (pattern.test(content)) {
+      throw new Error(`${file} 疑似包含敏感信息：${pattern}`)
+    }
+  }
+}
+
 console.log('第三阶段请求边界契约检查通过')
