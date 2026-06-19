@@ -232,6 +232,7 @@ export const useTicketStore = defineStore('ticket', {
     selectedPaymentCards: [] as string[],
     selectedCoupons: [] as string[],
     loadingPaymentData: false,
+    paymentRequestSerial: 0,
     checkingPayment: false,
     paymentDataMessage: '',
     selectedSeats: [] as SelectedSeat[],
@@ -391,6 +392,7 @@ export const useTicketStore = defineStore('ticket', {
     },
     clearCurrentOrderPaymentContext() {
       ++this.orderRequestSerial
+      ++this.paymentRequestSerial
       this.currentOrderId = ''
       this.currentOrderAccountId = ''
       this.currentOrder = null
@@ -434,6 +436,7 @@ export const useTicketStore = defineStore('ticket', {
 
       const orderId = currentOrder.orderId
       const accountId = account.id
+      const paymentSerial = ++this.paymentRequestSerial
       this.loadingPaymentData = true
       this.paymentDataMessage = ''
 
@@ -445,7 +448,11 @@ export const useTicketStore = defineStore('ticket', {
           queryOrderStatus(orderId, account.ck, account.userIdentifier)
         ])
 
-        if (this.currentOrder?.orderId !== orderId || useAccountsStore().currentAccount?.id !== accountId) {
+        if (
+          paymentSerial !== this.paymentRequestSerial ||
+          this.currentOrder?.orderId !== orderId ||
+          useAccountsStore().currentAccount?.id !== accountId
+        ) {
           return
         }
 
@@ -457,7 +464,11 @@ export const useTicketStore = defineStore('ticket', {
         this.paymentDataMessage = `支付前置数据已刷新：可用活动 ${this.paymentActivities.length} 个，可用卡 ${this.paymentCards.length} 张，可用券 ${this.coupons.length} 张`
         useLogsStore().addLog('支付前置', account.phone, `支付前置数据刷新成功：${orderId}`)
       } catch (error) {
-        if (this.currentOrder?.orderId !== orderId || useAccountsStore().currentAccount?.id !== accountId) {
+        if (
+          paymentSerial !== this.paymentRequestSerial ||
+          this.currentOrder?.orderId !== orderId ||
+          useAccountsStore().currentAccount?.id !== accountId
+        ) {
           return
         }
 
@@ -466,7 +477,11 @@ export const useTicketStore = defineStore('ticket', {
         this.paymentDataMessage = `支付前置数据刷新失败：${message}`
         useLogsStore().addLog('支付前置', account.phone, `支付前置数据刷新失败：${message}`)
       } finally {
-        if (this.currentOrder?.orderId === orderId && useAccountsStore().currentAccount?.id === accountId) {
+        if (
+          paymentSerial === this.paymentRequestSerial &&
+          this.currentOrder?.orderId === orderId &&
+          useAccountsStore().currentAccount?.id === accountId
+        ) {
           this.loadingPaymentData = false
         }
       }
