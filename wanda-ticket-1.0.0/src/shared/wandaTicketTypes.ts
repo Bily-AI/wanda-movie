@@ -147,6 +147,8 @@ export interface PaymentActivityItem {
   raw: unknown
 }
 
+export type PaymentActivity = PaymentActivityItem
+
 export interface PaymentActivityResult {
   availableActivities: PaymentActivityItem[]
   unavailableActivities: PaymentActivityItem[]
@@ -199,8 +201,10 @@ export interface OrderRecord {
   raw: unknown
 }
 
+export type OrderListItem = OrderRecord
+
 export interface OrderListResult {
-  records: OrderRecord[]
+  records: OrderListItem[]
   total: number
   raw: unknown
 }
