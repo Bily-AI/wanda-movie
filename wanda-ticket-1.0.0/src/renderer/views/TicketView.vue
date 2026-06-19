@@ -293,9 +293,15 @@ watch(
             全局订单信息
           </span>
         </header>
-        <div v-if="ticketStore.currentOrderId" class="order-summary">
-          <p>订单号：{{ ticketStore.currentOrderId }}</p>
-          <p>{{ ticketStore.currentOrderMessage }}</p>
+        <div v-if="ticketStore.currentOrder" class="order-summary">
+          <p>订单号：{{ ticketStore.currentOrder.orderId }}</p>
+          <p>{{ ticketStore.currentOrder.movieName }} / {{ ticketStore.currentOrder.cinemaName }}</p>
+          <p>{{ ticketStore.currentOrder.showtimeLabel }}</p>
+          <p>金额：￥{{ (ticketStore.currentOrder.amountCent / 100).toFixed(2) }}</p>
+          <p v-if="ticketStore.orderStatus?.showOrderStatusStr">
+            状态：{{ ticketStore.orderStatus.showOrderStatusStr }}
+          </p>
+          <p v-if="ticketStore.paymentDataMessage">{{ ticketStore.paymentDataMessage }}</p>
           <el-button
             size="small"
             type="warning"
@@ -310,27 +316,65 @@ watch(
       </section>
 
       <section class="panel side-panel">
-        <header class="panel-header">支付活动</header>
+        <header class="panel-header">
+          <span>支付活动</span>
+          <span>可用 {{ ticketStore.paymentActivities.length }} 个</span>
+        </header>
         <div class="side-line">
           <span>活动价</span>
-          <el-select v-model="ticketStore.paymentActivity" size="small" placeholder="无活动" />
+          <el-select
+            v-model="ticketStore.paymentActivity"
+            size="small"
+            placeholder="无活动"
+            :loading="ticketStore.loadingPaymentData"
+          >
+            <el-option label="无活动" value="" />
+            <el-option
+              v-for="activity in ticketStore.paymentActivities"
+              :key="activity.code || activity.name"
+              :label="activity.name || activity.note"
+              :value="activity.code || activity.name"
+            />
+          </el-select>
         </div>
       </section>
 
       <section class="panel side-panel">
         <header class="panel-header">
           <span>支付卡</span>
-          <span>已选 {{ ticketStore.selectedPaymentCards.length }} / 0 张</span>
+          <span>已选 {{ ticketStore.selectedPaymentCards.length }} / {{ ticketStore.paymentCards.length }} 张</span>
         </header>
-        <div class="side-empty">暂无可用支付卡</div>
+        <div v-if="ticketStore.paymentCards.length" class="mini-list">
+          <label v-for="card in ticketStore.paymentCards" :key="card.cardNo" class="mini-list-item">
+            <el-checkbox v-model="ticketStore.selectedPaymentCards" :label="card.cardNo" />
+            <span>{{ card.cardName || card.cardTypeName || card.cardNo }}</span>
+            <em>￥{{ card.balance.toFixed(2) }}</em>
+          </label>
+        </div>
+        <div v-else class="side-empty">
+          {{ ticketStore.loadingPaymentData ? '支付卡加载中' : '暂无可用支付卡' }}
+        </div>
       </section>
 
       <section class="panel side-panel">
         <header class="panel-header">
           <span>兑换券</span>
-          <span>已选 {{ ticketStore.selectedCoupons.length }} 张 | 可兑 0 / 需 0 张</span>
+          <span>已选 {{ ticketStore.selectedCoupons.length }} 张 | 可兑 {{ ticketStore.coupons.length }} 张</span>
         </header>
-        <div class="side-empty">暂无可用兑换券</div>
+        <div v-if="ticketStore.coupons.length" class="mini-list">
+          <label
+            v-for="coupon in ticketStore.coupons"
+            :key="coupon.code || coupon.couponNo"
+            class="mini-list-item"
+          >
+            <el-checkbox v-model="ticketStore.selectedCoupons" :label="coupon.code || coupon.couponNo" />
+            <span>{{ coupon.name }}</span>
+            <em>{{ coupon.validity }}</em>
+          </label>
+        </div>
+        <div v-else class="side-empty">
+          {{ ticketStore.loadingPaymentData ? '兑换券加载中' : '暂无可用兑换券' }}
+        </div>
       </section>
 
       <section class="panel side-panel">
@@ -350,7 +394,6 @@ watch(
       <el-button type="warning" :disabled="ticketStore.selectedSeatCount === 0" @click="ticketStore.clearSeatSelection">
         取消选择
       </el-button>
-      <el-button type="success" :disabled="ticketStore.selectedSeatCount === 0">确认选座</el-button>
       <el-popconfirm
         title="确认创建电影票订单？本阶段不会发起支付。"
         confirm-button-text="确认"
@@ -359,14 +402,22 @@ watch(
       >
         <template #reference>
           <el-button
-            type="primary"
+            type="success"
             :loading="ticketStore.orderCreating"
-            :disabled="ticketStore.selectedSeatCount === 0 || ticketStore.orderCreating"
+            :disabled="ticketStore.selectedSeatCount === 0 || ticketStore.orderCreating || Boolean(ticketStore.currentOrder)"
           >
-            提交支付
+            确认选座
           </el-button>
         </template>
       </el-popconfirm>
+      <el-button
+        type="primary"
+        :loading="ticketStore.checkingPayment"
+        :disabled="!ticketStore.currentOrder || ticketStore.checkingPayment"
+        @click="ticketStore.checkCurrentOrderBeforePayment"
+      >
+        提交支付
+      </el-button>
     </footer>
   </section>
 </template>
@@ -620,6 +671,33 @@ watch(
 
 .order-summary p {
   margin: 0 0 8px;
+}
+
+.mini-list {
+  max-height: 126px;
+  overflow: auto;
+  padding: 8px 12px 12px;
+}
+
+.mini-list-item {
+  min-height: 30px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  color: var(--app-text);
+  font-size: 12px;
+}
+
+.mini-list-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mini-list-item em {
+  color: var(--app-muted);
+  font-style: normal;
 }
 
 .side-line {
