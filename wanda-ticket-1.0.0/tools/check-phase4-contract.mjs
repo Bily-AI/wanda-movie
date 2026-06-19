@@ -73,7 +73,12 @@ const packageJson = read('package.json')
 const packageConfig = JSON.parse(packageJson)
 const core = read('src/shared/wandaCore.ts')
 const types = read('src/shared/wandaTicketTypes.ts')
+const mainWandaHttp = read('src/main/wandaHttp.ts')
+const preload = read('src/preload/index.ts')
+const wandaRequest = read('src/renderer/services/wandaRequest.ts')
+const cinemaApi = read('src/renderer/services/cinemaApi.ts')
 const seatApi = read('src/renderer/services/seatApi.ts')
+const wandaAuthApi = read('src/renderer/services/wandaAuthApi.ts')
 const ticketStore = read('src/renderer/stores/ticket.ts')
 const ticketView = read('src/renderer/views/TicketView.vue')
 const ordersStore = read('src/renderer/stores/orders.ts')
@@ -102,6 +107,43 @@ for (const label of [
 
 for (const label of ['ORDER_QUERY_BY_USER_ID', '/order/query_by_userid.api']) {
   assertIncludes('src/shared/wandaCore.ts', wandaApiPaths, label)
+}
+
+for (const label of [
+  'ORDER_PREPAY',
+  '/order/prepay.api',
+  'ORDER_MERGE_PAYMENT',
+  '/order/merge_payment.api'
+]) {
+  assertIncludes('src/shared/wandaCore.ts', wandaApiPaths, label)
+}
+
+const validateWandaRequestBlock = sliceRequired(
+  'src/shared/wandaCore.ts',
+  core,
+  'export function validateWandaRequest',
+  'return null',
+  'validateWandaRequest'
+)
+
+for (const label of [
+  'blockedWandaPaymentPathValues',
+  'blockedWandaPaymentKeywords',
+  'isBlockedWandaPaymentUrl',
+  'includesBlockedWandaPaymentKeyword',
+  'WANDA_API_PATHS.ORDER_PREPAY',
+  'WANDA_API_PATHS.ORDER_MERGE_PAYMENT',
+  'alipay'
+]) {
+  assertIncludes('src/shared/wandaCore.ts', core, label)
+}
+
+for (const label of [
+  'isBlockedWandaPaymentUrl(parsedUrl)',
+  'includesBlockedWandaPaymentKeyword(request.params)',
+  'includesBlockedWandaPaymentKeyword(request.body)'
+]) {
+  assertIncludes('src/shared/wandaCore.ts', validateWandaRequestBlock, label)
 }
 
 for (const label of [
@@ -220,15 +262,27 @@ for (const label of [
 assertNotIncludes('src/renderer/views/OrderHistoryView.vue', ordersView, ':data="[]"')
 
 for (const [file, content] of [
+  ['src/main/wandaHttp.ts', mainWandaHttp],
+  ['src/preload/index.ts', preload],
+  ['src/renderer/services/wandaRequest.ts', wandaRequest],
+  ['src/renderer/services/cinemaApi.ts', cinemaApi],
+  ['src/renderer/services/seatApi.ts', seatApi],
+  ['src/renderer/services/wandaAuthApi.ts', wandaAuthApi],
   ['src/renderer/stores/ticket.ts', ticketStore],
+  ['src/renderer/stores/orders.ts', ordersStore],
   ['src/renderer/views/TicketView.vue', ticketView]
 ]) {
   assertNotIncludes(file, content, 'ORDER_PREPAY')
   assertNotIncludes(file, content, 'ORDER_MERGE_PAYMENT')
+  assertNotIncludes(file, content, '/order/prepay.api')
   assertNotIncludes(file, content, '/order/merge_payment.api')
   assertNotIncludes(file, content, 'prepay')
   assertNotIncludes(file, content, 'merge_payment')
   assertNotIncludes(file, content, 'mergePayment')
+  assertNotIncludes(file, content, 'alipay')
+  assertNotIncludes(file, content, 'Alipay')
+  assertNotIncludes(file, content, 'ALIPAY')
+  assertNotIncludes(file, content, '支付宝')
 }
 
 console.log('第四阶段支付前置与订单查询契约检查通过')

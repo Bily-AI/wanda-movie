@@ -40,9 +40,42 @@ export const WANDA_API_PATHS = {
 const wandaHostValues: ReadonlySet<string> = new Set(Object.values(WANDA_HOSTS))
 const exactPathValues: readonly string[] = Object.values(WANDA_API_PATHS).filter((value) => !value.endsWith('/'))
 const prefixPathValues: readonly string[] = Object.values(WANDA_API_PATHS).filter((value) => value.endsWith('/'))
+const blockedWandaPaymentPathValues: readonly string[] = [
+  WANDA_API_PATHS.ORDER_PREPAY,
+  WANDA_API_PATHS.ORDER_MERGE_PAYMENT
+]
+const blockedWandaPaymentKeywords: readonly string[] = ['alipay']
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isBlockedWandaPaymentUrl(parsedUrl: URL): boolean {
+  const pathname = parsedUrl.pathname.toLowerCase()
+  const pathWithSearch = `${parsedUrl.pathname}${parsedUrl.search}`.toLowerCase()
+
+  return (
+    blockedWandaPaymentPathValues.some((path) => pathname === path.toLowerCase()) ||
+    blockedWandaPaymentKeywords.some((keyword) => pathWithSearch.includes(keyword))
+  )
+}
+
+function includesBlockedWandaPaymentKeyword(value: unknown): boolean {
+  if (typeof value === 'string') {
+    const normalizedValue = value.toLowerCase()
+
+    return blockedWandaPaymentKeywords.some((keyword) => normalizedValue.includes(keyword))
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((item) => includesBlockedWandaPaymentKeyword(item))
+  }
+
+  if (isRecord(value)) {
+    return Object.values(value).some((item) => includesBlockedWandaPaymentKeyword(item))
+  }
+
+  return false
 }
 
 export function parseWandaUrl(url: string): URL | null {
@@ -76,6 +109,10 @@ export function validateWandaRequest(request: WandaHttpRequest): string | null {
     return '万达请求 host 不在旧版接口白名单内'
   }
 
+  if (isBlockedWandaPaymentUrl(parsedUrl)) {
+    return '第四阶段禁止发起真实支付请求'
+  }
+
   if (!isKnownWandaPath(parsedUrl.pathname)) {
     return '万达请求 path 不在旧版接口白名单内'
   }
@@ -88,8 +125,16 @@ export function validateWandaRequest(request: WandaHttpRequest): string | null {
     return '万达请求 params 必须是对象'
   }
 
+  if (request.params !== undefined && includesBlockedWandaPaymentKeyword(request.params)) {
+    return '第四阶段禁止发起支付宝相关请求'
+  }
+
   if (request.body !== undefined && !isRecord(request.body) && typeof request.body !== 'string') {
     return '万达请求 body 必须是对象或字符串'
+  }
+
+  if (request.body !== undefined && includesBlockedWandaPaymentKeyword(request.body)) {
+    return '第四阶段禁止发起支付宝相关请求'
   }
 
   return null
