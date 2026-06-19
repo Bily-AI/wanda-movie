@@ -233,6 +233,7 @@ export const useTicketStore = defineStore('ticket', {
     selectedCoupons: [] as string[],
     loadingPaymentData: false,
     paymentRequestSerial: 0,
+    paymentCheckSerial: 0,
     checkingPayment: false,
     paymentDataMessage: '',
     selectedSeats: [] as SelectedSeat[],
@@ -393,6 +394,7 @@ export const useTicketStore = defineStore('ticket', {
     clearCurrentOrderPaymentContext() {
       ++this.orderRequestSerial
       ++this.paymentRequestSerial
+      ++this.paymentCheckSerial
       this.currentOrderId = ''
       this.currentOrderAccountId = ''
       this.currentOrder = null
@@ -507,13 +509,18 @@ export const useTicketStore = defineStore('ticket', {
 
       const orderId = currentOrder.orderId
       const accountId = account.id
+      const checkSerial = ++this.paymentCheckSerial
       this.checkingPayment = true
       this.paymentDataMessage = ''
 
       try {
         const status = await queryOrderStatus(orderId, account.ck, account.userIdentifier)
 
-        if (this.currentOrder?.orderId !== orderId || useAccountsStore().currentAccount?.id !== accountId) {
+        if (
+          checkSerial !== this.paymentCheckSerial ||
+          this.currentOrder?.orderId !== orderId ||
+          useAccountsStore().currentAccount?.id !== accountId
+        ) {
           return
         }
 
@@ -523,7 +530,11 @@ export const useTicketStore = defineStore('ticket', {
           : '支付前置检查完成，未发起支付'
         useLogsStore().addLog('支付前置', account.phone, `支付前置检查完成，未发起支付：${orderId}`)
       } catch (error) {
-        if (this.currentOrder?.orderId !== orderId || useAccountsStore().currentAccount?.id !== accountId) {
+        if (
+          checkSerial !== this.paymentCheckSerial ||
+          this.currentOrder?.orderId !== orderId ||
+          useAccountsStore().currentAccount?.id !== accountId
+        ) {
           return
         }
 
@@ -531,7 +542,11 @@ export const useTicketStore = defineStore('ticket', {
         this.paymentDataMessage = `支付前置检查失败：${message}`
         useLogsStore().addLog('支付前置', account.phone, `支付前置检查失败：${message}`)
       } finally {
-        if (this.currentOrder?.orderId === orderId && useAccountsStore().currentAccount?.id === accountId) {
+        if (
+          checkSerial === this.paymentCheckSerial &&
+          this.currentOrder?.orderId === orderId &&
+          useAccountsStore().currentAccount?.id === accountId
+        ) {
           this.checkingPayment = false
         }
       }
