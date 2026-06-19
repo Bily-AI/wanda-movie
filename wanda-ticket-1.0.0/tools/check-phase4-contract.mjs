@@ -26,6 +26,8 @@ function assertMatches(file, content, pattern, label) {
 }
 
 const packageJson = read('package.json')
+const packageConfig = JSON.parse(packageJson)
+const core = read('src/shared/wandaCore.ts')
 const types = read('src/shared/wandaTicketTypes.ts')
 const seatApi = read('src/renderer/services/seatApi.ts')
 const ticketStore = read('src/renderer/stores/ticket.ts')
@@ -33,7 +35,9 @@ const ticketView = read('src/renderer/views/TicketView.vue')
 const ordersStore = read('src/renderer/stores/orders.ts')
 const ordersView = read('src/renderer/views/OrderHistoryView.vue')
 
-assertIncludes('package.json', packageJson, '"check:phase4"')
+if (packageConfig.scripts?.['check:phase4'] !== 'node tools/check-phase4-contract.mjs') {
+  throw new Error('package.json 缺少正确的 check:phase4 脚本')
+}
 
 for (const label of [
   'TicketOrderContext',
@@ -48,6 +52,10 @@ for (const label of [
   'OrderPayInfoResult'
 ]) {
   assertIncludes('src/shared/wandaTicketTypes.ts', types, label)
+}
+
+for (const label of ['ORDER_QUERY_BY_USER_ID', '/order/query_by_userid.api']) {
+  assertIncludes('src/shared/wandaCore.ts', core, label)
 }
 
 for (const label of [
@@ -167,7 +175,9 @@ for (const [file, content] of [
 ]) {
   assertNotIncludes(file, content, 'ORDER_PREPAY')
   assertNotIncludes(file, content, 'ORDER_MERGE_PAYMENT')
+  assertNotIncludes(file, content, '/order/merge_payment.api')
   assertNotIncludes(file, content, 'prepay')
+  assertNotIncludes(file, content, 'merge_payment')
   assertNotIncludes(file, content, 'mergePayment')
 }
 
