@@ -48,7 +48,8 @@ function hasCompleteDateRange(dateRange: OrderDateRange): dateRange is [Date, Da
 }
 
 function csvCell(value: string | number): string {
-  const text = String(value)
+  const rawText = String(value)
+  const text = /^[=+\-@]/.test(rawText.trimStart()) ? `'${rawText}` : rawText
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
 }
 
@@ -65,15 +66,16 @@ export const useOrdersStore = defineStore('orders', {
     pageSize: 20,
     loading: false,
     detailLoading: false,
+    ordersRequestSerial: 0,
     detailRequestSerial: 0,
     message: '',
     currentPayInfo: null as OrderPayInfoResult | null
   }),
   getters: {
     filteredOrders(state): OrderRecord[] {
-      const keyword = state.filters.keyword.trim().toLowerCase()
-      const status = state.filters.status.trim()
-      const dateRange = state.filters.dateRange
+      const keyword = String(state.filters.keyword ?? '').trim().toLowerCase()
+      const status = String(state.filters.status ?? '').trim()
+      const dateRange: OrderDateRange = Array.isArray(state.filters.dateRange) ? state.filters.dateRange : []
       const hasDateRange = hasCompleteDateRange(dateRange)
       const startTime = hasDateRange ? new Date(dateRange[0]).setHours(0, 0, 0, 0) : 0
       const endTime = hasDateRange ? new Date(dateRange[1]).setHours(23, 59, 59, 999) : 0
@@ -150,14 +152,15 @@ export const useOrdersStore = defineStore('orders', {
     },
     async loadOrders() {
       const account = useAccountsStore().currentAccount
+      const requestSerial = ++this.ordersRequestSerial
+      this.currentPayInfo = null
+      ++this.detailRequestSerial
+      this.detailLoading = false
 
       if (!account?.phone || !account.ck || !account.userIdentifier) {
         this.orders = []
         this.total = 0
-        this.currentPayInfo = null
-        ++this.detailRequestSerial
         this.loading = false
-        this.detailLoading = false
         this.message = '请选择已登录的万达账号'
         useLogsStore().addLog('历史订单', account?.phone ?? '', '历史订单查询失败：请选择已登录的万达账号')
         return
@@ -173,6 +176,7 @@ export const useOrdersStore = defineStore('orders', {
         const result = await queryOrderList(pageIndex, pageSize, account.phone, account.ck, account.userIdentifier)
 
         if (
+          requestSerial !== this.ordersRequestSerial ||
           useAccountsStore().currentAccount?.id !== accountId ||
           this.pageIndex !== pageIndex ||
           this.pageSize !== pageSize
@@ -186,6 +190,7 @@ export const useOrdersStore = defineStore('orders', {
         useLogsStore().addLog('历史订单', account.phone, `历史订单查询成功：${result.records.length}/${result.total}`)
       } catch (error) {
         if (
+          requestSerial !== this.ordersRequestSerial ||
           useAccountsStore().currentAccount?.id !== accountId ||
           this.pageIndex !== pageIndex ||
           this.pageSize !== pageSize
@@ -201,6 +206,7 @@ export const useOrdersStore = defineStore('orders', {
         useLogsStore().addLog('历史订单', account.phone, `历史订单查询失败：${message}`)
       } finally {
         if (
+          requestSerial === this.ordersRequestSerial &&
           useAccountsStore().currentAccount?.id === accountId &&
           this.pageIndex === pageIndex &&
           this.pageSize === pageSize
@@ -211,9 +217,9 @@ export const useOrdersStore = defineStore('orders', {
     },
     async queryOrderPayInfo(order: OrderRecord) {
       const account = useAccountsStore().currentAccount
+      this.currentPayInfo = null
 
       if (!account?.ck || !account.userIdentifier) {
-        this.currentPayInfo = null
         ++this.detailRequestSerial
         this.detailLoading = false
         this.message = '请选择已登录的万达账号'
@@ -222,7 +228,6 @@ export const useOrdersStore = defineStore('orders', {
       }
 
       if (!order.orderId) {
-        this.currentPayInfo = null
         ++this.detailRequestSerial
         this.detailLoading = false
         this.message = '订单 ID 为空，无法查询详情'

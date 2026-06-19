@@ -61,7 +61,7 @@ watch(
     <header class="page-toolbar">
       <strong class="page-title">历史订单</strong>
       <el-input v-model="ordersStore.filters.keyword" placeholder="搜索手机号/订单号/影片..." :prefix-icon="Search" />
-      <el-select v-model="ordersStore.filters.status" placeholder="订单状态" clearable>
+      <el-select v-model="ordersStore.filters.status" placeholder="订单状态" clearable value-on-clear="">
         <el-option label="待处理" value="pending" />
         <el-option label="已完成" value="completed" />
         <el-option label="已取消" value="cancelled" />
@@ -98,6 +98,7 @@ watch(
     </section>
 
     <section class="table-panel">
+      <div class="table-filter-note">当前筛选仅作用于已加载页</div>
       <el-table
         v-loading="ordersStore.loading || ordersStore.detailLoading"
         :data="ordersStore.filteredOrders"
@@ -203,10 +204,21 @@ watch(
 
 .table-panel {
   min-height: 0;
+  display: grid;
+  grid-template-rows: 32px minmax(0, 1fr);
   overflow: hidden;
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
+}
+
+.table-filter-note {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--app-border);
+  color: var(--app-muted);
+  font-size: 12px;
 }
 
 .table-pagination {
