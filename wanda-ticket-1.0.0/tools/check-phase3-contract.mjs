@@ -355,13 +355,19 @@ assertIncludes('src/renderer/stores/ticket.ts', ticketStore, 'cancelTicketOrder'
 assertMatches(
   'src/renderer/stores/ticket.ts',
   ticketStore,
-  /createTicketOrder\([\s\S]*?this\.currentShowtime\.dId[\s\S]*?this\.selectedSeatNodes\.map\(\(seat\) => seat\.seatId\)[\s\S]*?Math\.round\(this\.selectedSeatTotalPrice \* 100\)/,
+  /showtimeId:\s*this\.currentShowtime\.dId[\s\S]*?amountCent:\s*Math\.round\(this\.selectedSeatTotalPrice \* 100\)[\s\S]*?seatIds:\s*this\.selectedSeatNodes\.map\(\(seat\) => seat\.seatId\)/,
   '创建订单必须使用当前真实场次、已选座位和分单位总价'
 )
 assertMatches(
   'src/renderer/stores/ticket.ts',
   ticketStore,
-  /if \(!account\?\.ck \|\| !account\.userIdentifier \|\| !account\.phone \|\| !this\.currentShowtime \|\| this\.selectedSeatNodes\.length === 0\)/,
+  /createTicketOrder\([\s\S]*?snapshot\.showtimeId[\s\S]*?snapshot\.seatIds[\s\S]*?snapshot\.amountCent/,
+  '创建订单必须提交真实订单快照'
+)
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /if \([\s\S]*?!account\?\.ck[\s\S]*?!account\.userIdentifier[\s\S]*?!account\.phone[\s\S]*?!this\.currentShowtime(?:\?\.dId)?[\s\S]*?this\.selectedSeatNodes\.length === 0[\s\S]*?\) \{/,
   '创建订单必须校验账号、场次和座位'
 )
 assertMatches(
@@ -373,7 +379,7 @@ assertMatches(
 assertMatches(
   'src/renderer/stores/ticket.ts',
   ticketStore,
-  /cancelTicketOrder\(this\.currentOrderId, account\.ck, account\.userIdentifier\)/,
+  /cancelTicketOrder\((?:this\.currentOrderId|orderId), (?:account\.ck|ck), (?:account\.userIdentifier|userIdentifier)\)/,
   '取消订单必须调用真实取消接口'
 )
 assertMatches(
@@ -383,7 +389,7 @@ assertMatches(
   '取消订单必须防重复提交'
 )
 
-for (const label of ['ticketStore.createCurrentOrder', 'ticketStore.cancelCurrentOrder', 'currentOrderId']) {
+for (const label of ['ticketStore.createCurrentOrder', 'ticketStore.cancelCurrentOrder', 'ticketStore.currentOrder']) {
   assertIncludes('src/renderer/views/TicketView.vue', ticketView, label)
 }
 
