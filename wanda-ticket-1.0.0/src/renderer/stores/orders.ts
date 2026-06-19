@@ -169,6 +169,8 @@ export const useOrdersStore = defineStore('orders', {
       const accountId = account.id
       const pageIndex = this.pageIndex
       const pageSize = this.pageSize
+      this.orders = []
+      this.total = 0
       this.loading = true
       this.message = ''
 

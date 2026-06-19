@@ -24,6 +24,10 @@ function handleQueryPayInfo(order: OrderRecord) {
 }
 
 function handleExport() {
+  if (ordersStore.loading) {
+    return
+  }
+
   if (ordersStore.filteredOrders.length === 0) {
     ElMessage.warning('暂无可导出的订单')
     return
@@ -75,7 +79,7 @@ watch(
       <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
       <el-button :icon="Refresh" :loading="ordersStore.loading" @click="ordersStore.loadOrders">刷新</el-button>
       <span class="toolbar-spacer" />
-      <el-button type="success" :icon="Download" @click="handleExport">导出</el-button>
+      <el-button type="success" :icon="Download" :disabled="ordersStore.loading" @click="handleExport">导出</el-button>
     </header>
 
     <section class="summary-grid">
@@ -119,7 +123,12 @@ watch(
         <el-table-column prop="createdAt" label="创建时间" min-width="160" />
         <el-table-column label="操作" width="120">
           <template #default="{ row }">
-            <el-button type="primary" link :disabled="ordersStore.detailLoading" @click="handleQueryPayInfo(row)">
+            <el-button
+              type="primary"
+              link
+              :disabled="ordersStore.loading || ordersStore.detailLoading"
+              @click="handleQueryPayInfo(row)"
+            >
               支付信息
             </el-button>
           </template>
