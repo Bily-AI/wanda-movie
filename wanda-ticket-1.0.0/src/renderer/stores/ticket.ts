@@ -443,12 +443,12 @@ export const useTicketStore = defineStore('ticket', {
       this.paymentDataMessage = ''
 
       try {
-        const [activityResult, cards, coupons, status] = await Promise.all([
+        const [statusResult, activityResult, cardsResult, couponsResult] = await Promise.allSettled([
+          queryOrderStatus(orderId, account.ck, account.userIdentifier),
           fetchPaymentActivity(currentOrder.seats, orderId, currentOrder.showtimeId, account.ck, account.userIdentifier),
           fetchPayCards(orderId, account.ck, account.userIdentifier),
-          fetchCoupons(currentOrder.seats, currentOrder.cinemaId, currentOrder.showtimeId, account.ck, account.userIdentifier),
-          queryOrderStatus(orderId, account.ck, account.userIdentifier)
-        ])
+          fetchCoupons(currentOrder.seats, currentOrder.cinemaId, currentOrder.showtimeId, account.ck, account.userIdentifier)
+        ] as const)
 
         if (
           paymentSerial !== this.paymentRequestSerial ||
@@ -458,11 +458,49 @@ export const useTicketStore = defineStore('ticket', {
           return
         }
 
-        this.paymentActivities = activityResult.availableActivities
-        this.unavailablePaymentActivities = activityResult.unavailableActivities
+        if (statusResult.status === 'rejected') {
+          throw statusResult.reason
+        }
+
+        const activityData =
+          activityResult.status === 'fulfilled'
+            ? activityResult.value
+            : { availableActivities: [], unavailableActivities: [] }
+        const cards = cardsResult.status === 'fulfilled' ? cardsResult.value : []
+        const coupons = couponsResult.status === 'fulfilled' ? couponsResult.value : []
+
+        if (activityResult.status === 'rejected') {
+          const message =
+            activityResult.reason instanceof Error && activityResult.reason.message
+              ? activityResult.reason.message
+              : '获取支付活动失败'
+          useLogsStore().addLog('支付前置', account.phone, `支付活动获取失败：${message}`)
+          this.paymentActivity = ''
+        }
+
+        if (cardsResult.status === 'rejected') {
+          const message =
+            cardsResult.reason instanceof Error && cardsResult.reason.message
+              ? cardsResult.reason.message
+              : '获取支付卡失败'
+          useLogsStore().addLog('支付前置', account.phone, `支付卡获取失败：${message}`)
+          this.selectedPaymentCards = []
+        }
+
+        if (couponsResult.status === 'rejected') {
+          const message =
+            couponsResult.reason instanceof Error && couponsResult.reason.message
+              ? couponsResult.reason.message
+              : '获取优惠券失败'
+          useLogsStore().addLog('支付前置', account.phone, `优惠券获取失败：${message}`)
+          this.selectedCoupons = []
+        }
+
+        this.paymentActivities = activityData.availableActivities
+        this.unavailablePaymentActivities = activityData.unavailableActivities
         this.paymentCards = cards
         this.coupons = coupons
-        this.orderStatus = status
+        this.orderStatus = statusResult.value
         this.paymentDataMessage = `支付前置数据已刷新：可用活动 ${this.paymentActivities.length} 个，可用卡 ${this.paymentCards.length} 张，可用券 ${this.coupons.length} 张`
         useLogsStore().addLog('支付前置', account.phone, `支付前置数据刷新成功：${orderId}`)
       } catch (error) {
@@ -917,6 +955,19 @@ export const useTicketStore = defineStore('ticket', {
 
         if (requestSerial !== this.orderRequestSerial || useAccountsStore().currentAccount?.id !== snapshot.accountId) {
           useLogsStore().addLog('订单', snapshot.phone, `旧订单创建返回已忽略：${result.orderId}`)
+          if (result.orderId) {
+            void cancelTicketOrder(result.orderId, snapshot.ck, snapshot.userIdentifier)
+              .then(() => {
+                useLogsStore().addLog('订单', snapshot.phone, `旧订单创建返回已补取消：${result.orderId}`)
+              })
+              .catch((cancelError) => {
+                const message =
+                  cancelError instanceof Error && cancelError.message
+                    ? cancelError.message
+                    : '订单取消失败'
+                useLogsStore().addLog('订单', snapshot.phone, `旧订单创建返回补取消失败：${result.orderId}，${message}`)
+              })
+          }
           return
         }
 
