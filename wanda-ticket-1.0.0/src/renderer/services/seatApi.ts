@@ -82,14 +82,43 @@ function maybeNumber(value: unknown): number | undefined {
   return Number.isFinite(numberValue) ? numberValue : undefined
 }
 
+function hasOwn(record: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(record, key)
+}
+
+function maybeBizCode(value: unknown): number | undefined {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const numberValue = Number(value)
+    return Number.isFinite(numberValue) ? numberValue : undefined
+  }
+
+  return undefined
+}
+
 function assertSuccessfulBusinessPayload(
   payload: Record<string, unknown>,
   fallbackMessage: string,
   responseMessage?: unknown
 ): void {
-  const bizCode = maybeNumber(payload.bizCode)
+  const bizCode = maybeBizCode(payload.bizCode)
 
-  if (bizCode !== undefined && bizCode !== 0) {
+  if (hasOwn(payload, 'bizCode') && bizCode !== 0) {
+    throw new Error(firstText(payload.bizMsg, payload.msg, responseMessage, fallbackMessage))
+  }
+}
+
+function assertSuccessfulActivityPayload(
+  payload: Record<string, unknown>,
+  fallbackMessage: string,
+  responseMessage?: unknown
+): void {
+  const bizCode = maybeBizCode(payload.bizCode)
+
+  if (!hasOwn(payload, 'bizCode') || bizCode !== 0) {
     throw new Error(firstText(payload.bizMsg, payload.msg, responseMessage, fallbackMessage))
   }
 }
@@ -140,13 +169,17 @@ function buildQueryPath(path: string, query: Record<string, string | number | bo
   return queryString ? `${path}?${queryString}` : path
 }
 
-function decryptActivityPayload(value: unknown): Record<string, unknown> {
+function decryptActivityPayload(
+  value: unknown,
+  fallbackMessage: string,
+  responseMessage?: unknown
+): Record<string, unknown> {
   if (isRecord(value)) {
     return value
   }
 
   if (typeof value !== 'string' || !value.trim()) {
-    return {}
+    throw new Error(firstText(responseMessage, fallbackMessage))
   }
 
   try {
@@ -157,11 +190,16 @@ function decryptActivityPayload(value: unknown): Record<string, unknown> {
       mode: CryptoJS.mode.ECB,
       padding: CryptoJS.pad.Pkcs7
     }).toString(CryptoJS.enc.Utf8)
+    const payload = JSON.parse(decrypted)
 
-    return asRecord(JSON.parse(decrypted))
+    if (isRecord(payload)) {
+      return payload
+    }
   } catch {
-    return {}
+    throw new Error(firstText(responseMessage, fallbackMessage))
   }
+
+  throw new Error(firstText(responseMessage, fallbackMessage))
 }
 
 function normalizePaymentActivity(item: unknown, group: Record<string, unknown>): PaymentActivityItem {
@@ -487,15 +525,16 @@ export async function fetchPaymentActivity(
     orderId,
     did: dId
   })
+  const fallbackMessage = '获取支付活动失败'
   const response = await wandaGet<unknown>(WANDA_HOSTS.MKT_ACTIVITY, path, {}, ck, userIdentifier)
 
   if (response.code !== 0 || !response.data) {
-    throw new Error(response.msg || '获取支付活动失败')
+    throw new Error(response.msg || fallbackMessage)
   }
 
-  const decrypted = decryptActivityPayload(response.data)
+  const decrypted = decryptActivityPayload(response.data, fallbackMessage, response.msg)
 
-  assertSuccessfulBusinessPayload(decrypted, '获取支付活动失败', response.msg)
+  assertSuccessfulActivityPayload(decrypted, fallbackMessage, response.msg)
 
   const availableActivities: PaymentActivityItem[] = []
   const unavailableActivities: PaymentActivityItem[] = []
@@ -530,16 +569,20 @@ export async function fetchPayCards(orderId: string, ck: string, userIdentifier:
     userIdentifier
   )
   const data = asRecord(response.data)
-  const bizCode = maybeNumber(data.bizCode)
+  const res = asRecord(data.res)
+  const fallbackMessage = '获取支付卡失败'
 
-  if (response.code !== 0 || (bizCode !== undefined && bizCode !== 0)) {
-    return []
+  if (response.code !== 0) {
+    throw new Error(firstText(response.msg, data.bizMsg, data.msg, res.bizMsg, res.msg, fallbackMessage))
   }
+
+  assertSuccessfulBusinessPayload(data, fallbackMessage, response.msg)
+  assertSuccessfulBusinessPayload(res, fallbackMessage, firstText(data.bizMsg, data.msg, response.msg))
 
   return [
     ...asList(response.data),
     ...asList(data.cards),
-    ...asList(asRecord(data.res).cards),
+    ...asList(res.cards),
     ...asList(data.cardList),
     ...asList(data.list)
   ]
@@ -572,15 +615,16 @@ export async function fetchCoupons(
     longitude: '',
     coordinateType: 2
   })
+  const fallbackMessage = '获取优惠券失败'
   const response = await wandaGet<unknown>(WANDA_HOSTS.MKT_ACTIVITY, path, {}, ck, userIdentifier)
 
   if (response.code !== 0 || !response.data) {
-    throw new Error(response.msg || '获取优惠券失败')
+    throw new Error(response.msg || fallbackMessage)
   }
 
-  const decrypted = decryptActivityPayload(response.data)
+  const decrypted = decryptActivityPayload(response.data, fallbackMessage, response.msg)
 
-  assertSuccessfulBusinessPayload(decrypted, '获取优惠券失败', response.msg)
+  assertSuccessfulActivityPayload(decrypted, fallbackMessage, response.msg)
 
   return collectCoupons(decrypted).map(normalizeCoupon).filter((coupon) => coupon.able)
 }
