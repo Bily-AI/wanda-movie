@@ -25,6 +25,50 @@ function assertMatches(file, content, pattern, label) {
   }
 }
 
+function sliceRequired(file, content, startLabel, endLabel, label) {
+  const start = content.indexOf(startLabel)
+
+  if (start < 0) {
+    throw new Error(`${file} 缺少 ${label}`)
+  }
+
+  const end = content.indexOf(endLabel, start + startLabel.length)
+
+  if (end < 0) {
+    throw new Error(`${file} 缺少 ${label}`)
+  }
+
+  return content.slice(start, end)
+}
+
+function assertBlockContains(file, content, startLabel, endLabel, labels, label) {
+  let offset = 0
+
+  while (offset < content.length) {
+    const start = content.indexOf(startLabel, offset)
+
+    if (start < 0) {
+      break
+    }
+
+    const end = content.indexOf(endLabel, start + startLabel.length)
+
+    if (end < 0) {
+      break
+    }
+
+    const block = content.slice(start, end + endLabel.length)
+
+    if (labels.every((item) => block.includes(item))) {
+      return
+    }
+
+    offset = end + endLabel.length
+  }
+
+  throw new Error(`${file} 缺少 ${label}`)
+}
+
 const packageJson = read('package.json')
 const packageConfig = JSON.parse(packageJson)
 const core = read('src/shared/wandaCore.ts')
@@ -38,6 +82,8 @@ const ordersView = read('src/renderer/views/OrderHistoryView.vue')
 if (packageConfig.scripts?.['check:phase4'] !== 'node tools/check-phase4-contract.mjs') {
   throw new Error('package.json 缺少正确的 check:phase4 脚本')
 }
+
+const wandaApiPaths = sliceRequired('src/shared/wandaCore.ts', core, 'export const WANDA_API_PATHS = {', '} as const', 'WANDA_API_PATHS')
 
 for (const label of [
   'TicketOrderContext',
@@ -55,7 +101,7 @@ for (const label of [
 }
 
 for (const label of ['ORDER_QUERY_BY_USER_ID', '/order/query_by_userid.api']) {
-  assertIncludes('src/shared/wandaCore.ts', core, label)
+  assertIncludes('src/shared/wandaCore.ts', wandaApiPaths, label)
 }
 
 for (const label of [
@@ -132,16 +178,20 @@ for (const label of [
   assertIncludes('src/renderer/views/TicketView.vue', ticketView, label)
 }
 
-assertMatches(
+assertBlockContains(
   'src/renderer/views/TicketView.vue',
   ticketView,
-  /确认选座[\s\S]*?<el-popconfirm[\s\S]*?@confirm="ticketStore\.createCurrentOrder"/,
+  '<el-popconfirm',
+  '</el-popconfirm>',
+  ['确认选座', '@confirm="ticketStore.createCurrentOrder"'],
   '确认选座按钮负责创建订单'
 )
-assertMatches(
+assertBlockContains(
   'src/renderer/views/TicketView.vue',
   ticketView,
-  /提交支付[\s\S]*?@click="ticketStore\.checkCurrentOrderBeforePayment"/,
+  '<el-button',
+  '</el-button>',
+  ['提交支付', '@click="ticketStore.checkCurrentOrderBeforePayment"'],
   '提交支付本阶段只做支付前检查'
 )
 
