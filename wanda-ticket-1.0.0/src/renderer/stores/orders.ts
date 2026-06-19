@@ -53,6 +53,62 @@ function csvCell(value: string | number): string {
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
 }
 
+const EMPTY_PAY_INFO_MESSAGE = '订单尚未出票或取票码暂不可用'
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {}
+}
+
+function firstListRecord(value: unknown): Record<string, unknown> {
+  return asRecord(Array.isArray(value) ? value[0] : value)
+}
+
+function hasTextList(value: string[]): boolean {
+  return Array.isArray(value) && value.some((item) => String(item ?? '').trim())
+}
+
+function hasVisibleValue(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.some(hasVisibleValue)
+  }
+
+  if (isRecord(value)) {
+    return Object.values(value).some(hasVisibleValue)
+  }
+
+  if (typeof value === 'string') {
+    return value.trim().length > 0
+  }
+
+  return value !== undefined && value !== null && value !== false
+}
+
+function getPayInfoValue(result: OrderPayInfoResult): unknown {
+  const directPayInfo = (result as OrderPayInfoResult & { payInfo?: unknown }).payInfo
+
+  if (hasVisibleValue(directPayInfo)) {
+    return directPayInfo
+  }
+
+  const raw = asRecord(result.raw)
+  const data = asRecord(raw.data)
+  const directTicketInfo = firstListRecord(data.subTicketOrderInfo)
+  const orderInf = firstListRecord(data.orderInf)
+  const ticketInfo = firstListRecord(orderInf.subTicketOrderInfo)
+  const source =
+    Object.keys(ticketInfo).length > 0 ? ticketInfo : Object.keys(directTicketInfo).length > 0 ? directTicketInfo : data
+
+  return source.payInfo ?? data.payInfo ?? raw.payInfo
+}
+
+function hasVisibleOrderPayInfo(result: OrderPayInfoResult): boolean {
+  return hasTextList(result.ticketCodes) || hasTextList(result.qrCodes) || hasVisibleValue(getPayInfoValue(result))
+}
+
 export const useOrdersStore = defineStore('orders', {
   state: () => ({
     filters: {
@@ -251,8 +307,8 @@ export const useOrdersStore = defineStore('orders', {
         }
 
         this.currentPayInfo = result
-        this.message = '订单详情查询成功'
-        useLogsStore().addLog('历史订单', account.phone, `订单详情查询成功：${order.orderNo || orderId}`)
+        this.message = hasVisibleOrderPayInfo(result) ? '订单详情查询成功' : EMPTY_PAY_INFO_MESSAGE
+        useLogsStore().addLog('历史订单', account.phone, `${this.message}：${order.orderNo || orderId}`)
       } catch (error) {
         if (detailSerial !== this.detailRequestSerial || useAccountsStore().currentAccount?.id !== accountId) {
           return

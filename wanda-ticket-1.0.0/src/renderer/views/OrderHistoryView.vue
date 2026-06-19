@@ -1,14 +1,126 @@
 <script setup lang="ts">
-import { onMounted, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download, Refresh, Search } from '@element-plus/icons-vue'
 
 import { useAccountsStore } from '@renderer/stores/accounts'
 import { useOrdersStore } from '@renderer/stores/orders'
-import type { OrderRecord } from '@shared/wandaTicketTypes'
+import type { OrderPayInfoResult, OrderRecord } from '@shared/wandaTicketTypes'
 
 const accountsStore = useAccountsStore()
 const ordersStore = useOrdersStore()
+const payInfoDialogVisible = ref(false)
+const payInfoOrder = ref<OrderRecord | null>(null)
+
+interface PayInfoDisplayField {
+  label: string
+  value: string
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {}
+}
+
+function firstListRecord(value: unknown): Record<string, unknown> {
+  return asRecord(Array.isArray(value) ? value[0] : value)
+}
+
+function hasVisibleValue(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.some(hasVisibleValue)
+  }
+
+  if (isRecord(value)) {
+    return Object.values(value).some(hasVisibleValue)
+  }
+
+  if (typeof value === 'string') {
+    return value.trim().length > 0
+  }
+
+  return value !== undefined && value !== null && value !== false
+}
+
+function getPayInfoValue(payInfo: OrderPayInfoResult | null): unknown {
+  if (!payInfo) {
+    return undefined
+  }
+
+  const directPayInfo = (payInfo as OrderPayInfoResult & { payInfo?: unknown }).payInfo
+
+  if (hasVisibleValue(directPayInfo)) {
+    return directPayInfo
+  }
+
+  const raw = asRecord(payInfo.raw)
+  const data = asRecord(raw.data)
+  const directTicketInfo = firstListRecord(data.subTicketOrderInfo)
+  const orderInf = firstListRecord(data.orderInf)
+  const ticketInfo = firstListRecord(orderInf.subTicketOrderInfo)
+  const source =
+    Object.keys(ticketInfo).length > 0 ? ticketInfo : Object.keys(directTicketInfo).length > 0 ? directTicketInfo : data
+
+  return source.payInfo ?? data.payInfo ?? raw.payInfo
+}
+
+function formatPayInfoValue(value: unknown): string {
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
+}
+
+function normalizeTextList(value: string[] | undefined): string[] {
+  return Array.isArray(value) ? value.map((item) => String(item ?? '').trim()).filter(Boolean) : []
+}
+
+function collectPayInfoFields(value: unknown): PayInfoDisplayField[] {
+  if (!hasVisibleValue(value)) {
+    return []
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .filter(hasVisibleValue)
+      .map((item, index) => ({
+        label: `支付信息 ${index + 1}`,
+        value: formatPayInfoValue(item).trim()
+      }))
+      .filter((item) => item.value)
+  }
+
+  if (isRecord(value)) {
+    return Object.entries(value)
+      .filter(([, item]) => hasVisibleValue(item))
+      .map(([label, item]) => ({
+        label,
+        value: formatPayInfoValue(item).trim()
+      }))
+      .filter((item) => item.value)
+  }
+
+  const text = formatPayInfoValue(value).trim()
+  return text ? [{ label: '支付信息', value: text }] : []
+}
+
+const ticketCodes = computed(() => normalizeTextList(ordersStore.currentPayInfo?.ticketCodes))
+const qrCodes = computed(() => normalizeTextList(ordersStore.currentPayInfo?.qrCodes))
+const payInfoFields = computed(() => collectPayInfoFields(getPayInfoValue(ordersStore.currentPayInfo)))
+const hasVisiblePayInfo = computed(
+  () => ticketCodes.value.length > 0 || qrCodes.value.length > 0 || payInfoFields.value.length > 0
+)
+const payInfoDialogTitle = computed(() =>
+  payInfoOrder.value?.orderNo ? `支付信息：${payInfoOrder.value.orderNo}` : '支付信息'
+)
 
 function formatAmount(order: OrderRecord): string {
   return `￥${(Number.isFinite(order.amount) ? order.amount : 0).toFixed(2)}`
@@ -16,11 +128,18 @@ function formatAmount(order: OrderRecord): string {
 
 function handleSearch() {
   ordersStore.pageIndex = 1
+  payInfoDialogVisible.value = false
+  payInfoOrder.value = null
   void ordersStore.loadOrders()
 }
 
-function handleQueryPayInfo(order: OrderRecord) {
-  void ordersStore.queryOrderPayInfo(order)
+async function handleQueryPayInfo(order: OrderRecord) {
+  payInfoOrder.value = order
+  await ordersStore.queryOrderPayInfo(order)
+
+  if (ordersStore.currentPayInfo) {
+    payInfoDialogVisible.value = true
+  }
 }
 
 function handleExport() {
@@ -55,7 +174,18 @@ watch(
   () => accountsStore.currentAccountId,
   () => {
     ordersStore.pageIndex = 1
+    payInfoDialogVisible.value = false
+    payInfoOrder.value = null
     void ordersStore.loadOrders()
+  }
+)
+
+watch(
+  () => ordersStore.currentPayInfo,
+  (payInfo) => {
+    if (!payInfo) {
+      payInfoDialogVisible.value = false
+    }
   }
 )
 </script>
@@ -135,6 +265,42 @@ watch(
         </el-table-column>
       </el-table>
     </section>
+
+    <el-dialog v-model="payInfoDialogVisible" :title="payInfoDialogTitle" width="560px" destroy-on-close>
+      <div v-if="ordersStore.currentPayInfo" class="pay-info-detail">
+        <template v-if="hasVisiblePayInfo">
+          <section v-if="ticketCodes.length > 0" class="pay-info-section">
+            <span class="pay-info-label">取票码</span>
+            <div class="pay-info-list">
+              <el-tag v-for="(code, index) in ticketCodes" :key="`ticket-${index}-${code}`" type="success" effect="plain">
+                {{ code }}
+              </el-tag>
+            </div>
+          </section>
+
+          <section v-if="qrCodes.length > 0" class="pay-info-section">
+            <span class="pay-info-label">二维码</span>
+            <div class="pay-info-list pay-info-list--block">
+              <div v-for="(qrCode, index) in qrCodes" :key="`qr-${index}-${qrCode}`" class="pay-info-code">
+                {{ qrCode }}
+              </div>
+            </div>
+          </section>
+
+          <section v-if="payInfoFields.length > 0" class="pay-info-section">
+            <span class="pay-info-label">其他信息</span>
+            <dl class="pay-info-fields">
+              <div v-for="(field, index) in payInfoFields" :key="`${field.label}-${index}`" class="pay-info-field">
+                <dt>{{ field.label }}</dt>
+                <dd>{{ field.value }}</dd>
+              </div>
+            </dl>
+          </section>
+        </template>
+
+        <el-empty v-else description="订单尚未出票或取票码暂不可用" :image-size="64" />
+      </div>
+    </el-dialog>
 
     <footer class="table-pagination">
       <el-pagination
@@ -228,6 +394,71 @@ watch(
   border-bottom: 1px solid var(--app-border);
   color: var(--app-muted);
   font-size: 12px;
+}
+
+.pay-info-detail {
+  display: grid;
+  gap: 16px;
+}
+
+.pay-info-section {
+  display: grid;
+  gap: 8px;
+}
+
+.pay-info-label {
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.pay-info-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pay-info-list--block {
+  display: grid;
+}
+
+.pay-info-code,
+.pay-info-field {
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.pay-info-code {
+  padding: 8px 10px;
+  color: var(--app-text);
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.pay-info-fields {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.pay-info-field {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 10px;
+  padding: 8px 10px;
+}
+
+.pay-info-field dt {
+  color: var(--app-muted);
+}
+
+.pay-info-field dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--app-text);
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .table-pagination {
