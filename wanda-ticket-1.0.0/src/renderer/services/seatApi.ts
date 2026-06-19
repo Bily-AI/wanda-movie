@@ -126,9 +126,13 @@ function assertSuccessfulActivityPayload(
 function assertSuccessfulResponseData(response: unknown, fallbackMessage: string): Record<string, unknown> {
   const record = asRecord(response)
   const data = asRecord(record.data)
-  const code = maybeNumber(record.code)
+  const code = maybeBizCode(record.code)
 
-  if (code !== 0 && record.success !== true) {
+  if (hasOwn(record, 'code')) {
+    if (code !== 0) {
+      throw new Error(firstText(record.msg, data.bizMsg, data.msg, fallbackMessage))
+    }
+  } else if (record.success !== true) {
     throw new Error(firstText(record.msg, data.bizMsg, data.msg, fallbackMessage))
   }
 
@@ -568,15 +572,27 @@ export async function fetchPayCards(orderId: string, ck: string, userIdentifier:
     ck,
     userIdentifier
   )
-  const data = asRecord(response.data)
-  const res = asRecord(data.res)
   const fallbackMessage = '获取支付卡失败'
 
   if (response.code !== 0) {
+    const data = asRecord(response.data)
+    const res = asRecord(data.res)
+
     throw new Error(firstText(response.msg, data.bizMsg, data.msg, res.bizMsg, res.msg, fallbackMessage))
   }
 
-  assertSuccessfulBusinessPayload(data, fallbackMessage, response.msg)
+  if (!isRecord(response.data)) {
+    throw new Error(firstText(response.msg, fallbackMessage))
+  }
+
+  const data = response.data
+  const res = asRecord(data.res)
+  const bizCode = maybeBizCode(data.bizCode)
+
+  if (!hasOwn(data, 'bizCode') || bizCode !== 0) {
+    throw new Error(firstText(data.bizMsg, data.msg, response.msg, fallbackMessage))
+  }
+
   assertSuccessfulBusinessPayload(res, fallbackMessage, firstText(data.bizMsg, data.msg, response.msg))
 
   return [
@@ -716,6 +732,7 @@ export async function queryPayInfoUpgrade(
   userIdentifier: string
 ): Promise<OrderPayInfoResult> {
   assertNotBlank(orderId, '订单 ID 不能为空')
+  assertNotBlank(requestInfo, 'requestInfo 不能为空')
   assertNotBlank(ck, '万达账号 CK 不能为空')
   assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
 
