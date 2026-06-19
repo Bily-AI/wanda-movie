@@ -110,3 +110,104 @@ export interface TicketOrderResult {
   bizCode: number
   bizMsg?: string
 }
+
+export interface TicketOrderSeatRef {
+  areaId: string
+  seatId: string
+  rowName: string
+  columnName: string
+  areaName: string
+}
+
+export interface TicketOrderContext {
+  orderId: string
+  accountId: string
+  phone: string
+  cityName: string
+  cinemaId: string
+  cinemaName: string
+  movieName: string
+  showtimeId: string
+  showtimeLabel: string
+  amountCent: number
+  seats: TicketOrderSeatRef[]
+}
+
+export interface PaymentActivityItem {
+  code: string
+  name: string
+  price: number
+  channelPrice: number
+  able: boolean
+  groupName: string
+  groupType: string
+  note: string
+  typeCode: string
+  allotSeat: string
+  raw: unknown
+}
+
+export interface PaymentActivityResult {
+  availableActivities: PaymentActivityItem[]
+  unavailableActivities: PaymentActivityItem[]
+}
+
+export interface PaymentCard {
+  cardNo: string
+  cardName: string
+  cardTypeName: string
+  balance: number
+  available: boolean
+  statusDesc: string
+  raw: unknown
+}
+
+export interface CouponItem {
+  code: string
+  name: string
+  couponNo: string
+  typeCode: string
+  able: boolean
+  amount: number
+  validity: string
+  detailTypeName: string
+  raw: unknown
+}
+
+export interface OrderStatusResult {
+  bizCode?: number
+  bizMsg?: string
+  payStatus?: string | number
+  showOrderStatus?: string | number
+  showOrderStatusStr?: string
+  raw: unknown
+}
+
+export type NormalizedOrderStatus = 'pending' | 'completed' | 'cancelled' | 'refunded' | 'unknown'
+
+export interface OrderRecord {
+  orderId: string
+  orderNo: string
+  phone: string
+  movieName: string
+  cinema: string
+  showtime: string
+  amount: number
+  status: NormalizedOrderStatus
+  statusText: string
+  createdAt: string
+  raw: unknown
+}
+
+export interface OrderListResult {
+  records: OrderRecord[]
+  total: number
+  raw: unknown
+}
+
+export interface OrderPayInfoResult {
+  orderId: string
+  ticketCodes: string[]
+  qrCodes: string[]
+  raw: unknown
+}

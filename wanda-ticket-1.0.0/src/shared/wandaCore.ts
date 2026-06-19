@@ -23,6 +23,7 @@ export const WANDA_API_PATHS = {
   ORDER_MERGE_PAYMENT: '/order/merge_payment.api',
   ORDER_STATUS: '/order/order_status.api',
   ORDER_QUERY_LIST: '/order/query_order_list.api',
+  ORDER_QUERY_BY_USER_ID: '/order/query_by_userid.api',
   ORDER_QUERY_PAY_INFO: '/order/query_pay_info_upgrade.api',
   CARD_PAY_LIST: '/card/pay/list.api',
   CARD_USER_CARD_LIST: '/card/user_card/list.api',
