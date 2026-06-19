@@ -43,6 +43,25 @@ export interface SelectedSeat {
   areaName: string
 }
 
+interface TicketOrderContextSnapshot {
+  cityName: string
+  cinemaId: string
+  cinemaName: string
+  movieName: string
+  showtimeId: string
+  showtimeLabel: string
+  amountCent: number
+  seats: TicketOrderSeatRef[]
+}
+
+interface TicketOrderSubmitSnapshot extends TicketOrderContextSnapshot {
+  accountId: string
+  phone: string
+  ck: string
+  userIdentifier: string
+  seatIds: string[]
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -204,6 +223,7 @@ export const useTicketStore = defineStore('ticket', {
     orderStatus: null as OrderStatusResult | null,
     orderCreating: false,
     orderCancelling: false,
+    orderRequestSerial: 0,
     paymentActivities: [] as PaymentActivity[],
     unavailablePaymentActivities: [] as PaymentActivity[],
     paymentCards: [] as PaymentCard[],
@@ -317,39 +337,47 @@ export const useTicketStore = defineStore('ticket', {
         this.currentOrderMessage = '账号已切换，当前订单上下文已清空'
       }
     },
-    buildCurrentOrderContext(orderId: string, accountId: string, phone: string): TicketOrderContext {
-      const cityName = this.cities.find((item) => item.value === this.query.city)?.label ?? ''
-      const cinemaName = this.cinemas.find((item) => item.value === this.query.cinema)?.label ?? ''
-      const movieName = this.movies.find((item) => item.value === this.query.movie)?.label ?? ''
-      const showtimeLabel =
-        this.currentShowtime?.label ?? this.showtimes.find((item) => item.value === this.query.showtime)?.label ?? ''
-      const showtimeId = this.currentShowtime?.dId || this.query.showtime
-      const seats: TicketOrderSeatRef[] = this.selectedSeatNodes.map((seat) => ({
-        areaId: seat.areaId,
-        seatId: seat.seatId,
-        rowName: seat.rowLabel,
-        columnName: seat.columnLabel,
-        areaName: seat.zone
-      }))
+    buildCurrentOrderContext(
+      orderId: string,
+      accountId: string,
+      phone: string,
+      snapshot?: TicketOrderContextSnapshot
+    ): TicketOrderContext {
+      const contextSnapshot =
+        snapshot ??
+        ({
+          cityName: this.cities.find((item) => item.value === this.query.city)?.label ?? '',
+          cinemaId: this.query.cinema,
+          cinemaName: this.cinemas.find((item) => item.value === this.query.cinema)?.label ?? '',
+          movieName: this.movies.find((item) => item.value === this.query.movie)?.label ?? '',
+          showtimeId: this.currentShowtime?.dId || this.query.showtime,
+          showtimeLabel:
+            this.currentShowtime?.label ?? this.showtimes.find((item) => item.value === this.query.showtime)?.label ?? '',
+          amountCent: Math.round(this.selectedSeatTotalPrice * 100),
+          seats: this.selectedSeatNodes.map((seat) => ({
+            areaId: seat.areaId,
+            seatId: seat.seatId,
+            rowName: seat.rowLabel,
+            columnName: seat.columnLabel,
+            areaName: seat.zone
+          }))
+        } satisfies TicketOrderContextSnapshot)
 
       return {
         orderId,
         accountId,
         phone,
-        cityName,
-        cinemaId: this.query.cinema,
-        cinemaName,
-        movieName,
-        showtimeId,
-        showtimeLabel,
-        amountCent: Math.round(this.selectedSeatTotalPrice * 100),
-        seats
+        cityName: contextSnapshot.cityName,
+        cinemaId: contextSnapshot.cinemaId,
+        cinemaName: contextSnapshot.cinemaName,
+        movieName: contextSnapshot.movieName,
+        showtimeId: contextSnapshot.showtimeId,
+        showtimeLabel: contextSnapshot.showtimeLabel,
+        amountCent: contextSnapshot.amountCent,
+        seats: contextSnapshot.seats.map((seat) => ({ ...seat }))
       }
     },
-    clearCurrentOrderPaymentContext() {
-      this.currentOrderId = ''
-      this.currentOrderAccountId = ''
-      this.currentOrder = null
+    clearPaymentPrerequisiteData() {
       this.currentOrderPayInfo = null
       this.orderStatus = null
       this.paymentActivities = []
@@ -359,21 +387,48 @@ export const useTicketStore = defineStore('ticket', {
       this.paymentActivity = ''
       this.selectedPaymentCards = []
       this.selectedCoupons = []
+      this.paymentDataMessage = ''
+    },
+    clearCurrentOrderPaymentContext() {
+      ++this.orderRequestSerial
+      this.currentOrderId = ''
+      this.currentOrderAccountId = ''
+      this.currentOrder = null
+      this.clearPaymentPrerequisiteData()
+      this.orderCreating = false
+      this.orderCancelling = false
       this.loadingPaymentData = false
       this.checkingPayment = false
-      this.paymentDataMessage = ''
     },
     async refreshPaymentPrerequisites() {
       const account = useAccountsStore().currentAccount
       const currentOrder = this.currentOrder
 
-      if (!currentOrder || !account?.ck || !account.userIdentifier || !this.currentShowtime) {
-        this.paymentDataMessage = '请先确认订单、账号和真实场次'
+      if (!currentOrder) {
+        this.clearPaymentPrerequisiteData()
+        this.paymentDataMessage = '请先确认订单和已登录账号'
+        return
+      }
+
+      if (!account?.ck || !account.userIdentifier) {
+        this.clearPaymentPrerequisiteData()
+        this.paymentDataMessage = '请先选择创建订单的已登录账号'
         return
       }
 
       if (currentOrder.accountId !== account.id) {
+        this.clearPaymentPrerequisiteData()
         this.paymentDataMessage = '请切回创建订单的账号刷新支付前置数据'
+        return
+      }
+
+      const hasValidSeats =
+        currentOrder.seats.length > 0 && currentOrder.seats.every((seat) => seat.areaId.trim() && seat.seatId.trim())
+
+      if (!currentOrder.orderId || !currentOrder.cinemaId || !currentOrder.showtimeId || !hasValidSeats) {
+        this.clearPaymentPrerequisiteData()
+        this.paymentDataMessage = '订单上下文缺少场次、影院或座位信息，无法刷新支付前置数据'
+        useLogsStore().addLog('支付前置', account.phone, `订单上下文字段不足：${currentOrder.orderId || '无订单号'}`)
         return
       }
 
@@ -407,15 +462,7 @@ export const useTicketStore = defineStore('ticket', {
         }
 
         const message = error instanceof Error && error.message ? error.message : '支付前置数据刷新失败'
-        this.currentOrderPayInfo = null
-        this.orderStatus = null
-        this.paymentActivities = []
-        this.unavailablePaymentActivities = []
-        this.paymentCards = []
-        this.coupons = []
-        this.paymentActivity = ''
-        this.selectedPaymentCards = []
-        this.selectedCoupons = []
+        this.clearPaymentPrerequisiteData()
         this.paymentDataMessage = `支付前置数据刷新失败：${message}`
         useLogsStore().addLog('支付前置', account.phone, `支付前置数据刷新失败：${message}`)
       } finally {
@@ -791,36 +838,77 @@ export const useTicketStore = defineStore('ticket', {
         return
       }
 
-      if (!account?.ck || !account.userIdentifier || !account.phone || !this.currentShowtime || this.selectedSeatNodes.length === 0) {
+      if (
+        !account?.ck ||
+        !account.userIdentifier ||
+        !account.phone ||
+        !this.currentShowtime?.dId ||
+        this.selectedSeatNodes.length === 0
+      ) {
         this.currentOrderMessage = '请先选择已登录账号、真实场次和座位'
         return
       }
 
+      const snapshot: TicketOrderSubmitSnapshot = {
+        accountId: account.id,
+        phone: account.phone,
+        ck: account.ck,
+        userIdentifier: account.userIdentifier,
+        cityName: this.cities.find((item) => item.value === this.query.city)?.label ?? '',
+        cinemaId: this.query.cinema,
+        cinemaName: this.cinemas.find((item) => item.value === this.query.cinema)?.label ?? '',
+        movieName: this.movies.find((item) => item.value === this.query.movie)?.label ?? '',
+        showtimeId: this.currentShowtime.dId,
+        showtimeLabel:
+          this.currentShowtime.label ?? this.showtimes.find((item) => item.value === this.query.showtime)?.label ?? '',
+        amountCent: Math.round(this.selectedSeatTotalPrice * 100),
+        seats: this.selectedSeatNodes.map((seat) => ({
+          areaId: seat.areaId,
+          seatId: seat.seatId,
+          rowName: seat.rowLabel,
+          columnName: seat.columnLabel,
+          areaName: seat.zone
+        })),
+        seatIds: this.selectedSeatNodes.map((seat) => seat.seatId)
+      }
+      const requestSerial = ++this.orderRequestSerial
       this.orderCreating = true
       this.currentOrderMessage = ''
 
       try {
         const result = await createTicketOrder(
-          this.currentShowtime.dId,
-          this.selectedSeatNodes.map((seat) => seat.seatId),
-          Math.round(this.selectedSeatTotalPrice * 100),
-          account.phone,
-          account.ck,
-          account.userIdentifier
+          snapshot.showtimeId,
+          snapshot.seatIds,
+          snapshot.amountCent,
+          snapshot.phone,
+          snapshot.ck,
+          snapshot.userIdentifier
         )
 
+        if (requestSerial !== this.orderRequestSerial || useAccountsStore().currentAccount?.id !== snapshot.accountId) {
+          useLogsStore().addLog('订单', snapshot.phone, `旧订单创建返回已忽略：${result.orderId}`)
+          return
+        }
+
         this.currentOrderId = result.orderId
-        this.currentOrderAccountId = account.id
-        this.currentOrder = this.buildCurrentOrderContext(result.orderId, account.id, account.phone)
+        this.currentOrderAccountId = snapshot.accountId
+        this.currentOrder = this.buildCurrentOrderContext(result.orderId, snapshot.accountId, snapshot.phone, snapshot)
         this.currentOrderMessage = result.bizMsg || '订单创建成功'
-        useLogsStore().addLog('订单', account.phone, `订单创建成功：${result.orderId}`)
+        useLogsStore().addLog('订单', snapshot.phone, `订单创建成功：${result.orderId}`)
         await this.refreshPaymentPrerequisites()
       } catch (error) {
+        if (requestSerial !== this.orderRequestSerial || useAccountsStore().currentAccount?.id !== snapshot.accountId) {
+          useLogsStore().addLog('订单', snapshot.phone, '旧订单创建返回已忽略')
+          return
+        }
+
         const message = error instanceof Error && error.message ? error.message : '订单创建失败'
         this.currentOrderMessage = message
-        useLogsStore().addLog('订单', account.phone, `订单创建失败：${message}`)
+        useLogsStore().addLog('订单', snapshot.phone, `订单创建失败：${message}`)
       } finally {
-        this.orderCreating = false
+        if (requestSerial === this.orderRequestSerial) {
+          this.orderCreating = false
+        }
       }
     },
     async cancelCurrentOrder() {
@@ -841,19 +929,48 @@ export const useTicketStore = defineStore('ticket', {
         return
       }
 
+      const orderId = this.currentOrderId
+      const accountId = account.id
+      const phone = account.phone
+      const ck = account.ck
+      const userIdentifier = account.userIdentifier
+      const requestSerial = ++this.orderRequestSerial
       this.orderCancelling = true
 
       try {
-        await cancelTicketOrder(this.currentOrderId, account.ck, account.userIdentifier)
-        useLogsStore().addLog('订单', account.phone, `订单已取消：${this.currentOrderId}`)
+        await cancelTicketOrder(orderId, ck, userIdentifier)
+
+        if (
+          requestSerial !== this.orderRequestSerial ||
+          this.currentOrderId !== orderId ||
+          (this.currentOrderAccountId || this.currentOrder?.accountId) !== accountId ||
+          useAccountsStore().currentAccount?.id !== accountId
+        ) {
+          useLogsStore().addLog('订单', phone, `旧订单取消返回已忽略：${orderId}`)
+          return
+        }
+
+        useLogsStore().addLog('订单', phone, `订单已取消：${orderId}`)
         this.currentOrderMessage = '订单已取消'
         this.clearCurrentOrderPaymentContext()
       } catch (error) {
+        if (
+          requestSerial !== this.orderRequestSerial ||
+          this.currentOrderId !== orderId ||
+          (this.currentOrderAccountId || this.currentOrder?.accountId) !== accountId ||
+          useAccountsStore().currentAccount?.id !== accountId
+        ) {
+          useLogsStore().addLog('订单', phone, `旧订单取消返回已忽略：${orderId}`)
+          return
+        }
+
         const message = error instanceof Error && error.message ? error.message : '订单取消失败'
         this.currentOrderMessage = message
-        useLogsStore().addLog('订单', account.phone, `订单取消失败：${message}`)
+        useLogsStore().addLog('订单', phone, `订单取消失败：${message}`)
       } finally {
-        this.orderCancelling = false
+        if (requestSerial === this.orderRequestSerial) {
+          this.orderCancelling = false
+        }
       }
     },
     toggleSeat(seat: SeatNode) {
