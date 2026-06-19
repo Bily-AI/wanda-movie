@@ -1,17 +1,32 @@
 import { defineStore } from 'pinia'
 
 import { fetchCinemaShowtime } from '@renderer/services/cinemaApi'
-import { cancelTicketOrder, createTicketOrder, fetchRealTimeSeat } from '@renderer/services/seatApi'
+import {
+  cancelTicketOrder,
+  createTicketOrder,
+  fetchCoupons,
+  fetchPayCards,
+  fetchPaymentActivity,
+  fetchRealTimeSeat,
+  queryOrderStatus
+} from '@renderer/services/seatApi'
 import type {
   CinemaRecord,
   CityRecord,
+  CouponItem,
+  OrderPayInfoResult,
+  OrderStatusResult,
+  PaymentActivity,
+  PaymentCard,
   RawSeat,
   RealTimeSeats,
   SeatArea,
   SeatNode,
   SeatStatus,
   SeatZone,
-  ShowtimeItem
+  ShowtimeItem,
+  TicketOrderContext,
+  TicketOrderSeatRef
 } from '@shared/wandaTicketTypes'
 import { useAccountsStore } from './accounts'
 import { useLogsStore } from './logs'
@@ -184,11 +199,21 @@ export const useTicketStore = defineStore('ticket', {
     currentOrderId: '',
     currentOrderMessage: '',
     currentOrderAccountId: '',
+    currentOrder: null as TicketOrderContext | null,
+    currentOrderPayInfo: null as OrderPayInfoResult | null,
+    orderStatus: null as OrderStatusResult | null,
     orderCreating: false,
     orderCancelling: false,
+    paymentActivities: [] as PaymentActivity[],
+    unavailablePaymentActivities: [] as PaymentActivity[],
+    paymentCards: [] as PaymentCard[],
+    coupons: [] as CouponItem[],
     paymentActivity: '',
     selectedPaymentCards: [] as string[],
     selectedCoupons: [] as string[],
+    loadingPaymentData: false,
+    checkingPayment: false,
+    paymentDataMessage: '',
     selectedSeats: [] as SelectedSeat[],
     maxSeatCount: 8
   }),
@@ -281,12 +306,172 @@ export const useTicketStore = defineStore('ticket', {
       this.clearSeatSelection()
     },
     handleAccountChanged() {
+      const hadCurrentOrder = Boolean(this.currentOrderId)
+
       this.resetQueryAfterCinemaChange()
       this.loadingShowtimes = false
       this.loadingSeats = false
+      this.clearCurrentOrderPaymentContext()
 
-      if (this.currentOrderId) {
-        this.currentOrderMessage = '账号已切换，请切回创建订单的账号取消订单'
+      if (hadCurrentOrder) {
+        this.currentOrderMessage = '账号已切换，当前订单上下文已清空'
+      }
+    },
+    buildCurrentOrderContext(orderId: string, accountId: string, phone: string): TicketOrderContext {
+      const cityName = this.cities.find((item) => item.value === this.query.city)?.label ?? ''
+      const cinemaName = this.cinemas.find((item) => item.value === this.query.cinema)?.label ?? ''
+      const movieName = this.movies.find((item) => item.value === this.query.movie)?.label ?? ''
+      const showtimeLabel =
+        this.currentShowtime?.label ?? this.showtimes.find((item) => item.value === this.query.showtime)?.label ?? ''
+      const showtimeId = this.currentShowtime?.dId || this.query.showtime
+      const seats: TicketOrderSeatRef[] = this.selectedSeatNodes.map((seat) => ({
+        areaId: seat.areaId,
+        seatId: seat.seatId,
+        rowName: seat.rowLabel,
+        columnName: seat.columnLabel,
+        areaName: seat.zone
+      }))
+
+      return {
+        orderId,
+        accountId,
+        phone,
+        cityName,
+        cinemaId: this.query.cinema,
+        cinemaName,
+        movieName,
+        showtimeId,
+        showtimeLabel,
+        amountCent: Math.round(this.selectedSeatTotalPrice * 100),
+        seats
+      }
+    },
+    clearCurrentOrderPaymentContext() {
+      this.currentOrderId = ''
+      this.currentOrderAccountId = ''
+      this.currentOrder = null
+      this.currentOrderPayInfo = null
+      this.orderStatus = null
+      this.paymentActivities = []
+      this.unavailablePaymentActivities = []
+      this.paymentCards = []
+      this.coupons = []
+      this.paymentActivity = ''
+      this.selectedPaymentCards = []
+      this.selectedCoupons = []
+      this.loadingPaymentData = false
+      this.checkingPayment = false
+      this.paymentDataMessage = ''
+    },
+    async refreshPaymentPrerequisites() {
+      const account = useAccountsStore().currentAccount
+      const currentOrder = this.currentOrder
+
+      if (!currentOrder || !account?.ck || !account.userIdentifier || !this.currentShowtime) {
+        this.paymentDataMessage = '请先确认订单、账号和真实场次'
+        return
+      }
+
+      if (currentOrder.accountId !== account.id) {
+        this.paymentDataMessage = '请切回创建订单的账号刷新支付前置数据'
+        return
+      }
+
+      const orderId = currentOrder.orderId
+      const accountId = account.id
+      this.loadingPaymentData = true
+      this.paymentDataMessage = ''
+
+      try {
+        const [activityResult, cards, coupons, status] = await Promise.all([
+          fetchPaymentActivity(currentOrder.seats, orderId, currentOrder.showtimeId, account.ck, account.userIdentifier),
+          fetchPayCards(orderId, account.ck, account.userIdentifier),
+          fetchCoupons(currentOrder.seats, currentOrder.cinemaId, currentOrder.showtimeId, account.ck, account.userIdentifier),
+          queryOrderStatus(orderId, account.ck, account.userIdentifier)
+        ])
+
+        if (this.currentOrder?.orderId !== orderId || useAccountsStore().currentAccount?.id !== accountId) {
+          return
+        }
+
+        this.paymentActivities = activityResult.availableActivities
+        this.unavailablePaymentActivities = activityResult.unavailableActivities
+        this.paymentCards = cards
+        this.coupons = coupons
+        this.orderStatus = status
+        this.paymentDataMessage = `支付前置数据已刷新：可用活动 ${this.paymentActivities.length} 个，可用卡 ${this.paymentCards.length} 张，可用券 ${this.coupons.length} 张`
+        useLogsStore().addLog('支付前置', account.phone, `支付前置数据刷新成功：${orderId}`)
+      } catch (error) {
+        if (this.currentOrder?.orderId !== orderId || useAccountsStore().currentAccount?.id !== accountId) {
+          return
+        }
+
+        const message = error instanceof Error && error.message ? error.message : '支付前置数据刷新失败'
+        this.currentOrderPayInfo = null
+        this.orderStatus = null
+        this.paymentActivities = []
+        this.unavailablePaymentActivities = []
+        this.paymentCards = []
+        this.coupons = []
+        this.paymentActivity = ''
+        this.selectedPaymentCards = []
+        this.selectedCoupons = []
+        this.paymentDataMessage = `支付前置数据刷新失败：${message}`
+        useLogsStore().addLog('支付前置', account.phone, `支付前置数据刷新失败：${message}`)
+      } finally {
+        if (this.currentOrder?.orderId === orderId && useAccountsStore().currentAccount?.id === accountId) {
+          this.loadingPaymentData = false
+        }
+      }
+    },
+    async checkCurrentOrderBeforePayment() {
+      const account = useAccountsStore().currentAccount
+      const currentOrder = this.currentOrder
+
+      if (!currentOrder) {
+        this.paymentDataMessage = '请先确认选座创建订单'
+        return
+      }
+
+      if (!account?.ck || !account.userIdentifier) {
+        this.paymentDataMessage = '请先选择创建订单的已登录账号'
+        return
+      }
+
+      if (currentOrder.accountId !== account.id) {
+        this.paymentDataMessage = '请切回创建订单的账号检查支付状态'
+        return
+      }
+
+      const orderId = currentOrder.orderId
+      const accountId = account.id
+      this.checkingPayment = true
+      this.paymentDataMessage = ''
+
+      try {
+        const status = await queryOrderStatus(orderId, account.ck, account.userIdentifier)
+
+        if (this.currentOrder?.orderId !== orderId || useAccountsStore().currentAccount?.id !== accountId) {
+          return
+        }
+
+        this.orderStatus = status
+        this.paymentDataMessage = status.showOrderStatusStr
+          ? `支付前置检查完成，当前订单状态：${status.showOrderStatusStr}，未发起支付`
+          : '支付前置检查完成，未发起支付'
+        useLogsStore().addLog('支付前置', account.phone, `支付前置检查完成，未发起支付：${orderId}`)
+      } catch (error) {
+        if (this.currentOrder?.orderId !== orderId || useAccountsStore().currentAccount?.id !== accountId) {
+          return
+        }
+
+        const message = error instanceof Error && error.message ? error.message : '支付前置检查失败'
+        this.paymentDataMessage = `支付前置检查失败：${message}`
+        useLogsStore().addLog('支付前置', account.phone, `支付前置检查失败：${message}`)
+      } finally {
+        if (this.currentOrder?.orderId === orderId && useAccountsStore().currentAccount?.id === accountId) {
+          this.checkingPayment = false
+        }
       }
     },
     addCityRecord(item: unknown, cityMap: Map<string, CityRecord>) {
@@ -626,8 +811,10 @@ export const useTicketStore = defineStore('ticket', {
 
         this.currentOrderId = result.orderId
         this.currentOrderAccountId = account.id
+        this.currentOrder = this.buildCurrentOrderContext(result.orderId, account.id, account.phone)
         this.currentOrderMessage = result.bizMsg || '订单创建成功'
         useLogsStore().addLog('订单', account.phone, `订单创建成功：${result.orderId}`)
+        await this.refreshPaymentPrerequisites()
       } catch (error) {
         const message = error instanceof Error && error.message ? error.message : '订单创建失败'
         this.currentOrderMessage = message
@@ -660,8 +847,7 @@ export const useTicketStore = defineStore('ticket', {
         await cancelTicketOrder(this.currentOrderId, account.ck, account.userIdentifier)
         useLogsStore().addLog('订单', account.phone, `订单已取消：${this.currentOrderId}`)
         this.currentOrderMessage = '订单已取消'
-        this.currentOrderId = ''
-        this.currentOrderAccountId = ''
+        this.clearCurrentOrderPaymentContext()
       } catch (error) {
         const message = error instanceof Error && error.message ? error.message : '订单取消失败'
         this.currentOrderMessage = message
