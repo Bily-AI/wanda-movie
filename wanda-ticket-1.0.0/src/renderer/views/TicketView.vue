@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch } from 'vue'
+import { computed, watch } from 'vue'
 
 import {
   Connection,
@@ -20,6 +20,69 @@ import type { WandaAccount } from '@shared/localData'
 
 const accountsStore = useAccountsStore()
 const ticketStore = useTicketStore()
+
+interface PaymentDisplayItem {
+  key: string
+  label: string
+  value: string
+  meta?: string
+}
+
+const paymentActivityOptions = computed<PaymentDisplayItem[]>(() =>
+  ticketStore.paymentActivities.flatMap((activity, index) => {
+    const value = activity.code || activity.name
+
+    if (!value) {
+      return []
+    }
+
+    return [
+      {
+        key: `${value}-${index}`,
+        label: activity.name || activity.note || value,
+        value
+      }
+    ]
+  })
+)
+
+const paymentCardItems = computed<PaymentDisplayItem[]>(() =>
+  ticketStore.paymentCards.flatMap((card, index) => {
+    const value = card.cardNo
+
+    if (!value) {
+      return []
+    }
+
+    return [
+      {
+        key: `${value}-${index}`,
+        label: card.cardName || card.cardTypeName || value,
+        value,
+        meta: `￥${card.balance.toFixed(2)}`
+      }
+    ]
+  })
+)
+
+const couponItems = computed<PaymentDisplayItem[]>(() =>
+  ticketStore.coupons.flatMap((coupon, index) => {
+    const value = coupon.code || coupon.couponNo
+
+    if (!value) {
+      return []
+    }
+
+    return [
+      {
+        key: `${value}-${index}`,
+        label: coupon.name || coupon.detailTypeName || coupon.couponNo || coupon.code,
+        value,
+        meta: coupon.validity || coupon.detailTypeName || (coupon.amount ? `￥${coupon.amount.toFixed(2)}` : '-')
+      }
+    ]
+  })
+)
 
 function handleAccountSelectionChange(rows: WandaAccount[]): void {
   accountsStore.setSelectedAccountIds(rows.map((row) => row.id))
@@ -318,7 +381,7 @@ watch(
       <section class="panel side-panel">
         <header class="panel-header">
           <span>支付活动</span>
-          <span>可用 {{ ticketStore.paymentActivities.length }} 个</span>
+          <span>可用 {{ paymentActivityOptions.length }} 个</span>
         </header>
         <div class="side-line">
           <span>活动价</span>
@@ -330,10 +393,10 @@ watch(
           >
             <el-option label="无活动" value="" />
             <el-option
-              v-for="activity in ticketStore.paymentActivities"
-              :key="activity.code || activity.name"
-              :label="activity.name || activity.note"
-              :value="activity.code || activity.name"
+              v-for="item in paymentActivityOptions"
+              :key="item.key"
+              :label="item.label"
+              :value="item.value"
             />
           </el-select>
         </div>
@@ -342,14 +405,18 @@ watch(
       <section class="panel side-panel">
         <header class="panel-header">
           <span>支付卡</span>
-          <span>已选 {{ ticketStore.selectedPaymentCards.length }} / {{ ticketStore.paymentCards.length }} 张</span>
+          <span>已选 {{ ticketStore.selectedPaymentCards.length }} / {{ paymentCardItems.length }} 张</span>
         </header>
-        <div v-if="ticketStore.paymentCards.length" class="mini-list">
-          <label v-for="card in ticketStore.paymentCards" :key="card.cardNo" class="mini-list-item">
-            <el-checkbox v-model="ticketStore.selectedPaymentCards" :label="card.cardNo" />
-            <span>{{ card.cardName || card.cardTypeName || card.cardNo }}</span>
-            <em>￥{{ card.balance.toFixed(2) }}</em>
-          </label>
+        <div v-if="paymentCardItems.length" class="mini-list">
+          <div v-for="item in paymentCardItems" :key="item.key" class="mini-list-item">
+            <el-checkbox
+              v-model="ticketStore.selectedPaymentCards"
+              :value="item.value"
+              :aria-label="item.label"
+            />
+            <span>{{ item.label }}</span>
+            <em>{{ item.meta }}</em>
+          </div>
         </div>
         <div v-else class="side-empty">
           {{ ticketStore.loadingPaymentData ? '支付卡加载中' : '暂无可用支付卡' }}
@@ -359,18 +426,18 @@ watch(
       <section class="panel side-panel">
         <header class="panel-header">
           <span>兑换券</span>
-          <span>已选 {{ ticketStore.selectedCoupons.length }} 张 | 可兑 {{ ticketStore.coupons.length }} 张</span>
+          <span>已选 {{ ticketStore.selectedCoupons.length }} 张 | 可兑 {{ couponItems.length }} 张</span>
         </header>
-        <div v-if="ticketStore.coupons.length" class="mini-list">
-          <label
-            v-for="coupon in ticketStore.coupons"
-            :key="coupon.code || coupon.couponNo"
-            class="mini-list-item"
-          >
-            <el-checkbox v-model="ticketStore.selectedCoupons" :label="coupon.code || coupon.couponNo" />
-            <span>{{ coupon.name }}</span>
-            <em>{{ coupon.validity }}</em>
-          </label>
+        <div v-if="couponItems.length" class="mini-list">
+          <div v-for="item in couponItems" :key="item.key" class="mini-list-item">
+            <el-checkbox
+              v-model="ticketStore.selectedCoupons"
+              :value="item.value"
+              :aria-label="item.label"
+            />
+            <span>{{ item.label }}</span>
+            <em>{{ item.meta }}</em>
+          </div>
         </div>
         <div v-else class="side-empty">
           {{ ticketStore.loadingPaymentData ? '兑换券加载中' : '暂无可用兑换券' }}
