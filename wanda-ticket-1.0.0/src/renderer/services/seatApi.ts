@@ -82,6 +82,36 @@ function maybeNumber(value: unknown): number | undefined {
   return Number.isFinite(numberValue) ? numberValue : undefined
 }
 
+function assertSuccessfulBusinessPayload(
+  payload: Record<string, unknown>,
+  fallbackMessage: string,
+  responseMessage?: unknown
+): void {
+  const bizCode = maybeNumber(payload.bizCode)
+
+  if (bizCode !== undefined && bizCode !== 0) {
+    throw new Error(firstText(payload.bizMsg, payload.msg, responseMessage, fallbackMessage))
+  }
+}
+
+function assertSuccessfulResponseData(response: unknown, fallbackMessage: string): Record<string, unknown> {
+  const record = asRecord(response)
+  const data = asRecord(record.data)
+  const code = maybeNumber(record.code)
+
+  if (code !== 0 && record.success !== true) {
+    throw new Error(firstText(record.msg, data.bizMsg, data.msg, fallbackMessage))
+  }
+
+  if (record.data === undefined || record.data === null) {
+    throw new Error(firstText(record.msg, fallbackMessage))
+  }
+
+  assertSuccessfulBusinessPayload(data, fallbackMessage, record.msg)
+
+  return data
+}
+
 function buildSeatPartition(seats: TicketOrderSeatRef[]): string {
   const grouped = new Map<string, string[]>()
 
@@ -188,8 +218,8 @@ function normalizeOrderStatus(value: unknown): OrderStatusResult {
   const orderInf = asRecord(data.orderInf)
   const rawStatus = Object.keys(orderInf).length > 0 ? orderInf : data
   const result: OrderStatusResult = { raw: value }
-  const bizCode = maybeNumber(record.code ?? data.bizCode)
-  const bizMsg = firstText(record.msg, data.bizMsg)
+  const bizCode = maybeNumber(data.bizCode ?? record.code)
+  const bizMsg = firstText(data.bizMsg, record.msg)
 
   if (bizCode !== undefined) {
     result.bizCode = bizCode
@@ -460,10 +490,13 @@ export async function fetchPaymentActivity(
   const response = await wandaGet<unknown>(WANDA_HOSTS.MKT_ACTIVITY, path, {}, ck, userIdentifier)
 
   if (response.code !== 0 || !response.data) {
-    return { availableActivities: [], unavailableActivities: [] }
+    throw new Error(response.msg || '获取支付活动失败')
   }
 
   const decrypted = decryptActivityPayload(response.data)
+
+  assertSuccessfulBusinessPayload(decrypted, '获取支付活动失败', response.msg)
+
   const availableActivities: PaymentActivityItem[] = []
   const unavailableActivities: PaymentActivityItem[] = []
 
@@ -497,12 +530,19 @@ export async function fetchPayCards(orderId: string, ck: string, userIdentifier:
     userIdentifier
   )
   const data = asRecord(response.data)
+  const bizCode = maybeNumber(data.bizCode)
 
-  if (response.code !== 0 || toNumber(data.bizCode, -1) !== 0) {
+  if (response.code !== 0 || (bizCode !== undefined && bizCode !== 0)) {
     return []
   }
 
-  return [...asList(response.data), ...asList(data.cards), ...asList(data.cardList), ...asList(data.list)]
+  return [
+    ...asList(response.data),
+    ...asList(data.cards),
+    ...asList(asRecord(data.res).cards),
+    ...asList(data.cardList),
+    ...asList(data.list)
+  ]
     .map(normalizePaymentCard)
     .filter((card) => card.available)
 }
@@ -535,10 +575,13 @@ export async function fetchCoupons(
   const response = await wandaGet<unknown>(WANDA_HOSTS.MKT_ACTIVITY, path, {}, ck, userIdentifier)
 
   if (response.code !== 0 || !response.data) {
-    return []
+    throw new Error(response.msg || '获取优惠券失败')
   }
 
   const decrypted = decryptActivityPayload(response.data)
+
+  assertSuccessfulBusinessPayload(decrypted, '获取优惠券失败', response.msg)
+
   return collectCoupons(decrypted).map(normalizeCoupon).filter((coupon) => coupon.able)
 }
 
@@ -559,6 +602,8 @@ export async function queryOrderStatus(
     userIdentifier
   )
 
+  assertSuccessfulResponseData(response, '查询订单状态失败')
+
   return normalizeOrderStatus(response)
 }
 
@@ -573,6 +618,14 @@ export async function queryOrderList(
   assertNotBlank(ck, '万达账号 CK 不能为空')
   assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
 
+  if (!Number.isFinite(pageIndex) || pageIndex <= 0) {
+    throw new Error('页码必须大于 0')
+  }
+
+  if (!Number.isFinite(pageSize) || pageSize <= 0) {
+    throw new Error('每页数量必须大于 0')
+  }
+
   const response = await wandaPost<unknown>(
     WANDA_HOSTS.GATEWAY,
     WANDA_API_PATHS.ORDER_QUERY_LIST,
@@ -580,7 +633,7 @@ export async function queryOrderList(
     ck,
     userIdentifier
   )
-  const data = asRecord(response.data)
+  const data = assertSuccessfulResponseData(response, '查询订单列表失败')
   const records = collectOrderRecords(data).map((item) => normalizeOrderRecord(item, phone))
 
   return {
@@ -607,6 +660,8 @@ export async function queryOrderByUserId(
     userIdentifier
   )
 
+  assertSuccessfulResponseData(response, '查询订单详情失败')
+
   return extractPayInfo(orderId, response)
 }
 
@@ -627,6 +682,8 @@ export async function queryPayInfoUpgrade(
     ck,
     userIdentifier
   )
+
+  assertSuccessfulResponseData(response, '查询取票信息失败')
 
   return extractPayInfo(orderId, response)
 }
