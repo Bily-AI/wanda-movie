@@ -31,6 +31,7 @@
 4. 订单状态：`/order/order_status.api`
 5. 历史订单：`/order/query_order_list.api`
 6. 支付信息查询：`/order/query_pay_info_upgrade.api`
+7. 订单详情/取票信息：`/order/query_by_userid.api`
 
 这些接口继续通过当前 `wandaCore` 的 host、签名、请求头和 cookie 机制发送。旧产物里已经存在的 Baidu OCR、支付宝网关和自动支付能力不在本阶段启用。
 
