@@ -25,6 +25,30 @@ const CINEMA_SYSTEM_VERSION = '10'
 const CINEMA_VERSION = '9.1.8'
 const WANDA_MODEL = 'M2102J2SC'
 const WANDA_USER_AGENT = 'okhttp/4.12.0'
+const READONLY_SMOKE_PATHS = new Set([
+  '/user/islogin.api',
+  '/showtime/by_cinema.api',
+  '/order/real_time_seat.api',
+  '/order/query_order_list.api',
+  '/card/user_card/list.api',
+  '/coupon/member/grouplist.api'
+])
+const DANGEROUS_SMOKE_PATHS = [
+  '/order/create_order.api',
+  '/order/create.api',
+  '/order/cancel.api',
+  '/order/prepay.api',
+  '/order/merge_payment.api',
+  '/card/transfer.version',
+  '/card/recharge.version',
+  '/coupon/bind.api',
+  '/coupon/present/',
+  '/member/grade/gain_equity.api',
+  '/pack_activity/activity/create_order.api',
+  '/giftshop/transactions/create',
+  '/mkt/activity/secret/selectcoupon.api',
+  '/mkt/activity/secret/conponuse.api'
+]
 
 function readJson(filePath) {
   return JSON.parse(readFileSync(filePath, 'utf8'))
@@ -93,6 +117,26 @@ function firstText(...values) {
   }
 
   return ''
+}
+
+function matchesPathRule(pathname, rule) {
+  return rule.endsWith('/') ? pathname.startsWith(rule) : pathname === rule
+}
+
+function assertReadonlySmokePath(pathname) {
+  if (DANGEROUS_SMOKE_PATHS.some((dangerousPath) => matchesPathRule(pathname, dangerousPath))) {
+    throw new Error(`拒绝在真实冒烟中调用危险接口：${pathname}`)
+  }
+
+  if (!READONLY_SMOKE_PATHS.has(pathname)) {
+    throw new Error(`真实冒烟接口未加入只读白名单：${pathname}`)
+  }
+}
+
+function assertReadonlySmokeSuite() {
+  for (const pathname of READONLY_SMOKE_PATHS) {
+    assertReadonlySmokePath(pathname)
+  }
 }
 
 function getNestedList(record, key, childKey) {
@@ -308,6 +352,7 @@ function buildRuntime(env, account) {
 async function testIsLogin(runtime) {
   const host = 'user-api-prd-mx.wandafilm.com'
   const pathname = '/user/islogin.api'
+  assertReadonlySmokePath(pathname)
   const body = formBody({ json: true })
   const response = await axios.post(`https://${host}${pathname}`, body, {
     headers: buildWandaHeaders(pathname, body, { ...runtime, host }),
@@ -329,6 +374,7 @@ async function testIsLogin(runtime) {
 async function testShowtimeByCinema(runtime, cinema) {
   const host = 'cinema-api-prd-mx.wandafilm.com'
   const pathname = '/showtime/by_cinema.api'
+  assertReadonlySmokePath(pathname)
   const query = `cinemaId=${encodeURIComponent(cinema.id || cinema.cinemaId)}&showType=0&json=true`
   const requestPath = `${pathname}?${query}`
   const response = await axios.get(`https://${host}${requestPath}`, {
@@ -358,6 +404,7 @@ async function testShowtimeByCinema(runtime, cinema) {
 async function testRealTimeSeat(runtime, showtime) {
   const host = 'front-gateway-c.wandafilm.com'
   const pathname = '/order/real_time_seat.api'
+  assertReadonlySmokePath(pathname)
   const query = `dId=${encodeURIComponent(showtime.dId)}`
   const requestPath = `${pathname}?${query}`
   const response = await axios.get(`https://${host}${requestPath}`, {
@@ -389,6 +436,7 @@ async function testRealTimeSeat(runtime, showtime) {
 async function testOrderList(runtime) {
   const host = 'front-gateway-c.wandafilm.com'
   const pathname = '/order/query_order_list.api'
+  assertReadonlySmokePath(pathname)
   const body = formBody({ busiType: 3, pageIndex: 1, pageSize: 20, timeLeagth: 0 })
   const response = await axios.post(`https://${host}${pathname}`, body, {
     headers: buildWandaHeaders(pathname, body, { ...runtime, host }),
@@ -420,6 +468,7 @@ async function testOrderList(runtime) {
 async function testStoredCards(runtime) {
   const host = 'card-api-prd-mx.wandafilm.com'
   const pathname = '/card/user_card/list.api'
+  assertReadonlySmokePath(pathname)
   const query = queryString({ category: 1, json: true })
   const requestPath = `${pathname}?${query}`
   const response = await axios.get(`https://${host}${requestPath}`, {
@@ -459,6 +508,7 @@ async function testStoredCards(runtime) {
 async function testMemberCoupons(runtime) {
   const host = 'coupon-api-prd-mx.wandafilm.com'
   const pathname = '/coupon/member/grouplist.api'
+  assertReadonlySmokePath(pathname)
   const query = queryString({ couponStatus: '', expireStatus: 'N', json: true })
   const requestPath = `${pathname}?${query}`
   const response = await axios.get(`https://${host}${requestPath}`, {
@@ -501,6 +551,8 @@ async function testMemberCoupons(runtime) {
 }
 
 async function main() {
+  assertReadonlySmokeSuite()
+
   const env = readEnv(envPath)
   const accountsData = readJson(accountPath)
   const cityData = readJson(cityPath)

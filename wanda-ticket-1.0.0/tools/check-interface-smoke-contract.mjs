@@ -20,6 +20,10 @@ if (!existsSync(smokePath)) {
     'buildWandaHeaders',
     'buildCinemaHeaders',
     'buildSeatHeaders',
+    'READONLY_SMOKE_PATHS',
+    'DANGEROUS_SMOKE_PATHS',
+    'assertReadonlySmokePath',
+    'assertReadonlySmokeSuite',
     '/user/islogin.api',
     '/showtime/by_cinema.api',
     '/order/real_time_seat.api',
@@ -40,6 +44,34 @@ if (!existsSync(smokePath)) {
     if (!smoke.includes(marker)) {
       failures.push(`tools/smoke-wanda-api.mjs 缺少标记：${marker}`)
     }
+  }
+
+  for (const dangerousPath of [
+    '/order/create_order.api',
+    '/order/create.api',
+    '/order/cancel.api',
+    '/order/prepay.api',
+    '/order/merge_payment.api',
+    '/card/transfer.version',
+    '/card/recharge.version',
+    '/coupon/bind.api',
+    '/coupon/present/',
+    '/member/grade/gain_equity.api',
+    '/pack_activity/activity/create_order.api',
+    '/giftshop/transactions/create',
+    '/mkt/activity/secret/selectcoupon.api',
+    '/mkt/activity/secret/conponuse.api'
+  ]) {
+    if (!smoke.includes(dangerousPath)) {
+      failures.push(`tools/smoke-wanda-api.mjs 缂哄皯鍗遍櫓鎺ュ彛榛戝悕鍗曪細${dangerousPath}`)
+    }
+  }
+
+  const axiosCallCount = (smoke.match(/await axios\./g) || []).length
+  const readonlyGuardCount = (smoke.match(/\n\s*assertReadonlySmokePath\(pathname\)/g) || []).length
+
+  if (readonlyGuardCount < axiosCallCount) {
+    failures.push(`tools/smoke-wanda-api.mjs 姣忎釜鐪熷疄璇锋眰閮藉繀椤堕€氳繃鍙鐧藉悕鍗曟牎楠岋細${readonlyGuardCount}/${axiosCallCount}`)
   }
 }
 
