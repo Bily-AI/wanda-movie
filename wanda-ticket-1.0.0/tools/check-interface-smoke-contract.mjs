@@ -3,7 +3,18 @@ import path from 'node:path'
 
 const projectRoot = path.resolve(import.meta.dirname, '..')
 const smokePath = path.join(projectRoot, 'tools', 'smoke-wanda-api.mjs')
+const packagePath = path.join(projectRoot, 'package.json')
 const failures = []
+
+const packageConfig = JSON.parse(readFileSync(packagePath, 'utf8'))
+
+if (packageConfig.scripts?.['check:interface-smoke'] !== 'node tools/check-interface-smoke-contract.mjs') {
+  failures.push('package.json 缺少 check:interface-smoke 契约脚本')
+}
+
+if (packageConfig.scripts?.['smoke:wanda'] !== 'node tools/smoke-wanda-api.mjs') {
+  failures.push('package.json 缺少 smoke:wanda 真实接口冒烟脚本')
+}
 
 if (!existsSync(smokePath)) {
   failures.push('缺少万达接口冒烟测试工具：tools/smoke-wanda-api.mjs')

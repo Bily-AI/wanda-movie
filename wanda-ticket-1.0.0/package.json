@@ -28,6 +28,8 @@
     "check:alipay-ui": "node tools/check-alipay-ui-contract.mjs",
     "check:stored-card": "node tools/check-stored-card-contract.mjs",
     "check:member-signin": "node tools/check-member-signin-contract.mjs",
+    "check:interface-smoke": "node tools/check-interface-smoke-contract.mjs",
+    "smoke:wanda": "node tools/smoke-wanda-api.mjs",
     "index:old": "node tools/old-package-index.mjs"
   },
   "dependencies": {
