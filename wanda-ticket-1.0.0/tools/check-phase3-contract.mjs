@@ -160,6 +160,7 @@ assertIncludes('src/renderer/services/wandaRequest.ts', requestService, "getRunt
 assertIncludes('src/renderer/services/wandaRequest.ts', requestService, "getRuntimeNumberParam('width', 1080)")
 assertIncludes('src/renderer/services/wandaRequest.ts', requestService, "'Accept-Encoding': 'gzip, deflate'")
 assertIncludes('src/renderer/services/wandaRequest.ts', requestService, "CINEMA_SYSTEM_VERSION = '10'")
+assertIncludes('src/renderer/services/wandaRequest.ts', requestService, "CINEMA_VERSION = '9.1.8'")
 assertIncludes('src/renderer/services/wandaRequest.ts', requestService, 'generateMxCid')
 assertIncludes('src/renderer/services/wandaRequest.ts', requestService, 'Host: `${host}:443`')
 
@@ -183,6 +184,7 @@ const cinemaHeaderBlock = sliceRequired(
   'export async function wandaCinemaGet',
   '影院专用请求头函数'
 )
+assertIncludes('src/renderer/services/wandaRequest.ts', cinemaHeaderBlock, 'ver: CINEMA_VERSION')
 assertNotIncludes('src/renderer/services/wandaRequest.ts', cinemaHeaderBlock, 'X-RY-')
 
 assertIncludes('src/renderer/stores/accounts.ts', accountsStore, "DEFAULT_WANDA_USER_IDENTIFIER")

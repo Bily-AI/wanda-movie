@@ -11,6 +11,7 @@ const WANDA_VERSION = '9.3.2'
 const WANDA_CHANNEL = '1_2'
 const WANDA_SYSTEM_VERSION = '13'
 const CINEMA_SYSTEM_VERSION = '10'
+const CINEMA_VERSION = '9.1.8'
 const DEFAULT_WANDA_MODEL = 'M2102J2SC'
 const DEFAULT_WANDA_USER_IDENTIFIER = 'YYDDJDKYHA'
 const DEFAULT_SHUMEI_BOX_ID = 'wanda-ticket-tool'
@@ -271,7 +272,7 @@ export function buildCinemaHeaders(path: string, ck = '', host: string = WANDA_H
     height,
     'Accept-Encoding': 'gzip, deflate',
     ts: timestamp,
-    ver: WANDA_VERSION,
+    ver: CINEMA_VERSION,
     _mi_: ck,
     json: true,
     appId: 2,
