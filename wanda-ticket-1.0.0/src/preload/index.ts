@@ -2,6 +2,11 @@ import { contextBridge, ipcRenderer } from 'electron'
 
 import {
   IPC_CHANNELS,
+  type AlipayClearSessionResult,
+  type AlipayConvertRequest,
+  type AlipayConvertResult,
+  type AlipayDeviceFingerprint,
+  type AlipaySyncDeviceResult,
   type AiOcrParseRequest,
   type AiOcrParseResult,
   type BaiduOcrRequest,
@@ -32,6 +37,11 @@ export type {
   ElementCaptureRequest,
   ElementCaptureResult,
   ElementCopyResult,
+  AlipayClearSessionResult,
+  AlipayConvertRequest,
+  AlipayConvertResult,
+  AlipayDeviceFingerprint,
+  AlipaySyncDeviceResult,
   LocalDataResult,
   LocalDataWriteResult,
   OldPackageIndexResult,
@@ -66,6 +76,9 @@ export interface WandaAppApi {
   fetchProxy: () => Promise<ProxyFetchResult>
   getUsedProxy: () => Promise<ProxyUsedResult>
   clearProxyCache: () => Promise<ProxyClearResult>
+  alipayConvert: (request: AlipayConvertRequest) => Promise<AlipayConvertResult>
+  alipaySyncDevice: (request: AlipayDeviceFingerprint) => Promise<AlipaySyncDeviceResult>
+  alipayClearSession: () => Promise<AlipayClearSessionResult>
 }
 
 const wandaApp: WandaAppApi = {
@@ -87,7 +100,10 @@ const wandaApp: WandaAppApi = {
   copyElementToClipboard: (request) => ipcRenderer.invoke(IPC_CHANNELS.ELEMENT_COPY_TO_CLIPBOARD, request),
   fetchProxy: () => ipcRenderer.invoke(IPC_CHANNELS.PROXY_FETCH),
   getUsedProxy: () => ipcRenderer.invoke(IPC_CHANNELS.PROXY_GET_USED),
-  clearProxyCache: () => ipcRenderer.invoke(IPC_CHANNELS.PROXY_CLEAR_CACHE)
+  clearProxyCache: () => ipcRenderer.invoke(IPC_CHANNELS.PROXY_CLEAR_CACHE),
+  alipayConvert: (request) => ipcRenderer.invoke(IPC_CHANNELS.ALIPAY_CONVERT, request),
+  alipaySyncDevice: (request) => ipcRenderer.invoke(IPC_CHANNELS.ALIPAY_SYNC_DEVICE, request),
+  alipayClearSession: () => ipcRenderer.invoke(IPC_CHANNELS.ALIPAY_CLEAR_SESSION)
 }
 
 contextBridge.exposeInMainWorld('wandaApp', wandaApp)

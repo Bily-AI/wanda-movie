@@ -20,7 +20,10 @@ export const IPC_CHANNELS = {
   ELEMENT_COPY_TO_CLIPBOARD: 'copy-element-to-clipboard',
   PROXY_FETCH: 'fetch-proxy',
   PROXY_GET_USED: 'proxy-get-used',
-  PROXY_CLEAR_CACHE: 'proxy-clear-cache'
+  PROXY_CLEAR_CACHE: 'proxy-clear-cache',
+  ALIPAY_CLEAR_SESSION: 'alipay-clear-session',
+  ALIPAY_SYNC_DEVICE: 'alipay-sync-device',
+  ALIPAY_CONVERT: 'alipay-convert'
 } as const
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]
@@ -123,3 +126,35 @@ export type ProxyFetchResult = IpcResult<ProxyEndpoint>
 export type ProxyUsedResult = IpcResult<UsedProxyData>
 
 export type ProxyClearResult = IpcResult<boolean>
+
+export interface AlipayDeviceFingerprint {
+  model?: string
+  ios?: string
+  screen?: string
+  width?: string | number
+  height?: string | number
+  build?: string
+}
+
+export interface AlipayAutoPaymentOptions {
+  enabled?: boolean
+  phone?: string
+  password?: string
+}
+
+export interface AlipayConvertRequest {
+  appPayParam: string
+  deviceFingerprint?: AlipayDeviceFingerprint
+  autoPayment?: AlipayAutoPaymentOptions
+}
+
+export interface AlipayConvertData {
+  url: string
+  reusedWindow: boolean
+}
+
+export type AlipayConvertResult = IpcResult<AlipayConvertData>
+
+export type AlipaySyncDeviceResult = IpcResult<boolean>
+
+export type AlipayClearSessionResult = IpcResult<boolean>

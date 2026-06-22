@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { IPC_CHANNELS, type OldPackageIndexResult } from '../shared/ipc'
+import { registerAlipayHandlers } from './alipay'
 import { registerBaiduOcrHandlers } from './baiduOcr'
 import { registerElementCaptureHandlers } from './elementCapture'
 import { registerLocalDataHandlers } from './localData'
@@ -129,6 +130,7 @@ function registerIpcHandlers(): void {
   registerBaiduOcrHandlers()
   registerElementCaptureHandlers()
   registerProxyHandlers()
+  registerAlipayHandlers()
 
   ipcMain.handle(IPC_CHANNELS.WINDOW_MINIMIZE, (event) => {
     getWindowFromEvent(event)?.minimize()
