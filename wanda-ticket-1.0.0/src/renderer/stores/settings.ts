@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
+import { toRaw } from 'vue'
 
 import { setWandaRequestParams } from '@renderer/services/wandaRequest'
-import { DEFAULT_LOCAL_DATA, type RequestParamsLocalData } from '@shared/localData'
+import { DEFAULT_LOCAL_DATA, type ProxyLocalData, type RequestParamsLocalData, type SettingsLocalData } from '@shared/localData'
 
 function getWandaApp() {
   if (typeof window === 'undefined') {
@@ -24,6 +25,29 @@ function generateDeviceUserId(): string {
   }
 
   return value
+}
+
+function toPlainSettingsData(data: SettingsLocalData): SettingsLocalData {
+  return structuredClone({
+    rememberWindow: data.rememberWindow,
+    autoClosePaymentWindow: data.autoClosePaymentWindow,
+    paymentCardDisplay: data.paymentCardDisplay,
+    ticketCodeTemplate: data.ticketCodeTemplate,
+    autoPayment: { ...toRaw(data.autoPayment) },
+    baiduOcr: { ...toRaw(data.baiduOcr) },
+    aiOcr: { ...toRaw(data.aiOcr) }
+  })
+}
+
+function toPlainProxyData(data: ProxyLocalData): ProxyLocalData {
+  return structuredClone({
+    proxyApiUrl: data.proxyApiUrl,
+    useProxy: data.useProxy
+  })
+}
+
+function toPlainRequestParamsData(data: RequestParamsLocalData): RequestParamsLocalData {
+  return structuredClone({ ...toRaw(data) })
 }
 
 export const useSettingsStore = defineStore('settings', {
@@ -67,7 +91,7 @@ export const useSettingsStore = defineStore('settings', {
   },
   actions: {
     syncRequestParams() {
-      setWandaRequestParams(this.requestParams)
+      setWandaRequestParams(toPlainRequestParamsData(this.requestParams))
     },
     refreshRequestParams() {
       this.requestParams = {
@@ -120,23 +144,27 @@ export const useSettingsStore = defineStore('settings', {
         return
       }
 
-      this.syncRequestParams()
+      const requestParamsData = toPlainRequestParamsData(this.requestParams)
+      const settingsData = toPlainSettingsData({
+        rememberWindow: this.rememberWindow,
+        autoClosePaymentWindow: this.autoClosePaymentWindow,
+        paymentCardDisplay: this.paymentCardDisplay,
+        ticketCodeTemplate: this.ticketCodeTemplate,
+        autoPayment: this.autoPayment,
+        baiduOcr: this.baiduOcr,
+        aiOcr: this.aiOcr
+      })
+      const proxyData = toPlainProxyData({
+        proxyApiUrl: this.proxyApi,
+        useProxy: this.useProxyIp
+      })
+
+      setWandaRequestParams(requestParamsData)
 
       await Promise.all([
-        wandaApp.writeLocalData('settings', {
-          rememberWindow: this.rememberWindow,
-          autoClosePaymentWindow: this.autoClosePaymentWindow,
-          paymentCardDisplay: this.paymentCardDisplay,
-          ticketCodeTemplate: this.ticketCodeTemplate,
-          autoPayment: this.autoPayment,
-          baiduOcr: this.baiduOcr,
-          aiOcr: this.aiOcr
-        }),
-        wandaApp.writeLocalData('proxy', {
-          proxyApiUrl: this.proxyApi,
-          useProxy: this.useProxyIp
-        }),
-        wandaApp.writeLocalData('requestParams', this.requestParams)
+        wandaApp.writeLocalData('settings', settingsData),
+        wandaApp.writeLocalData('proxy', proxyData),
+        wandaApp.writeLocalData('requestParams', requestParamsData)
       ])
     },
     async clearCacheData() {

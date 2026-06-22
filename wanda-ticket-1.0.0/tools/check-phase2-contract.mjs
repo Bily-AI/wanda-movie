@@ -50,7 +50,7 @@ requireFile('src/shared/wandaCore.ts', ['WANDA_HOSTS', 'WANDA_API_PATHS', 'valid
 requireFile('src/main/wandaHttp.ts', ['sendWandaRequest'])
 requireFile('src/renderer/stores/accounts.ts', ['useAccountsStore', 'loginForm'])
 requireFile('src/renderer/stores/ticket.ts', ['useTicketStore', 'query'])
-requireFile('src/renderer/stores/settings.ts', ['useSettingsStore', 'proxyApi'])
+const settingsStoreText = requireFile('src/renderer/stores/settings.ts', ['useSettingsStore', 'proxyApi'])
 requireFile('src/renderer/stores/orders.ts', ['useOrdersStore'])
 requireFile('src/renderer/stores/logs.ts', ['useLogsStore'])
 requireFile('src/renderer/App.vue', ['useAccountsStore', 'useSettingsStore', 'loadAccounts', 'loadSettings', 'saveSettings'])
@@ -106,6 +106,26 @@ if (!ipcText.includes('type LocalDataResult')) {
 
 if (!preloadText.includes('Window') || !mainText.includes('ipcMain.handle')) {
   failures.push('IPC 边界未完整接入')
+}
+
+if (!settingsStoreText.includes('toPlainSettingsData')) {
+  failures.push('src/renderer/stores/settings.ts 需要在保存设置前转成普通对象，避免 Electron IPC 无法克隆 Vue 响应式对象')
+}
+
+if (!settingsStoreText.includes('toPlainProxyData')) {
+  failures.push('src/renderer/stores/settings.ts 需要在保存代理设置前转成普通对象')
+}
+
+if (!settingsStoreText.includes('toPlainRequestParamsData')) {
+  failures.push('src/renderer/stores/settings.ts 需要在同步/保存业务请求头参数前转成普通对象')
+}
+
+if (settingsStoreText.includes("writeLocalData('requestParams', this.requestParams)")) {
+  failures.push('src/renderer/stores/settings.ts 不能直接保存 this.requestParams，会触发 An object could not be cloned')
+}
+
+if (settingsStoreText.includes('setWandaRequestParams(this.requestParams)')) {
+  failures.push('src/renderer/stores/settings.ts 不能直接同步 this.requestParams，应使用普通对象')
 }
 
 const forbiddenPatterns = [
