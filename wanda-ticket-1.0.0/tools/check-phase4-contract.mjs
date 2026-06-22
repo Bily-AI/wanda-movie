@@ -274,6 +274,17 @@ for (const [file, content] of [
   assertNotIncludes(file, content, 'ORDER_PREPAY')
   assertNotIncludes(file, content, '/order/prepay.api')
   assertNotIncludes(file, content, 'prepay')
+}
+
+for (const [file, content] of [
+  ['src/main/wandaHttp.ts', mainWandaHttp],
+  ['src/renderer/services/wandaRequest.ts', wandaRequest],
+  ['src/renderer/services/cinemaApi.ts', cinemaApi],
+  ['src/renderer/services/seatApi.ts', seatApi],
+  ['src/renderer/services/wandaAuthApi.ts', wandaAuthApi],
+  ['src/renderer/stores/ticket.ts', ticketStore],
+  ['src/renderer/stores/orders.ts', ordersStore]
+]) {
   assertNotIncludes(file, content, 'alipay')
   assertNotIncludes(file, content, 'Alipay')
   assertNotIncludes(file, content, 'ALIPAY')

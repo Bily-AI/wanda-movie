@@ -317,6 +317,12 @@ for (const [file, content] of [
 ]) {
   assertNotIncludes(file, content, 'alipay-convert')
   assertNotIncludes(file, content, 'open-auto-order-window')
+}
+
+for (const [file, content] of [
+  ['src/renderer/services/seatApi.ts', seatApi],
+  ['src/renderer/stores/ticket.ts', ticketStore]
+]) {
   assertNotIncludes(file, content, 'autoPayment')
 }
 
