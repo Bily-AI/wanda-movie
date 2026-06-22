@@ -64,6 +64,13 @@ function formBody(data) {
     .join('&')
 }
 
+function queryString(data) {
+  return Object.entries(data)
+    .filter(([, value]) => value !== undefined && value !== '')
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+    .join('&')
+}
+
 function isRecord(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -259,6 +266,15 @@ function buildSeatHeaders(requestPath, runtime) {
   }
 }
 
+function buildWandaGetHeaders(requestPath, runtime) {
+  const headers = buildWandaHeaders(requestPath, '', runtime)
+
+  delete headers['Content-Type']
+  delete headers['Content-Length']
+
+  return headers
+}
+
 function pickAccount(accounts) {
   return accounts.find((account) => account.ck && account.userIdentifier)
 }
@@ -401,6 +417,89 @@ async function testOrderList(runtime) {
   }
 }
 
+async function testStoredCards(runtime) {
+  const host = 'card-api-prd-mx.wandafilm.com'
+  const pathname = '/card/user_card/list.api'
+  const query = queryString({ category: 1, json: true })
+  const requestPath = `${pathname}?${query}`
+  const response = await axios.get(`https://${host}${requestPath}`, {
+    headers: buildWandaGetHeaders(requestPath, { ...runtime, host }),
+    timeout: 15000,
+    validateStatus: () => true
+  })
+  const data = asRecord(response.data?.data)
+  const res = asRecord(data.res)
+  const cards = [
+    ...asList(data.cards),
+    ...asList(data.cardList),
+    ...asList(data.itemList),
+    ...asList(data.items),
+    ...asList(data.list),
+    ...asList(data.commendcards),
+    ...asList(res.cards),
+    ...asList(res.cardList),
+    ...asList(res.itemList),
+    ...asList(res.items),
+    ...asList(res.list),
+    ...asList(res.commendcards)
+  ]
+
+  return {
+    name: '储值卡列表',
+    method: 'GET',
+    path: pathname,
+    httpStatus: response.status,
+    code: response.data?.code,
+    success: response.data?.success === true || response.data?.code === 0,
+    message: hideSensitive(response.data?.msg || response.data?.message || data.bizMsg || res.bizMsg || ''),
+    storedCardCount: cards.length
+  }
+}
+
+async function testMemberCoupons(runtime) {
+  const host = 'coupon-api-prd-mx.wandafilm.com'
+  const pathname = '/coupon/member/grouplist.api'
+  const query = queryString({ couponStatus: '', expireStatus: 'N', json: true })
+  const requestPath = `${pathname}?${query}`
+  const response = await axios.get(`https://${host}${requestPath}`, {
+    headers: buildWandaGetHeaders(requestPath, { ...runtime, host }),
+    timeout: 15000,
+    validateStatus: () => true
+  })
+  const data = asRecord(response.data?.data)
+  const groups = [
+    ...asList(data.groups),
+    ...asList(data.groupList),
+    ...asList(data.list),
+    ...asList(data.items)
+  ]
+  const groupedCoupons = groups.flatMap((group) => {
+    const record = asRecord(group)
+
+    return [...asList(record.couponInfoList), ...asList(record.coupons), ...asList(record.items)]
+  })
+  const coupons = groupedCoupons.length > 0
+    ? groupedCoupons
+    : [
+        ...asList(data.couponInfoList),
+        ...asList(data.coupons),
+        ...asList(data.items),
+        ...asList(data.list)
+      ]
+
+  return {
+    name: '兑换券列表',
+    method: 'GET',
+    path: pathname,
+    httpStatus: response.status,
+    code: response.data?.code,
+    success: response.data?.success === true || response.data?.code === 0,
+    message: hideSensitive(response.data?.msg || response.data?.message || data.bizMsg || ''),
+    couponGroupCount: groups.length,
+    couponCount: coupons.length
+  }
+}
+
 async function main() {
   const env = readEnv(envPath)
   const accountsData = readJson(accountPath)
@@ -424,6 +523,8 @@ async function main() {
   tests.push(showtimeResult.test)
   tests.push(await testRealTimeSeat(runtime, pickShowtime(showtimeResult.data)))
   tests.push(await testOrderList(runtime))
+  tests.push(await testStoredCards(runtime))
+  tests.push(await testMemberCoupons(runtime))
 
   const summary = {
     userDataDir,
