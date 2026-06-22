@@ -34,7 +34,10 @@ const READONLY_SMOKE_PATHS = new Set([
   '/coupon/member/grouplist.api',
   '/member/grade/grade_equity_list.api',
   '/wplus/member/plusDetail.api',
-  '/sign_in/calendar.api'
+  '/sign_in/calendar.api',
+  '/pack_activity/activity/list.api',
+  '/pack_activity/activity/detail.api',
+  '/giftshop/orders'
 ])
 const DANGEROUS_SMOKE_PATHS = [
   '/order/create_order.api',
@@ -668,6 +671,116 @@ async function testMemberSignInCalendar(runtime) {
   }
 }
 
+async function testActivityGifts(runtime, cinema) {
+  const host = 'front-gateway-c.wandafilm.com'
+  const pathname = '/pack_activity/activity/list.api'
+  assertReadonlySmokePath(pathname)
+  const query = queryString({ cinemaId: cinema.id || cinema.cinemaId, json: true })
+  const requestPath = `${pathname}?${query}`
+  const response = await axios.get(`https://${host}${requestPath}`, {
+    headers: buildWandaGetHeaders(requestPath, { ...runtime, host }),
+    timeout: 15000,
+    validateStatus: () => true
+  })
+  const data = asRecord(response.data?.data)
+  const activities = [
+    ...asList(data.activities),
+    ...asList(data.activityList),
+    ...asList(data.itemList),
+    ...asList(data.list),
+    ...asList(data.items)
+  ]
+
+  return {
+    data,
+    firstActivity: activities.map(asRecord).find((activity) => firstText(activity.id, activity.activityId, activity.code, activity.activityCode)),
+    test: {
+      name: '活动礼包列表',
+      method: 'GET',
+      path: pathname,
+      cinemaId: cinema.id || cinema.cinemaId,
+      httpStatus: response.status,
+      code: response.data?.code,
+      success: response.data?.success === true || response.data?.code === 0,
+      message: hideSensitive(response.data?.msg || response.data?.message || data.bizMsg || ''),
+      activityGiftCount: activities.length
+    }
+  }
+}
+
+async function testActivityGiftDetail(runtime, cinema, activity) {
+  const host = 'front-gateway-c.wandafilm.com'
+  const pathname = '/pack_activity/activity/detail.api'
+  assertReadonlySmokePath(pathname)
+  const activityRecord = asRecord(activity)
+  const activityCode = firstText(activityRecord.id, activityRecord.activityId, activityRecord.code, activityRecord.activityCode)
+
+  if (!activityCode) {
+    return {
+      name: '活动礼包详情',
+      method: 'GET',
+      path: pathname,
+      skipped: true,
+      success: true,
+      activityDetailReachable: false,
+      message: '活动列表为空，跳过详情接口'
+    }
+  }
+
+  const query = queryString({ cinemaId: cinema.id || cinema.cinemaId, activityCode, json: true })
+  const requestPath = `${pathname}?${query}`
+  const response = await axios.get(`https://${host}${requestPath}`, {
+    headers: buildWandaGetHeaders(requestPath, { ...runtime, host }),
+    timeout: 15000,
+    validateStatus: () => true
+  })
+  const data = asRecord(response.data?.data)
+
+  return {
+    name: '活动礼包详情',
+    method: 'GET',
+    path: pathname,
+    httpStatus: response.status,
+    code: response.data?.code,
+    success: response.data?.success === true || response.data?.code === 0,
+    message: hideSensitive(response.data?.msg || response.data?.message || data.bizMsg || ''),
+    activityDetailReachable: response.status >= 200 && response.status < 300
+  }
+}
+
+async function testGiftOrders(runtime) {
+  const host = 'front-gateway-c.wandafilm.com'
+  const pathname = '/giftshop/orders'
+  assertReadonlySmokePath(pathname)
+  const query = queryString({ pageIndex: 1, pageSize: 20, json: true })
+  const requestPath = `${pathname}?${query}`
+  const response = await axios.get(`https://${host}${requestPath}`, {
+    headers: buildWandaGetHeaders(requestPath, { ...runtime, host }),
+    timeout: 15000,
+    validateStatus: () => true
+  })
+  const data = asRecord(response.data?.data)
+  const orders = [
+    ...asList(data.orders),
+    ...asList(data.orderList),
+    ...asList(data.items),
+    ...asList(data.list),
+    ...asList(data.records)
+  ]
+
+  return {
+    name: '活动礼包订单',
+    method: 'GET',
+    path: pathname,
+    httpStatus: response.status,
+    code: response.data?.code,
+    success: response.data?.success === true || response.data?.code === 0,
+    message: hideSensitive(response.data?.msg || response.data?.message || data.bizMsg || ''),
+    giftOrderTotal: Number(data.totalCount ?? data.total ?? data.count ?? orders.length) || 0,
+    giftOrderCount: orders.length
+  }
+}
+
 async function main() {
   assertReadonlySmokeSuite()
 
@@ -698,6 +811,10 @@ async function main() {
   tests.push(await testMemberGradeEquity(runtime))
   tests.push(await testWPlusDetail(runtime))
   tests.push(await testMemberSignInCalendar(runtime))
+  const activityResult = await testActivityGifts(runtime, cinema)
+  tests.push(activityResult.test)
+  tests.push(await testActivityGiftDetail(runtime, cinema, activityResult.firstActivity))
+  tests.push(await testGiftOrders(runtime))
 
   const summary = {
     userDataDir,
