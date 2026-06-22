@@ -3,6 +3,8 @@ import CryptoJS from 'crypto-js'
 import { WANDA_API_PATHS } from '@shared/wandaCore'
 import type {
   CouponItem,
+  CouponSelectionResult,
+  CouponUseResult,
   OrderListResult,
   OrderPayInfoResult,
   OrderRecord,
@@ -11,14 +13,28 @@ import type {
   PaymentActivityResult,
   PaymentCard,
   RealTimeSeats,
+  TicketPaymentSubmitRequest,
+  TicketPaymentSubmitResult,
   TicketOrderResult,
   TicketOrderSeatRef
 } from '@shared/wandaTicketTypes'
-import { WANDA_HOSTS, toFormBody, wandaGet, wandaPost, type WandaBody } from './wandaRequest'
+import {
+  WANDA_HOSTS,
+  buildWandaHeaders,
+  toFormBody,
+  wandaGet,
+  wandaGetWithHeaders,
+  wandaPost,
+  wandaPostForm,
+  type WandaBody
+} from './wandaRequest'
 
 const ACTIVITY_AES_KEY = '6f34faeefba8fd39'
+const DEFAULT_WANDA_USER_IDENTIFIER = 'YYDDJDKYHA'
 const PAYMENT_ACTIVITY_LIST_PATH = `${WANDA_API_PATHS.MKT_ACTIVITY_SECRET}list.api` // /mkt/activity/secret/list.api
 const PAYMENT_COUPON_LIST_PATH = `${WANDA_API_PATHS.MKT_ACTIVITY_SECRET}ncoupons.api` // /mkt/activity/secret/ncoupons.api
+const PAYMENT_COUPON_SELECT_PATH = `${WANDA_API_PATHS.MKT_ACTIVITY_SECRET}selectcoupon.api`
+const PAYMENT_COUPON_USE_PATH = `${WANDA_API_PATHS.MKT_ACTIVITY_SECRET}conponuse.api`
 
 function assertNotBlank(value: string, message: string): void {
   if (!value.trim()) {
@@ -173,6 +189,18 @@ function buildQueryPath(path: string, query: Record<string, string | number | bo
   return queryString ? `${path}?${queryString}` : path
 }
 
+function buildCouponUseHeaders(path: string, ck: string, userIdentifier: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    ...buildWandaHeaders(path, '', ck, userIdentifier),
+    Host: WANDA_HOSTS.MKT_ACTIVITY
+  }
+
+  headers['X-RY-USER'] = userIdentifier.trim() || DEFAULT_WANDA_USER_IDENTIFIER
+  delete headers['MX-CID']
+
+  return headers
+}
+
 function decryptActivityPayload(
   value: unknown,
   fallbackMessage: string,
@@ -206,6 +234,14 @@ function decryptActivityPayload(
   throw new Error(firstText(responseMessage, fallbackMessage))
 }
 
+function decryptPaymentSubmitPayload(
+  value: unknown,
+  fallbackMessage: string,
+  responseMessage?: unknown
+): Record<string, unknown> {
+  return decryptActivityPayload(value, fallbackMessage, responseMessage)
+}
+
 function normalizePaymentActivity(item: unknown, group: Record<string, unknown>): PaymentActivityItem {
   const record = asRecord(item)
 
@@ -219,6 +255,7 @@ function normalizePaymentActivity(item: unknown, group: Record<string, unknown>)
     groupType: firstText(group.groupType, group.type),
     note: firstText(record.note, record.remark, record.desc),
     typeCode: firstText(record.typeCode),
+    detailType: firstText(record.detailtype, record.detailType, record.type),
     allotSeat: firstText(record.allotSeat, record.allotseat),
     raw: item
   }
@@ -231,6 +268,7 @@ function normalizePaymentCard(item: unknown): PaymentCard {
     cardNo: firstText(record.cardNo, record.card_no, record.no),
     cardName: firstText(record.cardName, record.name),
     cardTypeName: firstText(record.cardTypeName, record.typeName),
+    cardTypeCode: firstText(record.cardTypeCode, record.typeCode),
     balance: centsToYuan(record.balance),
     available: toBoolean(record.available ?? record.able),
     statusDesc: firstText(record.statusDesc, record.status),
@@ -361,6 +399,73 @@ function collectCoupons(payload: Record<string, unknown>): unknown[] {
   return [...asList(res.coupons), ...asList(res.couponList), ...asList(payload.coupons), ...asList(payload.couponList)]
 }
 
+function normalizeCouponVoucher(value: unknown): string {
+  const text = firstText(value)
+
+  if (!text) {
+    return '{}'
+  }
+
+  try {
+    return JSON.stringify(rewriteCouponVoucher(JSON.parse(text)))
+  } catch {
+    return text.replaceAll('=', '\\u003d')
+  }
+}
+
+function rewriteCouponVoucher(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(rewriteCouponVoucher)
+  }
+
+  if (isRecord(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        key,
+        typeof item === 'string' ? item.replaceAll('=', '\\u003d') : rewriteCouponVoucher(item)
+      ])
+    )
+  }
+
+  return value
+}
+
+function normalizeCouponSelectionResult(payload: Record<string, unknown>): CouponSelectionResult {
+  const res = asRecord(payload.res)
+  const allotSeat = firstText(res.allotseat, res.allotSeat, payload.allotseat, payload.allotSeat)
+
+  if (!allotSeat) {
+    throw new Error(firstText(payload.bizMsg, payload.msg, '兑换券分摊信息为空'))
+  }
+
+  return {
+    allotSeat,
+    voucher: normalizeCouponVoucher(allotSeat),
+    raw: payload
+  }
+}
+
+function normalizeCouponUseResult(payload: Record<string, unknown>): CouponUseResult {
+  const res = asRecord(payload.res)
+
+  return {
+    price: toNumber(res.price),
+    itemList: asList(res.itemList).map((item) => {
+      const record = asRecord(item)
+
+      return {
+        actuallyPaidAmount: toNumber(record.payPrice),
+        rightsCode: '',
+        seatId: toNumber(record.seat),
+        ticketCode: '',
+        ticketType: 0,
+        usedCoupon: 1
+      }
+    }),
+    raw: payload
+  }
+}
+
 function collectOrderRecords(data: Record<string, unknown>): unknown[] {
   return [
     ...asList(data.listOrderInf),
@@ -412,6 +517,59 @@ function extractPayInfo(orderId: string, response: unknown): OrderPayInfoResult 
       'electronicQR',
       'value'
     ]),
+    payInfo: data.payInfo ?? asRecord(data.res).payment ?? asRecord(data.res).payInfo ?? source.payInfo,
+    raw: response
+  }
+}
+
+function extractRequestInfo(value: unknown): unknown {
+  const record = asRecord(value)
+  const data = asRecord(record.data)
+  const res = asRecord(record.res)
+  const orderInf = asRecord(record.orderInf)
+  const payInfo = asRecord(record.payInfo)
+
+  return record.requestInfo ?? data.requestInfo ?? res.requestInfo ?? orderInf.requestInfo ?? payInfo.requestInfo
+}
+
+function normalizeTicketOrderResult(response: unknown): TicketOrderResult {
+  const record = asRecord(response)
+  const data = asRecord(record.data)
+  const orderId = firstText(data.orderId, data.id, record.orderId)
+  const bizCode = maybeBizCode(data.bizCode ?? record.code) ?? 0
+  const bizMsg = firstText(data.bizMsg, data.msg, record.msg)
+
+  return {
+    ...data,
+    orderId,
+    bizCode,
+    bizMsg,
+    requestInfo: extractRequestInfo(data) ?? extractRequestInfo(response),
+    raw: response
+  }
+}
+
+function escapeRequestInfoForSignature(requestInfoJson: string): string {
+  return escape(requestInfoJson.replaceAll('\\\\u003d', '\\u003d'))
+}
+
+function normalizePaymentSubmitResult(
+  orderId: string,
+  requestInfo: unknown,
+  response: unknown,
+  payload: Record<string, unknown>
+): TicketPaymentSubmitResult {
+  const record = asRecord(response)
+  const res = asRecord(payload.res)
+  const payment = asRecord(res.payment)
+
+  return {
+    orderId,
+    bizCode: maybeBizCode(payload.bizCode ?? record.code),
+    bizMsg: firstText(payload.bizMsg, payload.msg, res.bizMsg, res.msg, record.msg),
+    tradeNo: firstText(payload.tradeNo, res.tradeNo, payment.tradeNo),
+    requestInfo,
+    payInfo: payload.payInfo ?? res.payment ?? payload.res ?? payload,
     raw: response
   }
 }
@@ -466,7 +624,7 @@ export async function createTicketOrder(
   }
   const signatureBody = toFormBody(body).replaceAll('%7C', '|')
 
-  const response = await wandaPost<TicketOrderResult>(
+  const response = await wandaPost<unknown>(
     WANDA_HOSTS.GATEWAY,
     WANDA_API_PATHS.ORDER_CREATE_TICKET,
     body,
@@ -474,9 +632,9 @@ export async function createTicketOrder(
     userIdentifier,
     { signatureBody }
   )
-  const data = response.data
+  const data = normalizeTicketOrderResult(response)
 
-  if (response.code !== 0 || !data || data.bizCode !== 0 || !data.orderId) {
+  if (response.code !== 0 || data.bizCode !== 0 || !data.orderId) {
     throw new Error(data?.bizMsg || response.msg || '创建订单失败')
   }
 
@@ -645,6 +803,149 @@ export async function fetchCoupons(
   return collectCoupons(decrypted).map(normalizeCoupon).filter((coupon) => coupon.able)
 }
 
+export async function selectCouponsForPayment(
+  seats: TicketOrderSeatRef[],
+  cinemaId: string,
+  couponTypeCodes: string[],
+  ck: string,
+  userIdentifier: string
+): Promise<CouponSelectionResult> {
+  assertNotBlank(cinemaId, '影院 ID 不能为空')
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const partition = buildSeatPartition(seats)
+
+  assertNotBlank(partition, '座位不能为空')
+
+  const coupons = couponTypeCodes.filter(Boolean).join(',')
+
+  assertNotBlank(coupons, '兑换券不能为空')
+
+  const path = buildQueryPath(PAYMENT_COUPON_SELECT_PATH, {
+    partition,
+    cinemaId,
+    coupons
+  })
+  const fallbackMessage = '选择兑换券失败'
+  const response = await wandaGet<unknown>(WANDA_HOSTS.MKT_ACTIVITY, path, {}, ck, userIdentifier)
+
+  if (response.code !== 0 || !response.data) {
+    throw new Error(response.msg || fallbackMessage)
+  }
+
+  const decrypted = decryptActivityPayload(response.data, fallbackMessage, response.msg)
+
+  assertSuccessfulActivityPayload(decrypted, fallbackMessage, response.msg)
+
+  return normalizeCouponSelectionResult(decrypted)
+}
+
+export async function fetchCouponUsePayment(
+  seats: TicketOrderSeatRef[],
+  orderId: string,
+  dId: string,
+  allotSeat: string,
+  ck: string,
+  userIdentifier: string
+): Promise<CouponUseResult> {
+  assertNotBlank(orderId, '订单 ID 不能为空')
+  assertNotBlank(dId, '场次 ID 不能为空')
+  assertNotBlank(allotSeat, '兑换券分摊信息不能为空')
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const partition = buildSeatPartition(seats)
+
+  assertNotBlank(partition, '座位不能为空')
+
+  const path = buildQueryPath(PAYMENT_COUPON_USE_PATH, {
+    partition,
+    orderId,
+    did: dId,
+    allotseat: allotSeat
+  })
+  const fallbackMessage = '获取兑换券支付价格失败'
+  const response = await wandaGetWithHeaders<unknown>(
+    WANDA_HOSTS.MKT_ACTIVITY,
+    path,
+    buildCouponUseHeaders(path, ck, userIdentifier)
+  )
+
+  if (response.code !== 0 || !response.data) {
+    throw new Error(response.msg || fallbackMessage)
+  }
+
+  const decrypted = decryptActivityPayload(response.data, fallbackMessage, response.msg)
+
+  assertSuccessfulActivityPayload(decrypted, fallbackMessage, response.msg)
+
+  return normalizeCouponUseResult(decrypted)
+}
+
+export async function submitTicketPayment(
+  request: TicketPaymentSubmitRequest,
+  ck: string,
+  userIdentifier: string
+): Promise<TicketPaymentSubmitResult> {
+  assertNotBlank(request.cinemaId, '影院 ID 不能为空')
+  assertNotBlank(request.mobilePhone, '手机号不能为空')
+  assertNotBlank(request.orderId, '订单 ID 不能为空')
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  if (request.requestInfo === undefined || request.requestInfo === null) {
+    throw new Error('订单缺少 requestInfo，无法提交支付')
+  }
+
+  const requestInfoJson = JSON.stringify(request.requestInfo)
+
+  if (!requestInfoJson) {
+    throw new Error('订单 requestInfo 序列化失败')
+  }
+
+  const normalizedRequestInfoJson = requestInfoJson.replaceAll('\\\\u003d', '\\u003d')
+  const encodedRequestInfo = encodeURIComponent(normalizedRequestInfoJson)
+  const formBody = [
+    'cartSnackInfo=%5B%5D',
+    `cinemaId=${request.cinemaId}`,
+    `mobilePhone=${request.mobilePhone}`,
+    `orderId=${request.orderId}`,
+    `requestInfo=${encodedRequestInfo}`
+  ].join('&')
+  const signatureBody = [
+    'cartSnackInfo=%5b%5d',
+    `cinemaId=${request.cinemaId}`,
+    `mobilePhone=${request.mobilePhone}`,
+    `orderId=${request.orderId}`,
+    `requestInfo=${escapeRequestInfoForSignature(normalizedRequestInfoJson)}`
+  ].join('&')
+  const response = await wandaPostForm<unknown>(
+    WANDA_HOSTS.GATEWAY,
+    WANDA_API_PATHS.ORDER_MERGE_PAYMENT,
+    formBody,
+    ck,
+    userIdentifier,
+    { signatureBody }
+  )
+  const record = asRecord(response)
+  const code = maybeBizCode(record.code)
+  const fallbackMessage = '提交支付失败'
+
+  if (hasOwn(record, 'code') && code !== 0) {
+    throw new Error(firstText(record.msg, fallbackMessage))
+  }
+
+  const payload = decryptPaymentSubmitPayload(record.data, fallbackMessage, record.msg)
+  const bizCode = maybeBizCode(payload.bizCode)
+
+  if (!hasOwn(payload, 'bizCode') || bizCode !== 0) {
+    throw new Error(firstText(payload.bizMsg, payload.msg, record.msg, fallbackMessage))
+  }
+
+  return normalizePaymentSubmitResult(request.orderId, request.requestInfo, response, payload)
+}
+
 export async function queryOrderStatus(
   orderId: string,
   ck: string,
@@ -727,19 +1028,19 @@ export async function queryOrderByUserId(
 
 export async function queryPayInfoUpgrade(
   orderId: string,
-  requestInfo: string,
+  tradeNo: string,
   ck: string,
   userIdentifier: string
 ): Promise<OrderPayInfoResult> {
   assertNotBlank(orderId, '订单 ID 不能为空')
-  assertNotBlank(requestInfo, 'requestInfo 不能为空')
+  assertNotBlank(tradeNo, 'tradeNo 不能为空')
   assertNotBlank(ck, '万达账号 CK 不能为空')
   assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
 
   const response = await wandaPost<unknown>(
     WANDA_HOSTS.GATEWAY,
     WANDA_API_PATHS.ORDER_QUERY_PAY_INFO,
-    { orderId, requestInfo },
+    { orderId, tradeNo },
     ck,
     userIdentifier
   )

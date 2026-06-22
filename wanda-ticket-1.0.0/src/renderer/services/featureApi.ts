@@ -1,0 +1,1084 @@
+import { WANDA_API_PATHS } from '@shared/wandaCore'
+import { WANDA_HOSTS, sanitizeWandaErrorMessage, wandaGet, wandaPostForm } from './wandaRequest'
+
+export interface StoredCardRow {
+  holder: string
+  name: string
+  cardNo: string
+  balance: number
+  presentBalance: number
+  available: boolean
+  status: string
+  statusDesc: string
+  remainingCount: string
+  categoryName: string
+  discountRate: string
+  effectDate: string
+  coverName: string
+  unavailableReason: string
+  ownerPhone: string
+  raw: unknown
+}
+
+export interface StoredCardBalanceInfo {
+  balance: number
+  presentBalance: number
+  totalBalance: number
+  raw: unknown
+}
+
+export interface StoredCardListResult {
+  cards: StoredCardRow[]
+  balanceInfo: StoredCardBalanceInfo | null
+  raw: unknown
+}
+
+export interface StoredCardDenomination {
+  label: string
+  value: number
+  bonus: number
+  displayPrice: number
+  displayBonus: number
+}
+
+export interface StoredCardOrderResult {
+  orderId: string
+  raw: unknown
+}
+
+export interface StoredCardPaymentResult {
+  orderId: string
+  appPayParam: string
+  raw: unknown
+}
+
+export interface MemberCouponRow {
+  voucherNo: string
+  couponNo: string
+  name: string
+  type: string
+  status: string
+  validity: string
+  raw: unknown
+}
+
+export interface MemberEquityRow {
+  gradeId: string
+  equityId: string
+  gradeName: string
+  name: string
+  amount: string
+  count: string
+  category: string
+  status: string
+  raw: unknown
+}
+
+export interface MemberSignInDay {
+  sortOrder: string
+  day: string
+  date: string
+  content: string
+  iconUrl: string
+  state: number
+  todayFlag: boolean
+  raw: unknown
+}
+
+export interface MemberSignInCalendar {
+  consecutiveDays: number
+  signInStreak: number
+  dataList: MemberSignInDay[]
+  raw: unknown
+}
+
+export interface ActivityGiftRow {
+  id: string
+  code: string
+  name: string
+  note: string
+  price: number
+  raw: unknown
+}
+
+export interface ActivityGiftOrderRow {
+  orderId: string
+  subject: string
+  activityCode: string
+  quantity: number
+  totalPrice: number
+  status: string
+  createdAt: string
+  raw: unknown
+}
+
+export interface ActivityGiftOrderListResult {
+  records: ActivityGiftOrderRow[]
+  total: number
+  raw: unknown
+}
+
+export interface ActivityGiftOrderResult {
+  orderId: string
+  raw: unknown
+}
+
+export interface ActivityGiftPaymentResult {
+  orderId: string
+  payId: string
+  transactionId: string
+  appPayParam: string
+  raw: unknown
+}
+
+interface ActivityGiftOrderDetailResult {
+  orderId: string
+  payId: string
+  raw: unknown
+}
+
+interface ActivityGiftTransactionResult {
+  transactionId: string
+  raw: unknown
+}
+
+export const STORED_CARD_DENOMINATIONS: StoredCardDenomination[] = [
+  { label: '300元', value: 30000, bonus: 20, displayPrice: 300, displayBonus: 20 },
+  { label: '500元', value: 50000, bonus: 50, displayPrice: 500, displayBonus: 50 },
+  { label: '800元', value: 80000, bonus: 80, displayPrice: 800, displayBonus: 80 },
+  { label: '1000元', value: 100000, bonus: 120, displayPrice: 1000, displayBonus: 120 }
+]
+
+const STORED_CARD_CINEMA_ID = '5911'
+const STORED_CARD_COVER_CODE = '13002428'
+const STORED_CARD_ACTIVITY_CODE = 'CS202401080004'
+const STORED_CARD_PAY_TYPE = '1057'
+const STORED_CARD_RETURN_URL = 'wandafilm/pay/finished'
+const ACTIVITY_GIFT_PAY_METHOD_ID = '1057'
+const ACTIVITY_GIFT_TRANSACTION_POLL_LIMIT = 10
+const ACTIVITY_GIFT_TRANSACTION_POLL_DELAY = 1500
+
+function assertNotBlank(value: string, message: string): void {
+  if (!value.trim()) {
+    throw new Error(message)
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {}
+}
+
+function asList(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : []
+}
+
+function toText(value: unknown): string {
+  return typeof value === 'string' || typeof value === 'number' ? String(value) : ''
+}
+
+function firstText(...values: unknown[]): string {
+  for (const value of values) {
+    const text = toText(value).trim()
+
+    if (text) {
+      return text
+    }
+  }
+
+  return ''
+}
+
+function toNumber(value: unknown, fallback = 0): number {
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue) ? numberValue : fallback
+}
+
+function toBoolean(value: unknown): boolean {
+  if (typeof value === 'boolean') {
+    return value
+  }
+
+  if (typeof value === 'number') {
+    return value === 1
+  }
+
+  if (typeof value === 'string') {
+    return ['1', 'true', 'y', 'yes'].includes(value.trim().toLowerCase())
+  }
+
+  return false
+}
+
+function centsToYuan(value: unknown): number {
+  return Number((toNumber(value) / 100).toFixed(2))
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
+}
+
+function ensureSuccess(response: unknown, fallbackMessage: string): Record<string, unknown> {
+  const record = asRecord(response)
+  const data = asRecord(record.data)
+  const code = toNumber(record.code, record.success === true ? 0 : -1)
+  const bizCode = data.bizCode === undefined ? 0 : toNumber(data.bizCode, -1)
+
+  if (code !== 0 || bizCode !== 0) {
+    const message = sanitizeWandaErrorMessage(firstText(data.bizMsg, data.msg, record.msg, fallbackMessage))
+
+    throw new Error(message || fallbackMessage)
+  }
+
+  return Object.keys(data).length > 0 ? data : record
+}
+
+function collectList(value: unknown, keys: string[]): unknown[] {
+  if (Array.isArray(value)) {
+    return value
+  }
+
+  const record = asRecord(value)
+  const result: unknown[] = []
+
+  for (const key of keys) {
+    result.push(...asList(record[key]))
+  }
+
+  for (const key of ['data', 'res', 'result']) {
+    if (record[key] !== value) {
+      result.push(...collectList(record[key], keys))
+    }
+  }
+
+  return result
+}
+
+function normalizeStoredCard(item: unknown): StoredCardRow {
+  const record = asRecord(item)
+  const statusDesc = firstText(record.statusDesc, record.statusName, record.status, '未知')
+
+  return {
+    holder: firstText(record.ownerPhone, record.mobilePhone, record.mobile, record.phone, record.holder),
+    name: firstText(record.cardName, record.name, record.cardTypeName),
+    cardNo: firstText(record.cardNo, record.card_no, record.no),
+    balance: centsToYuan(record.balance ?? record.cardBalance ?? record.amount),
+    presentBalance: centsToYuan(record.presentBalance ?? record.giftBalance ?? record.presentAmount),
+    available: record.available === undefined ? true : toBoolean(record.available),
+    status: statusDesc,
+    statusDesc,
+    remainingCount: firstText(record.remainingCount, record.remainCount, record.count),
+    categoryName: firstText(record.categoryName, record.category, record.cardCategoryName),
+    discountRate: firstText(record.discountRate, record.discount, record.rate),
+    effectDate: firstText(record.effectDate, record.validityDate, record.expireTime, record.endDate),
+    coverName: firstText(record.coverName, record.coverCode),
+    unavailableReason: firstText(record.unavailableReason, record.reason),
+    ownerPhone: firstText(record.ownerPhone, record.mobilePhone, record.mobile, record.phone),
+    raw: item
+  }
+}
+
+function normalizeStoredCardBalanceInfo(item: unknown): StoredCardBalanceInfo | null {
+  if (!isRecord(item)) {
+    return null
+  }
+
+  const balance = centsToYuan(item.balance)
+  const presentBalance = centsToYuan(item.presentBalance)
+
+  return {
+    balance,
+    presentBalance,
+    totalBalance: Number((balance + presentBalance).toFixed(2)),
+    raw: item
+  }
+}
+
+function extractStoredCardPayment(data: Record<string, unknown>, raw: unknown, orderId = ''): StoredCardPaymentResult {
+  const result = asRecord(data.res)
+  const payment = asRecord(result.payment ?? data.payment)
+  const appPayParam = firstText(payment.appPayParam, result.appPayParam, data.appPayParam)
+
+  if (!appPayParam) {
+    throw new Error(firstText(data.bizMsg, data.msg, '储值卡支付参数获取成功但缺少 appPayParam'))
+  }
+
+  return {
+    orderId: firstText(orderId, data.orderId, result.orderId),
+    appPayParam,
+    raw
+  }
+}
+
+function normalizeCoupon(item: unknown): MemberCouponRow {
+  const record = asRecord(item)
+
+  return {
+    voucherNo: firstText(record.voucherNo, record.voucher_number, record.code),
+    couponNo: firstText(record.couponNo, record.no),
+    name: firstText(record.couponTypeName, record.couponName, record.name),
+    type: firstText(record.detailtypename, record.detailTypeName, record.typeName, record.typeCode),
+    status: firstText(record.couponStatus, record.status, record.giftStatus),
+    validity: firstText(record.validityDateShowMsg, record.validity, record.expireTime),
+    raw: item
+  }
+}
+
+function normalizeEquity(item: unknown, group: Record<string, unknown> = {}): MemberEquityRow {
+  const record = asRecord(item)
+
+  return {
+    gradeId: firstText(record.gradeId, group.gradeId, group.id),
+    equityId: firstText(record.equityId, record.id, record.rightCode, record.code),
+    gradeName: firstText(group.gradeName, group.name, record.gradeName),
+    name: firstText(record.equityName, record.name, record.title),
+    amount: firstText(record.amount, record.faceValue, record.price, '-'),
+    count: firstText(record.count, record.num, record.quantity, '-'),
+    category: firstText(record.categoryName, record.typeName, record.type, '-'),
+    status: firstText(record.statusName, record.status, record.receiveStatus, '-'),
+    raw: item
+  }
+}
+
+function normalizeSignInDay(item: unknown): MemberSignInDay {
+  const record = asRecord(item)
+
+  return {
+    sortOrder: firstText(record.sortOrder, record.order, record.index, record.day, record.date),
+    day: firstText(record.day, record.dayText, record.name),
+    date: firstText(record.date, record.loginDate, record.signDate),
+    content: firstText(record.content, record.prizeName, record.remark, record.name),
+    iconUrl: firstText(record.iconUrl, record.url, record.src),
+    state: toNumber(record.state ?? record.status ?? record.signInState),
+    todayFlag: toBoolean(record.todayFlag ?? record.isToday),
+    raw: item
+  }
+}
+
+function normalizeActivity(item: unknown): ActivityGiftRow {
+  const record = asRecord(item)
+
+  return {
+    id: firstText(record.id, record.activityId, record.code, record.activityCode),
+    code: firstText(record.activityCode, record.code, record.id),
+    name: firstText(record.name, record.activityName, record.title),
+    note: firstText(record.note, record.desc, record.description),
+    price: centsToYuan(record.unitPrice ?? record.price ?? record.salePrice ?? record.amount),
+    raw: item
+  }
+}
+
+function normalizeGiftOrder(item: unknown): ActivityGiftOrderRow {
+  const record = asRecord(item)
+  const order = asRecord(record.order)
+  const goods = asRecord(record.goods)
+  const activity = asRecord(record.activity)
+  const status = firstText(record.statusDesc, record.statusName, record.statusText, record.status)
+
+  return {
+    orderId: firstText(record.orderId, record.id, order.orderId, order.id),
+    subject: firstText(record.subject, record.orderName, record.goodsName, goods.name, activity.name, '礼包订单'),
+    activityCode: firstText(record.activityCode, record.sourceId, activity.activityCode, activity.id),
+    quantity: toNumber(record.quantity ?? record.goodsNum ?? record.num, 1),
+    totalPrice: centsToYuan(record.totalPrice ?? record.orderAmount ?? record.amount ?? record.payAmount),
+    status: status || '未知',
+    createdAt: firstText(record.createdAt, record.createTime, record.createdTime, record.orderTime),
+    raw: item
+  }
+}
+
+export async function fetchStoredCardsWithBalance(ck: string, userIdentifier: string): Promise<StoredCardListResult> {
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const response = await wandaGet<unknown>(
+    WANDA_HOSTS.CARD,
+    WANDA_API_PATHS.CARD_USER_CARD_LIST,
+    { category: 1, json: true },
+    ck,
+    userIdentifier
+  )
+  const data = ensureSuccess(response, '储值卡加载失败')
+  const result = asRecord(data.res)
+  const cards = collectList(data, ['cards', 'cardList', 'itemList', 'items', 'list', 'commendcards'])
+    .map(normalizeStoredCard)
+    .filter((card) => card.cardNo || card.name)
+
+  return {
+    cards,
+    balanceInfo: normalizeStoredCardBalanceInfo(result.balanceInfo ?? data.balanceInfo),
+    raw: response
+  }
+}
+
+export async function fetchStoredCards(ck: string, userIdentifier: string): Promise<StoredCardRow[]> {
+  return (await fetchStoredCardsWithBalance(ck, userIdentifier)).cards
+}
+
+export async function fetchOrderPayCards(
+  orderId: string,
+  ck: string,
+  userIdentifier: string
+): Promise<StoredCardRow[]> {
+  assertNotBlank(orderId, '订单号不能为空')
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const response = await wandaGet<unknown>(
+    WANDA_HOSTS.CARD,
+    WANDA_API_PATHS.CARD_PAY_LIST,
+    { orderId },
+    ck,
+    userIdentifier
+  )
+  const data = ensureSuccess(response, '订单支付卡加载失败')
+
+  return collectList(data, ['cards', 'cardList', 'itemList', 'items', 'list'])
+    .map(normalizeStoredCard)
+    .filter((card) => (card.cardNo || card.name) && card.available)
+}
+
+export async function transferStoredCard(
+  cardNo: string,
+  targetMobile: string,
+  ck: string,
+  userIdentifier: string
+): Promise<void> {
+  assertNotBlank(cardNo, '储值卡卡号不能为空')
+  assertNotBlank(targetMobile, '接收手机号不能为空')
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const path = `${WANDA_API_PATHS.CARD_TRANSFER}?verify_code=&verify_context_id=&card_no=${encodeURIComponent(
+    cardNo
+  )}&gift_mark=&target_user_mobile=${encodeURIComponent(targetMobile)}&order_id=`
+  const response = await wandaGet<unknown>(WANDA_HOSTS.CARD, path, {}, ck, userIdentifier)
+
+  ensureSuccess(response, '储值卡赠送失败')
+}
+
+export async function createStoredCardOrder(
+  salePrice: number,
+  ck: string,
+  userIdentifier: string
+): Promise<StoredCardOrderResult> {
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  if (!Number.isFinite(salePrice) || salePrice <= 0) {
+    throw new Error('储值卡面值无效')
+  }
+
+  const path = `${WANDA_API_PATHS.ORDER_CREATE}?cinemaId=${STORED_CARD_CINEMA_ID}&coverCode=${STORED_CARD_COVER_CODE}&salePrice=${salePrice}&postponeCode=&activityCode=${STORED_CARD_ACTIVITY_CODE}&isGift=2&source=1&json=true`
+  const response = await wandaGet<unknown>(WANDA_HOSTS.CARD, path, {}, ck, userIdentifier)
+  const data = ensureSuccess(response, '储值卡订单创建失败')
+  const result = asRecord(data.res)
+  const order = asRecord(result.order ?? data.order)
+  const orderId = firstText(data.orderId, data.id, result.orderId, result.id, order.orderId, order.id)
+
+  if (!orderId) {
+    throw new Error(firstText(data.bizMsg, data.msg, '储值卡订单创建成功但缺少订单号'))
+  }
+
+  return {
+    orderId,
+    raw: response
+  }
+}
+
+export async function prepayStoredCardOrder(
+  orderId: string,
+  ck: string,
+  userIdentifier: string
+): Promise<StoredCardPaymentResult> {
+  assertNotBlank(orderId, '储值卡订单号不能为空')
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const path = `${WANDA_API_PATHS.ORDER_PREPAY}?orderId=${encodeURIComponent(
+    orderId
+  )}&payType=${STORED_CARD_PAY_TYPE}&returnUrl=${encodeURIComponent(STORED_CARD_RETURN_URL)}`
+  const response = await wandaGet<unknown>(WANDA_HOSTS.CARD, path, {}, ck, userIdentifier)
+  const data = ensureSuccess(response, '储值卡预支付失败')
+
+  return extractStoredCardPayment(data, response, orderId)
+}
+
+export async function rechargeStoredCard(
+  amount: number,
+  cardNo: string,
+  ck: string,
+  userIdentifier: string
+): Promise<StoredCardPaymentResult> {
+  assertNotBlank(cardNo, '储值卡卡号不能为空')
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error('储值卡充值面值无效')
+  }
+
+  const path = `${WANDA_API_PATHS.CARD_RECHARGE}?amount=${amount}&card_no=${encodeURIComponent(
+    cardNo
+  )}&return_url=${encodeURIComponent(STORED_CARD_RETURN_URL)}&pay_type=${STORED_CARD_PAY_TYPE}&activityCode=${STORED_CARD_ACTIVITY_CODE}`
+  const response = await wandaGet<unknown>(WANDA_HOSTS.CARD, path, {}, ck, userIdentifier)
+  const data = ensureSuccess(response, '储值卡充值失败')
+
+  return extractStoredCardPayment(data, response)
+}
+
+export async function createStoredCardPurchasePayment(
+  salePrice: number,
+  ck: string,
+  userIdentifier: string
+): Promise<StoredCardPaymentResult> {
+  const order = await createStoredCardOrder(salePrice, ck, userIdentifier)
+
+  return prepayStoredCardOrder(order.orderId, ck, userIdentifier)
+}
+
+export async function createStoredCardRechargePayment(
+  amount: number,
+  cardNo: string,
+  ck: string,
+  userIdentifier: string
+): Promise<StoredCardPaymentResult> {
+  return rechargeStoredCard(amount, cardNo, ck, userIdentifier)
+}
+
+export async function fetchMemberCoupons(ck: string, userIdentifier: string): Promise<MemberCouponRow[]> {
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const response = await wandaGet<unknown>(
+    WANDA_HOSTS.COUPON,
+    WANDA_API_PATHS.COUPON_MEMBER_GROUP_LIST,
+    { couponStatus: '', expireStatus: 'N', json: true },
+    ck,
+    userIdentifier
+  )
+  const data = ensureSuccess(response, '兑换券加载失败')
+  const groups = collectList(data, ['groups', 'groupList', 'list', 'items'])
+  const coupons = groups.flatMap((group) => collectList(group, ['couponInfoList', 'coupons', 'items']))
+
+  return (coupons.length > 0 ? coupons : collectList(data, ['couponInfoList', 'coupons', 'items', 'list']))
+    .map(normalizeCoupon)
+    .filter((coupon) => coupon.couponNo || coupon.voucherNo || coupon.name)
+}
+
+export async function bindMemberCoupon(
+  voucherNumber: string,
+  password: string,
+  ck: string,
+  userIdentifier: string
+): Promise<void> {
+  assertNotBlank(voucherNumber, '卡券号不能为空')
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const response = await wandaGet<unknown>(
+    WANDA_HOSTS.COUPON,
+    WANDA_API_PATHS.COUPON_BIND,
+    {
+      sale_subject: 'Wanda',
+      is_scratch: Boolean(password),
+      voucher_number: voucherNumber,
+      password,
+      json: true
+    },
+    ck,
+    userIdentifier
+  )
+
+  ensureSuccess(response, '绑定卡券失败')
+}
+
+export function buildCouponNosParam(couponNos: string[]): string {
+  const rawCouponNos = couponNos.map((couponNo) => couponNo.trim()).filter(Boolean).join(',')
+
+  assertNotBlank(rawCouponNos, '兑换券 couponNo 不能为空')
+
+  return encodeURIComponent(rawCouponNos).replace(/%[0-9A-F]{2}/g, (value) => value.toLowerCase())
+}
+
+function buildCouponPresentPath(action: string, couponNos: string[]): string {
+  return `${WANDA_API_PATHS.COUPON_PRESENT}${action}?voucherNos=${buildCouponNosParam(couponNos)}`
+}
+
+export async function checkCouponPresentable(
+  couponNos: string[],
+  ck: string,
+  userIdentifier: string
+): Promise<void> {
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const response = await wandaGet<unknown>(
+    WANDA_HOSTS.COUPON,
+    buildCouponPresentPath('canCouponPresent.api', couponNos),
+    {},
+    ck,
+    userIdentifier
+  )
+  const data = ensureSuccess(response, '兑换券可赠送校验失败')
+  const bizMsg = firstText(data.bizMsg, data.msg)
+
+  if (bizMsg && !bizMsg.includes('可以转增')) {
+    throw new Error(sanitizeWandaErrorMessage(bizMsg) || '兑换券不可赠送')
+  }
+}
+
+export async function checkCouponPresentIdentity(
+  couponNos: string[],
+  ck: string,
+  userIdentifier: string
+): Promise<{ needCheck: boolean; raw: unknown }> {
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const response = await wandaGet<unknown>(
+    WANDA_HOSTS.COUPON,
+    buildCouponPresentPath('idverify.api', couponNos),
+    {},
+    ck,
+    userIdentifier
+  )
+  const data = ensureSuccess(response, '兑换券赠送身份验证状态获取失败')
+
+  return {
+    needCheck: toBoolean(data.needCheck),
+    raw: response
+  }
+}
+
+export async function sendCouponPresentSecurityCode(
+  mobile: string,
+  ip: string,
+  ck: string,
+  userIdentifier: string
+): Promise<string> {
+  assertNotBlank(mobile, '万达账号手机号不能为空')
+  assertNotBlank(ip, '本机 IP 不能为空')
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const path = `${WANDA_API_PATHS.COUPON_PRESENT}sms/send_security_code.api?mobile=${encodeURIComponent(
+    mobile
+  )}&imageCode=&businessType=1&ip=${encodeURIComponent(ip)}`
+  const response = await wandaGet<unknown>(WANDA_HOSTS.COUPON, path, {}, ck, userIdentifier)
+  const data = ensureSuccess(response, '兑换券赠送短信发送失败')
+  const result = asRecord(data.res)
+  const requestId = firstText(data.requestId, result.requestId)
+
+  if (!requestId) {
+    throw new Error('兑换券赠送短信发送成功但缺少 requestId')
+  }
+
+  return requestId
+}
+
+export async function validateCouponPresentSecurityCode(
+  mobile: string,
+  requestId: string,
+  securityCode: string,
+  ck: string,
+  userIdentifier: string
+): Promise<void> {
+  assertNotBlank(mobile, '万达账号手机号不能为空')
+  assertNotBlank(requestId, '短信 requestId 不能为空')
+  assertNotBlank(securityCode, '短信验证码不能为空')
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const path = `${WANDA_API_PATHS.COUPON_PRESENT}sms/valid_security_code.api?mobile=${encodeURIComponent(
+    mobile
+  )}&requestId=${encodeURIComponent(requestId)}&securityCode=${encodeURIComponent(securityCode)}`
+  const response = await wandaGet<unknown>(WANDA_HOSTS.COUPON, path, {}, ck, userIdentifier)
+  const data = ensureSuccess(response, '兑换券赠送短信验证失败')
+  const bizMsg = firstText(data.bizMsg, data.msg)
+
+  if (bizMsg) {
+    throw new Error(sanitizeWandaErrorMessage(bizMsg) || '兑换券赠送短信验证失败')
+  }
+}
+
+export async function presentMemberCoupons(
+  couponNos: string[],
+  targetMobile: string,
+  memberPhone: string,
+  requestId: string,
+  securityCode: string,
+  ck: string,
+  userIdentifier: string
+): Promise<void> {
+  assertNotBlank(targetMobile, '接收手机号不能为空')
+  assertNotBlank(memberPhone, '赠送账号手机号不能为空')
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const formBody = [
+    `voucherNos=${buildCouponNosParam(couponNos)}`,
+    'shareMemo=',
+    `targetMobile=${encodeURIComponent(targetMobile)}`,
+    `requestId=${encodeURIComponent(requestId)}`,
+    `securityCode=${encodeURIComponent(securityCode)}`,
+    `memberPhone=${encodeURIComponent(memberPhone)}`
+  ].join('&')
+  const response = await wandaPostForm<unknown>(
+    WANDA_HOSTS.COUPON,
+    `${WANDA_API_PATHS.COUPON_PRESENT}present.api`,
+    formBody,
+    ck,
+    userIdentifier
+  )
+
+  ensureSuccess(response, '兑换券赠送失败')
+}
+
+export async function fetchMemberGradeEquityList(ck: string, userIdentifier: string): Promise<MemberEquityRow[]> {
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const response = await wandaGet<unknown>(
+    WANDA_HOSTS.GATEWAY,
+    `${WANDA_API_PATHS.MEMBER_GRADE}grade_equity_list.api`,
+    {},
+    ck,
+    userIdentifier
+  )
+  const data = ensureSuccess(response, '会员权益加载失败')
+  const groups = collectList(data, ['gradeList', 'grades', 'list', 'items'])
+  const rows = groups.flatMap((group) => {
+    const groupRecord = asRecord(group)
+    const items = collectList(group, ['equityList', 'rights', 'items', 'couponList'])
+
+    return (items.length > 0 ? items : [group]).map((item) => normalizeEquity(item, groupRecord))
+  })
+
+  return rows.filter((item) => item.name || item.gradeName)
+}
+
+export async function fetchMemberSignInCalendar(ck: string, userIdentifier: string): Promise<MemberSignInCalendar> {
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const jsonBody = JSON.stringify({ ruleScene: 1 })
+  const signatureBody = encodeURIComponent(jsonBody).replace(/%[0-9A-F]{2}/g, (match) => match.toLowerCase())
+  const response = await wandaPostForm<unknown>(
+    WANDA_HOSTS.GATEWAY,
+    WANDA_API_PATHS.SIGN_IN_CALENDAR,
+    jsonBody,
+    ck,
+    userIdentifier,
+    { signatureBody, contentType: 'application/json' }
+  )
+  const data = ensureSuccess(response, '会员签到加载失败')
+  const calendar = asRecord(data.data ?? data.res ?? data)
+  const dataList = collectList(calendar, ['dataList', 'list', 'items']).map(normalizeSignInDay)
+
+  return {
+    consecutiveDays: toNumber(calendar.consecutiveDays),
+    signInStreak: toNumber(calendar.signInStreak),
+    dataList,
+    raw: data
+  }
+}
+
+export async function gainMemberEquity(
+  gradeId: string,
+  equityId: string,
+  ck: string,
+  userIdentifier: string
+): Promise<void> {
+  assertNotBlank(gradeId, '会员等级 ID 不能为空')
+  assertNotBlank(equityId, '权益 ID 不能为空')
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const response = await wandaGet<unknown>(
+    WANDA_HOSTS.GATEWAY,
+    `${WANDA_API_PATHS.MEMBER_GRADE}gain_equity.api`,
+    { gradeId, equityId },
+    ck,
+    userIdentifier
+  )
+
+  ensureSuccess(response, '领取会员权益失败')
+}
+
+export async function fetchWPlusDetail(ck: string, userIdentifier: string): Promise<MemberEquityRow[]> {
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const response = await wandaGet<unknown>(
+    WANDA_HOSTS.GATEWAY,
+    WANDA_API_PATHS.WPLUS_MEMBER_PLUS_DETAIL,
+    { json: true },
+    ck,
+    userIdentifier
+  )
+  const data = ensureSuccess(response, 'W+会员数据加载失败')
+
+  return collectList(data, ['rights', 'rightList', 'equityList', 'list', 'items'])
+    .map((item) => normalizeEquity(item))
+    .filter((item) => item.name)
+}
+
+export async function fetchActivityList(
+  cinemaId: string,
+  ck: string,
+  userIdentifier: string
+): Promise<ActivityGiftRow[]> {
+  assertNotBlank(cinemaId, '影院 ID 不能为空')
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const response = await wandaGet<unknown>(
+    WANDA_HOSTS.GATEWAY,
+    `${WANDA_API_PATHS.PACK_ACTIVITY}list.api`,
+    { cinemaId, json: true },
+    ck,
+    userIdentifier
+  )
+  const data = ensureSuccess(response, '活动礼包加载失败')
+
+  return collectList(data, ['activities', 'activityList', 'itemList', 'list', 'items'])
+    .map(normalizeActivity)
+    .filter((activity) => activity.id || activity.code || activity.name)
+}
+
+export async function fetchActivityDetail(
+  cinemaId: string,
+  activityCode: string,
+  ck: string,
+  userIdentifier: string
+): Promise<unknown> {
+  assertNotBlank(cinemaId, '影院 ID 不能为空')
+  assertNotBlank(activityCode, '活动 ID 不能为空')
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const response = await wandaGet<unknown>(
+    WANDA_HOSTS.GATEWAY,
+    `${WANDA_API_PATHS.PACK_ACTIVITY}detail.api`,
+    { cinemaId, activityCode, json: true },
+    ck,
+    userIdentifier
+  )
+
+  return ensureSuccess(response, '活动详情加载失败')
+}
+
+export async function createActivityGiftOrder(
+  cinemaId: string,
+  activityCode: string,
+  goodsNum: number,
+  orderAmount: number,
+  ck: string,
+  userIdentifier: string
+): Promise<ActivityGiftOrderResult> {
+  assertNotBlank(cinemaId, '影院 ID 不能为空')
+  assertNotBlank(activityCode, '活动 ID 不能为空')
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  if (!Number.isFinite(goodsNum) || goodsNum < 1) {
+    throw new Error('礼包数量不能为空')
+  }
+
+  if (!Number.isFinite(orderAmount) || orderAmount < 0) {
+    throw new Error('礼包订单金额无效')
+  }
+
+  const body = {
+    cinemaId,
+    activityCode,
+    goodsNum,
+    orderAmount,
+    json: true
+  }
+  const jsonBody = JSON.stringify(body)
+  const signatureBody = encodeURIComponent(jsonBody).replace(/%[0-9A-F]{2}/g, (value) => value.toLowerCase())
+  const response = await wandaPostForm<unknown>(
+    WANDA_HOSTS.GATEWAY,
+    WANDA_API_PATHS.PACK_ACTIVITY_CREATE_ORDER,
+    jsonBody,
+    ck,
+    userIdentifier,
+    { signatureBody, contentType: 'application/json' }
+  )
+  const data = ensureSuccess(response, '礼包订单创建失败')
+  const result = asRecord(data.res)
+  const order = asRecord(data.order)
+  const orderId = firstText(data.orderId, data.id, result.orderId, result.id, order.orderId, order.id)
+
+  if (!orderId) {
+    throw new Error(firstText(data.bizMsg, data.msg, '礼包订单创建成功但缺少订单号'))
+  }
+
+  return {
+    orderId,
+    raw: response
+  }
+}
+
+export async function fetchGiftOrders(
+  pageIndex: number,
+  pageSize: number,
+  ck: string,
+  userIdentifier: string
+): Promise<ActivityGiftOrderListResult> {
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const response = await wandaGet<unknown>(
+    WANDA_HOSTS.GATEWAY,
+    WANDA_API_PATHS.GIFT_ORDERS,
+    { pageIndex, pageSize, json: true },
+    ck,
+    userIdentifier
+  )
+  const data = ensureSuccess(response, '礼包订单加载失败')
+  const records = collectList(data, ['orders', 'orderList', 'items', 'list', 'records']).map(normalizeGiftOrder)
+
+  return {
+    records,
+    total: toNumber(data.totalCount ?? data.total ?? data.count, records.length),
+    raw: response
+  }
+}
+
+export async function fetchGiftOrderDetail(
+  orderId: string,
+  ck: string,
+  userIdentifier: string
+): Promise<ActivityGiftOrderDetailResult> {
+  assertNotBlank(orderId, '礼包订单号不能为空')
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const path = `${WANDA_API_PATHS.GIFT_ORDER_DETAIL}?id=${encodeURIComponent(orderId)}&json=true`
+  const response = await wandaGet<unknown>(WANDA_HOSTS.GATEWAY, path, {}, ck, userIdentifier)
+  const data = ensureSuccess(response, '礼包订单详情加载失败')
+  const result = asRecord(data.res)
+  const order = asRecord(data.order ?? result.order)
+  const payId = firstText(order.payId, data.payId, result.payId)
+
+  if (!payId) {
+    throw new Error(firstText(data.bizMsg, data.msg, '礼包订单详情缺少 payId'))
+  }
+
+  return {
+    orderId,
+    payId,
+    raw: response
+  }
+}
+
+export async function createGiftTransaction(
+  payId: string,
+  ck: string,
+  userIdentifier: string,
+  payMethodId = ACTIVITY_GIFT_PAY_METHOD_ID
+): Promise<ActivityGiftTransactionResult> {
+  assertNotBlank(payId, '礼包支付 ID 不能为空')
+  assertNotBlank(payMethodId, '礼包支付方式不能为空')
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const formBody = `payId=${encodeURIComponent(payId)}&payMethodId=${encodeURIComponent(payMethodId)}&json=true`
+  const response = await wandaPostForm<unknown>(
+    WANDA_HOSTS.GATEWAY,
+    WANDA_API_PATHS.GIFT_TRANSACTION_CREATE,
+    formBody,
+    ck,
+    userIdentifier
+  )
+  const data = ensureSuccess(response, '礼包交易创建失败')
+  const result = asRecord(data.res)
+  const transaction = asRecord(data.transaction ?? result.transaction)
+  const transactionId = firstText(data.id, data.transactionId, result.id, result.transactionId, transaction.id)
+
+  if (!transactionId) {
+    throw new Error(firstText(data.bizMsg, data.msg, '礼包交易创建成功但缺少交易 ID'))
+  }
+
+  return {
+    transactionId,
+    raw: response
+  }
+}
+
+export async function fetchGiftTransactionDetail(
+  payId: string,
+  transactionId: string,
+  ck: string,
+  userIdentifier: string
+): Promise<ActivityGiftPaymentResult> {
+  assertNotBlank(payId, '礼包支付 ID 不能为空')
+  assertNotBlank(transactionId, '礼包交易 ID 不能为空')
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const path = `${WANDA_API_PATHS.GIFT_TRANSACTION_DETAIL}?payId=${encodeURIComponent(payId)}&id=${encodeURIComponent(
+    transactionId
+  )}&json=true`
+  const response = await wandaGet<unknown>(WANDA_HOSTS.GATEWAY, path, {}, ck, userIdentifier)
+  const data = ensureSuccess(response, '礼包交易详情加载失败')
+  const result = asRecord(data.res)
+  const payParams = asRecord(data.payParams ?? result.payParams)
+  const payment = asRecord(data.payment ?? result.payment)
+  const appPayParam = firstText(payParams.appPayParam, payment.appPayParam, result.appPayParam, data.appPayParam)
+
+  if (!appPayParam) {
+    throw new Error(firstText(data.bizMsg, data.msg, '礼包支付参数未就绪'))
+  }
+
+  return {
+    orderId: '',
+    payId,
+    transactionId,
+    appPayParam,
+    raw: response
+  }
+}
+
+export async function createActivityGiftPayment(
+  orderId: string,
+  ck: string,
+  userIdentifier: string
+): Promise<ActivityGiftPaymentResult> {
+  const orderDetail = await fetchGiftOrderDetail(orderId, ck, userIdentifier)
+  const transaction = await createGiftTransaction(orderDetail.payId, ck, userIdentifier)
+
+  for (let index = 0; index < ACTIVITY_GIFT_TRANSACTION_POLL_LIMIT; index += 1) {
+    try {
+      const result = await fetchGiftTransactionDetail(
+        orderDetail.payId,
+        transaction.transactionId,
+        ck,
+        userIdentifier
+      )
+
+      return {
+        ...result,
+        orderId
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : ''
+
+      if (!message.includes('未就绪') || index === ACTIVITY_GIFT_TRANSACTION_POLL_LIMIT - 1) {
+        throw error
+      }
+
+      await wait(ACTIVITY_GIFT_TRANSACTION_POLL_DELAY)
+    }
+  }
+
+  throw new Error('礼包支付参数未就绪')
+}

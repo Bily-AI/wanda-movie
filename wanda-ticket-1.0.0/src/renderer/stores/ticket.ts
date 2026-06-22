@@ -5,15 +5,24 @@ import {
   cancelTicketOrder,
   createTicketOrder,
   fetchCoupons,
+  fetchCouponUsePayment,
   fetchPayCards,
   fetchPaymentActivity,
   fetchRealTimeSeat,
-  queryOrderStatus
+  queryOrderByUserId,
+  queryPayInfoUpgrade,
+  queryOrderStatus,
+  selectCouponsForPayment,
+  submitTicketPayment
 } from '@renderer/services/seatApi'
+import { parseOcrTicketText, type ParsedOcrTicket } from '@shared/ocrParser'
+import type { AiOcrParsedTicket } from '@shared/ipc'
 import type {
   CinemaRecord,
   CityRecord,
   CouponItem,
+  CouponSelectionResult,
+  CouponUseResult,
   OrderPayInfoResult,
   OrderStatusResult,
   PaymentActivity,
@@ -26,6 +35,7 @@ import type {
   SeatZone,
   ShowtimeItem,
   TicketOrderContext,
+  TicketPaymentSubmitResult,
   TicketOrderSeatRef
 } from '@shared/wandaTicketTypes'
 import { useAccountsStore } from './accounts'
@@ -52,6 +62,7 @@ interface TicketOrderContextSnapshot {
   showtimeLabel: string
   amountCent: number
   seats: TicketOrderSeatRef[]
+  requestInfo?: unknown
 }
 
 interface TicketOrderSubmitSnapshot extends TicketOrderContextSnapshot {
@@ -60,6 +71,41 @@ interface TicketOrderSubmitSnapshot extends TicketOrderContextSnapshot {
   ck: string
   userIdentifier: string
   seatIds: string[]
+}
+
+interface TicketStoredCardPayment {
+  cardNumber: string
+  paymentPrice: number
+  paymentType: number
+  ticketType: string
+  ticketTypeName: string
+}
+
+interface BuiltTicketPaymentRequestInfo {
+  contextId: string
+  currentPrice: number
+  externalPayment: {
+    paySdkId: number
+    paymentPrice: number
+    paymentType: number
+    returnUrl: string
+  }
+  goodInfo: string
+  orderId: string
+  verifyCode: string
+  activity?: unknown
+  cardPayment?: TicketStoredCardPayment
+  storedCardPayments?: TicketStoredCardPayment[]
+  ticketVoucher?: {
+    discountPrice: number
+    voucher: string
+  }
+  couponPaymentList?: CouponUseResult['itemList']
+}
+
+interface TicketCouponPaymentInfo {
+  selection: CouponSelectionResult
+  useResult: CouponUseResult
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -186,6 +232,88 @@ function toNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(numberValue) ? numberValue : fallback
 }
 
+function yuanToCents(value: unknown): number {
+  return Math.max(0, Math.round(toNumber(value) * 100))
+}
+
+function normalizeKeyword(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+function compactMatchText(value: string): string {
+  return normalizeKeyword(value).replace(/[\s()（）【】[\]《》<>:：,，.。·\-_/]/g, '')
+}
+
+function fuzzyIncludes(left: string, right: string): boolean {
+  const normalizedLeft = compactMatchText(left)
+  const normalizedRight = compactMatchText(right)
+
+  return Boolean(
+    normalizedLeft &&
+      normalizedRight &&
+      (normalizedLeft.includes(normalizedRight) || normalizedRight.includes(normalizedLeft))
+  )
+}
+
+function findUnique<T>(items: T[], predicate: (item: T) => boolean): T | undefined {
+  const matched = items.filter(predicate)
+
+  return matched.length === 1 ? matched[0] : undefined
+}
+
+function findUniqueOptionByText(options: TicketOption[], text: string): TicketOption | undefined {
+  return findUnique(options, (option) => fuzzyIncludes(option.label, text) || fuzzyIncludes(option.value, text))
+}
+
+function findUniqueCinemaByText(cinemas: CinemaRecord[], text: string): CinemaRecord | undefined {
+  return findUnique(cinemas, (cinema) => fuzzyIncludes(cinema.name, text))
+}
+
+function needsAiOcrFallback(parsed: ParsedOcrTicket): boolean {
+  return Boolean(
+    !parsed.cinemaName ||
+      !parsed.movieName ||
+      !parsed.date ||
+      !parsed.time ||
+      parsed.seats.length === 0
+  )
+}
+
+function mergeAiOcrParsedTicket(parsed: ParsedOcrTicket, aiParsed: AiOcrParsedTicket): ParsedOcrTicket {
+  return {
+    ...parsed,
+    cinemaName: parsed.cinemaName || aiParsed.cinemaName || '',
+    movieName: parsed.movieName || aiParsed.movieName || '',
+    date: parsed.date || aiParsed.date || '',
+    time: parsed.time || aiParsed.time || '',
+    hallName: parsed.hallName || aiParsed.hallName || '',
+    language: parsed.language || aiParsed.language || '',
+    price: parsed.price || aiParsed.price || '',
+    seats: parsed.seats.length > 0 ? parsed.seats : aiParsed.seats ?? []
+  }
+}
+
+function optionMatchesDate(option: TicketOption, date: string): boolean {
+  return option.value === date || option.label === date || option.value.includes(date) || option.label.includes(date)
+}
+
+function optionMatchesTime(option: TicketOption, time: string): boolean {
+  return option.value.includes(time) || option.label.includes(time)
+}
+
+function matchesSearchKeyword(
+  record: Pick<CityRecord | CinemaRecord, 'name' | 'pinyin' | 'firstLetter'> & { address?: string },
+  keyword: string
+): boolean {
+  if (!keyword) {
+    return true
+  }
+
+  return [record.name, record.pinyin, record.firstLetter, record.address]
+    .filter(Boolean)
+    .some((value) => String(value).toLowerCase().includes(keyword))
+}
+
 export const useTicketStore = defineStore('ticket', {
   state: () => ({
     query: {
@@ -234,12 +362,29 @@ export const useTicketStore = defineStore('ticket', {
     loadingPaymentData: false,
     paymentRequestSerial: 0,
     paymentCheckSerial: 0,
+    paymentSubmitSerial: 0,
     checkingPayment: false,
+    submittingPayment: false,
+    paymentSubmitResult: null as TicketPaymentSubmitResult | null,
     paymentDataMessage: '',
     selectedSeats: [] as SelectedSeat[],
     maxSeatCount: 8
   }),
   getters: {
+    filteredCityOptions(state): TicketOption[] {
+      const keyword = normalizeKeyword(state.query.keyword)
+
+      return state.cityRecords
+        .filter((city) => matchesSearchKeyword(city, keyword))
+        .map((city) => ({ label: city.name, value: city.id }))
+    },
+    filteredCinemaOptions(state): TicketOption[] {
+      const keyword = normalizeKeyword(state.query.keyword)
+
+      return state.cinemaRecords
+        .filter((cinema) => (!state.query.city || cinema.cityId === state.query.city) && matchesSearchKeyword(cinema, keyword))
+        .map((cinema) => ({ label: cinema.name, value: cinema.id }))
+    },
     canSelectMovie(state) {
       return Boolean(state.query.cinema && state.movies.length > 0)
     },
@@ -267,7 +412,12 @@ export const useTicketStore = defineStore('ticket', {
     }
   },
   actions: {
-    clearSeatSelection() {
+    clearSeatSelection(force = false) {
+      if ((this.currentOrder || this.currentOrderId) && !force) {
+        this.currentOrderMessage = '已有待处理订单，请先取消当前订单后再调整座位'
+        return
+      }
+
       this.selectedSeatNodes = []
       this.selectedSeats = []
     },
@@ -285,7 +435,7 @@ export const useTicketStore = defineStore('ticket', {
       this.showtimeItems = []
       this.clearSeatData()
       this.loadingShowtimes = false
-      this.clearSeatSelection()
+      this.clearSeatSelection(true)
     },
     resetQueryAfterCinemaChange() {
       ++this.showtimeRequestSerial
@@ -299,7 +449,7 @@ export const useTicketStore = defineStore('ticket', {
       this.showtimes = []
       this.showtimeItems = []
       this.clearSeatData()
-      this.clearSeatSelection()
+      this.clearSeatSelection(true)
     },
     resetQueryAfterMovieChange() {
       this.query.date = ''
@@ -309,7 +459,7 @@ export const useTicketStore = defineStore('ticket', {
       this.showtimes = []
       this.showtimeItems = []
       this.clearSeatData()
-      this.clearSeatSelection()
+      this.clearSeatSelection(true)
     },
     resetQueryAfterDateChange() {
       this.query.showtime = ''
@@ -317,7 +467,7 @@ export const useTicketStore = defineStore('ticket', {
       this.showtimes = []
       this.showtimeItems = []
       this.clearSeatData()
-      this.clearSeatSelection()
+      this.clearSeatSelection(true)
     },
     clearSeatData() {
       ++this.seatRequestSerial
@@ -325,7 +475,7 @@ export const useTicketStore = defineStore('ticket', {
       this.seatNodes = []
       this.loadingSeats = false
       this.seatError = ''
-      this.clearSeatSelection()
+      this.clearSeatSelection(true)
     },
     handleAccountChanged() {
       const hadCurrentOrder = Boolean(this.currentOrderId)
@@ -376,7 +526,8 @@ export const useTicketStore = defineStore('ticket', {
         showtimeId: contextSnapshot.showtimeId,
         showtimeLabel: contextSnapshot.showtimeLabel,
         amountCent: contextSnapshot.amountCent,
-        seats: contextSnapshot.seats.map((seat) => ({ ...seat }))
+        seats: contextSnapshot.seats.map((seat) => ({ ...seat })),
+        requestInfo: contextSnapshot.requestInfo
       }
     },
     clearPaymentPrerequisiteData() {
@@ -389,12 +540,14 @@ export const useTicketStore = defineStore('ticket', {
       this.paymentActivity = ''
       this.selectedPaymentCards = []
       this.selectedCoupons = []
+      this.paymentSubmitResult = null
       this.paymentDataMessage = ''
     },
     clearCurrentOrderPaymentContext() {
       ++this.orderRequestSerial
       ++this.paymentRequestSerial
       ++this.paymentCheckSerial
+      ++this.paymentSubmitSerial
       this.currentOrderId = ''
       this.currentOrderAccountId = ''
       this.currentOrder = null
@@ -403,6 +556,7 @@ export const useTicketStore = defineStore('ticket', {
       this.orderCancelling = false
       this.loadingPaymentData = false
       this.checkingPayment = false
+      this.submittingPayment = false
     },
     async refreshPaymentPrerequisites() {
       const account = useAccountsStore().currentAccount
@@ -579,6 +733,333 @@ export const useTicketStore = defineStore('ticket', {
         const message = error instanceof Error && error.message ? error.message : '支付前置检查失败'
         this.paymentDataMessage = `支付前置检查失败：${message}`
         useLogsStore().addLog('支付前置', account.phone, `支付前置检查失败：${message}`)
+      } finally {
+        if (
+          checkSerial === this.paymentCheckSerial &&
+          this.currentOrder?.orderId === orderId &&
+          useAccountsStore().currentAccount?.id === accountId
+        ) {
+          this.checkingPayment = false
+        }
+      }
+    },
+    async buildTicketCouponPaymentInfo(
+      currentOrder: TicketOrderContext,
+      ck: string,
+      userIdentifier: string
+    ): Promise<TicketCouponPaymentInfo | null> {
+      const selectedCoupons = this.selectedCoupons
+        .map((couponCode) => this.coupons.find((coupon) => coupon.code === couponCode || coupon.couponNo === couponCode))
+        .filter((coupon): coupon is CouponItem => Boolean(coupon))
+
+      if (selectedCoupons.length === 0) {
+        return null
+      }
+
+      this.paymentActivity = ''
+      this.selectedPaymentCards = []
+
+      const couponTypeCodes = selectedCoupons.map((coupon) => firstText(coupon.typeCode, coupon.code, coupon.couponNo))
+      const selection = await selectCouponsForPayment(
+        currentOrder.seats,
+        currentOrder.cinemaId,
+        couponTypeCodes,
+        ck,
+        userIdentifier
+      )
+      const useResult = await fetchCouponUsePayment(
+        currentOrder.seats,
+        currentOrder.orderId,
+        currentOrder.showtimeId,
+        selection.allotSeat,
+        ck,
+        userIdentifier
+      )
+
+      return { selection, useResult }
+    },
+    buildTicketPaymentRequestInfo(
+      currentOrder: TicketOrderContext,
+      couponPaymentInfo: TicketCouponPaymentInfo | null = null
+    ): BuiltTicketPaymentRequestInfo {
+      const selectedActivity = this.paymentActivity
+        ? this.paymentActivities.find((activity) => activity.code === this.paymentActivity)
+        : undefined
+      const selectedCards = this.selectedPaymentCards
+        .map((cardNo) => this.paymentCards.find((card) => card.cardNo === cardNo))
+        .filter((card): card is PaymentCard => Boolean(card))
+        .slice(0, 5)
+
+      if (this.paymentActivity && !selectedActivity) {
+        throw new Error('当前支付活动已失效，请刷新支付前置数据后重试')
+      }
+
+      if (selectedActivity && selectedCards.length === 0) {
+        throw new Error('当前支付活动需要先选择支付卡')
+      }
+
+      const isCouponPayment = Boolean(couponPaymentInfo)
+      const primaryCard = selectedCards[0]
+      const seatTotalPrice = Math.max(0, currentOrder.amountCent)
+      const payablePrice = couponPaymentInfo
+        ? Math.max(0, couponPaymentInfo.useResult.price)
+        : selectedActivity
+          ? yuanToCents(selectedActivity.price)
+          : seatTotalPrice
+      let remainingPrice = payablePrice
+      const storedCardPayments: TicketStoredCardPayment[] = []
+
+      for (const card of isCouponPayment ? [] : selectedCards) {
+        if (remainingPrice <= 0) {
+          break
+        }
+
+        const cardBalance = yuanToCents(card.balance)
+        const paymentPrice = Math.min(cardBalance, remainingPrice)
+
+        if (paymentPrice <= 0) {
+          continue
+        }
+
+        storedCardPayments.push({
+          cardNumber: card.cardNo,
+          paymentPrice,
+          paymentType: 1,
+          ticketType: card.cardTypeCode,
+          ticketTypeName: card.cardTypeName
+        })
+        remainingPrice -= paymentPrice
+      }
+
+      const requestInfo: BuiltTicketPaymentRequestInfo = {
+        contextId: '',
+        currentPrice: 0,
+        externalPayment: {
+          paySdkId: 1057,
+          paymentPrice: Math.max(0, remainingPrice),
+          paymentType: 1057,
+          returnUrl: 'wandafilm/pay/finished'
+        },
+        goodInfo: '',
+        orderId: String(currentOrder.orderId),
+        verifyCode: ''
+      }
+
+      if (couponPaymentInfo) {
+        requestInfo.ticketVoucher = {
+          discountPrice: Math.max(0, seatTotalPrice - payablePrice),
+          voucher: couponPaymentInfo.selection.voucher
+        }
+        requestInfo.couponPaymentList = couponPaymentInfo.useResult.itemList
+      }
+
+      if (!isCouponPayment && selectedActivity && primaryCard) {
+        requestInfo.activity = {
+          allotJson: selectedActivity.allotSeat || '{}',
+          card: {
+            cardNumber: primaryCard.cardNo,
+            quantity: 0
+          },
+          discountPrice: Math.max(0, seatTotalPrice - payablePrice),
+          integral: 0,
+          ticketType: selectedActivity.typeCode,
+          ticketTypeName: primaryCard.cardTypeName,
+          type: selectedActivity.detailType
+        }
+      }
+
+      if (storedCardPayments[0]) {
+        requestInfo.cardPayment = storedCardPayments[0]
+      }
+
+      if (storedCardPayments.length > 0) {
+        requestInfo.storedCardPayments = storedCardPayments
+      }
+
+      return requestInfo
+    },
+    async submitCurrentOrderPayment() {
+      const account = useAccountsStore().currentAccount
+      const currentOrder = this.currentOrder
+
+      if (this.submittingPayment) {
+        this.paymentDataMessage = '支付提交中，请勿重复提交'
+        return
+      }
+
+      if (!currentOrder) {
+        this.paymentDataMessage = '请先确认选座创建订单'
+        return
+      }
+
+      if (!account?.ck || !account.userIdentifier) {
+        this.paymentDataMessage = '请先选择创建订单的已登录账号'
+        return
+      }
+
+      if (currentOrder.accountId !== account.id) {
+        this.paymentDataMessage = '请切回创建订单的账号提交支付'
+        return
+      }
+
+      const orderId = currentOrder.orderId
+      const accountId = account.id
+      const submitSerial = ++this.paymentSubmitSerial
+      this.submittingPayment = true
+      this.paymentSubmitResult = null
+      this.paymentDataMessage = ''
+
+      try {
+        const couponPaymentInfo = await this.buildTicketCouponPaymentInfo(currentOrder, account.ck, account.userIdentifier)
+
+        if (
+          submitSerial !== this.paymentSubmitSerial ||
+          this.currentOrder?.orderId !== orderId ||
+          useAccountsStore().currentAccount?.id !== accountId
+        ) {
+          return
+        }
+
+        const requestInfo = this.buildTicketPaymentRequestInfo(currentOrder, couponPaymentInfo)
+        const result = await submitTicketPayment(
+          {
+            cinemaId: currentOrder.cinemaId,
+            mobilePhone: currentOrder.phone,
+            orderId,
+            requestInfo
+          },
+          account.ck,
+          account.userIdentifier
+        )
+
+        if (
+          submitSerial !== this.paymentSubmitSerial ||
+          this.currentOrder?.orderId !== orderId ||
+          useAccountsStore().currentAccount?.id !== accountId
+        ) {
+          return
+        }
+
+        this.paymentSubmitResult = result
+        this.currentOrder = { ...currentOrder, requestInfo }
+        this.paymentDataMessage = result.bizMsg
+          ? `提交支付完成：${result.bizMsg}`
+          : '提交支付完成，已调用真实支付接口'
+        useLogsStore().addLog('提交支付', account.phone, `真实支付接口提交完成：${orderId}`)
+
+        const externalPayment = asRecord(requestInfo.externalPayment)
+        const externalPaymentPrice = toNumber(externalPayment.paymentPrice)
+        const payInfoRecord = asRecord(result.payInfo)
+        const tradeNo = firstText(result.tradeNo, payInfoRecord.tradeNo, asRecord(payInfoRecord.payment).tradeNo)
+
+        if (externalPaymentPrice > 0 && tradeNo) {
+          const payInfo = await queryPayInfoUpgrade(orderId, tradeNo, account.ck, account.userIdentifier)
+
+          if (
+            submitSerial !== this.paymentSubmitSerial ||
+            this.currentOrder?.orderId !== orderId ||
+            useAccountsStore().currentAccount?.id !== accountId
+          ) {
+            return
+          }
+
+          this.currentOrderPayInfo = payInfo
+          this.paymentDataMessage = result.bizMsg
+            ? `提交支付完成：${result.bizMsg}，已获取外部支付参数`
+            : '提交支付完成，已获取外部支付参数'
+          useLogsStore().addLog('提交支付', account.phone, `外部支付参数已获取，等待支付完成：${orderId}`)
+          return
+        } else if (externalPaymentPrice > 0) {
+          throw new Error('提交支付成功但缺少 tradeNo，无法查询外部支付信息')
+        }
+
+        const status = await queryOrderStatus(orderId, account.ck, account.userIdentifier)
+
+        if (
+          submitSerial !== this.paymentSubmitSerial ||
+          this.currentOrder?.orderId !== orderId ||
+          useAccountsStore().currentAccount?.id !== accountId
+        ) {
+          return
+        }
+
+        this.orderStatus = status
+        await this.refreshTicketCode()
+      } catch (error) {
+        if (
+          submitSerial !== this.paymentSubmitSerial ||
+          this.currentOrder?.orderId !== orderId ||
+          useAccountsStore().currentAccount?.id !== accountId
+        ) {
+          return
+        }
+
+        const message = error instanceof Error && error.message ? error.message : '提交支付失败'
+        this.paymentDataMessage = message
+        useLogsStore().addLog('提交支付', account.phone, `真实支付接口提交失败：${message}`)
+      } finally {
+        if (
+          submitSerial === this.paymentSubmitSerial &&
+          this.currentOrder?.orderId === orderId &&
+          useAccountsStore().currentAccount?.id === accountId
+        ) {
+          this.submittingPayment = false
+        }
+      }
+    },
+    async refreshTicketCode() {
+      const account = useAccountsStore().currentAccount
+      const currentOrder = this.currentOrder
+      this.currentOrderPayInfo = null
+
+      if (!currentOrder?.orderId) {
+        this.currentOrderMessage = '暂无可刷新取票码的订单'
+        return
+      }
+
+      if (!account?.ck || !account.userIdentifier) {
+        this.currentOrderMessage = '请先选择创建订单的已登录账号'
+        return
+      }
+
+      if (currentOrder.accountId !== account.id) {
+        this.currentOrderMessage = '请切回创建订单的账号刷新取票码'
+        return
+      }
+
+      const orderId = currentOrder.orderId
+      const accountId = account.id
+      const checkSerial = ++this.paymentCheckSerial
+      this.checkingPayment = true
+      this.currentOrderMessage = ''
+
+      try {
+        const payInfo = await queryOrderByUserId(orderId, account.ck, account.userIdentifier)
+
+        if (
+          checkSerial !== this.paymentCheckSerial ||
+          this.currentOrder?.orderId !== orderId ||
+          useAccountsStore().currentAccount?.id !== accountId
+        ) {
+          return
+        }
+
+        this.currentOrderPayInfo = payInfo
+        const codeCount = payInfo.ticketCodes.length + payInfo.qrCodes.length
+        this.currentOrderMessage = codeCount > 0 ? `取票码已刷新，共 ${codeCount} 条` : '订单尚未出票或取票码暂不可用'
+        useLogsStore().addLog('取票码', account.phone, `取票码刷新完成：${orderId}`)
+      } catch (error) {
+        if (
+          checkSerial !== this.paymentCheckSerial ||
+          this.currentOrder?.orderId !== orderId ||
+          useAccountsStore().currentAccount?.id !== accountId
+        ) {
+          return
+        }
+
+        const message = error instanceof Error && error.message ? error.message : '取票码刷新失败'
+        this.currentOrderMessage = message
+        useLogsStore().addLog('取票码', account.phone, `取票码刷新失败：${message}`)
       } finally {
         if (
           checkSerial === this.paymentCheckSerial &&
@@ -807,7 +1288,7 @@ export const useTicketStore = defineStore('ticket', {
       this.currentShowtime = this.showtimeItems.find((item) => item.dId === this.query.showtime) ?? null
       this.showtimeError = this.currentShowtime ? '' : '请选择真实场次'
       this.clearSeatData()
-      this.clearSeatSelection()
+      this.clearSeatSelection(true)
     },
     getSeatZone(areaCode: string): SeatZone {
       const zoneMap: Record<string, SeatZone> = {
@@ -877,7 +1358,7 @@ export const useTicketStore = defineStore('ticket', {
 
         this.seatData = seatData
         this.seatNodes = this.normalizeSeats(this.seatData)
-        this.clearSeatSelection()
+        this.clearSeatSelection(true)
         useLogsStore().addLog('座位', account.phone, `座位数据获取成功，共 ${this.seatNodes.length} 座`)
       } catch (error) {
         if (
@@ -897,6 +1378,131 @@ export const useTicketStore = defineStore('ticket', {
           this.loadingSeats = false
         }
       }
+    },
+    selectSeatsByParsedOcr(parsed: ParsedOcrTicket): number {
+      if (this.currentOrder || this.currentOrderId) {
+        this.currentOrderMessage = '已有待处理订单，请先取消当前订单后再按 OCR 调整座位'
+        return 0
+      }
+
+      const matchedSeats = parsed.seats
+        .map((seat) =>
+          this.seatNodes.find(
+            (node) =>
+              node.status !== 'occupied' &&
+              String(node.rowLabel) === seat.rowName &&
+              String(node.columnLabel) === seat.columnName
+          )
+        )
+        .filter((seat): seat is SeatNode => Boolean(seat))
+        .slice(0, this.maxSeatCount)
+
+      if (matchedSeats.length === 0) {
+        return 0
+      }
+
+      this.selectedSeatNodes = matchedSeats
+      this.selectedSeats = matchedSeats.map((seat) => ({
+        id: seat.id,
+        rowName: seat.rowLabel,
+        columnName: seat.columnLabel,
+        areaName: seat.zone
+      }))
+
+      return matchedSeats.length
+    },
+    async applyParsedOcrTicket(parsed: ParsedOcrTicket) {
+      const account = useAccountsStore().currentAccount
+      const applied: string[] = []
+
+      if (parsed.movieName || parsed.cinemaName) {
+        this.query.keyword = parsed.movieName || parsed.cinemaName
+      }
+
+      if (parsed.cinemaName) {
+        const cinema = findUniqueCinemaByText(this.cinemaRecords, parsed.cinemaName)
+
+        if (cinema) {
+          if (this.query.city !== cinema.cityId) {
+            this.query.city = cinema.cityId
+            this.selectCity()
+          }
+
+          this.query.cinema = cinema.id
+          applied.push('影院')
+          await this.loadCinemaShowtimes()
+        }
+      }
+
+      if (parsed.movieName && this.movies.length > 0) {
+        const movie = findUniqueOptionByText(this.movies, parsed.movieName)
+
+        if (movie) {
+          this.query.movie = movie.value
+          this.selectMovie()
+          applied.push('影片')
+        }
+      }
+
+      if (parsed.date && this.dates.length > 0) {
+        const date = findUnique(this.dates, (item) => optionMatchesDate(item, parsed.date))
+
+        if (date) {
+          this.query.date = date.value
+          this.selectDate()
+          applied.push('日期')
+        }
+      }
+
+      if (parsed.time && this.showtimes.length > 0) {
+        const showtime = findUnique(this.showtimes, (item) => optionMatchesTime(item, parsed.time))
+
+        if (showtime) {
+          this.query.showtime = showtime.value
+          this.setShowtime()
+          applied.push('场次')
+        }
+      }
+
+      if (parsed.seats.length > 0) {
+        if (this.seatNodes.length === 0 && this.canRefreshSeats) {
+          await this.loadRealTimeSeats()
+        }
+
+        const selectedCount = this.selectSeatsByParsedOcr(parsed)
+
+        if (selectedCount > 0) {
+          applied.push(`座位 ${selectedCount} 个`)
+        }
+      }
+
+      this.showtimeError =
+        applied.length > 0 ? `OCR 已匹配：${applied.join('、')}` : 'OCR 已识别，请先加载真实城市、影院、影片和场次后再匹配'
+
+      useLogsStore().addLog(
+        'OCR识别',
+        account?.phone || '-',
+        applied.length > 0 ? `OCR 匹配成功：${applied.join('、')}` : 'OCR 已识别但未匹配到当前真实数据'
+      )
+    },
+    async applyOcrTicketText(text: string): Promise<ParsedOcrTicket> {
+      const parsed = parseOcrTicketText(text)
+      let finalParsed = parsed
+
+      if (needsAiOcrFallback(parsed)) {
+        const account = useAccountsStore().currentAccount
+        const result = await window.wandaApp?.aiParseOcr({ text: parsed.rawText, words: parsed.words })
+
+        if (result?.ok) {
+          finalParsed = mergeAiOcrParsedTicket(parsed, result.data)
+          useLogsStore().addLog('AI OCR', account?.phone || '-', 'AI 兜底解析完成')
+        } else if (result?.error) {
+          useLogsStore().addLog('AI OCR', account?.phone || '-', `AI 兜底跳过：${result.error}`)
+        }
+      }
+
+      await this.applyParsedOcrTicket(finalParsed)
+      return finalParsed
     },
     async createCurrentOrder() {
       const account = useAccountsStore().currentAccount
@@ -973,7 +1579,10 @@ export const useTicketStore = defineStore('ticket', {
 
         this.currentOrderId = result.orderId
         this.currentOrderAccountId = snapshot.accountId
-        this.currentOrder = this.buildCurrentOrderContext(result.orderId, snapshot.accountId, snapshot.phone, snapshot)
+        this.currentOrder = this.buildCurrentOrderContext(result.orderId, snapshot.accountId, snapshot.phone, {
+          ...snapshot,
+          requestInfo: result.requestInfo
+        })
         this.currentOrderMessage = result.bizMsg || '订单创建成功'
         useLogsStore().addLog('订单', snapshot.phone, `订单创建成功：${result.orderId}`)
         await this.refreshPaymentPrerequisites()
@@ -1055,6 +1664,11 @@ export const useTicketStore = defineStore('ticket', {
       }
     },
     toggleSeat(seat: SeatNode) {
+      if (this.currentOrder || this.currentOrderId) {
+        this.currentOrderMessage = '已有待处理订单，请先取消当前订单后再调整座位'
+        return
+      }
+
       if (seat.status === 'occupied') {
         return
       }

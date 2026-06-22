@@ -1,6 +1,6 @@
 import { WANDA_API_PATHS } from '@shared/wandaCore'
 import type { WandaLoginRequestId, WandaLoginResult, WandaLoginStatus } from '@shared/wandaTicketTypes'
-import { WANDA_HOSTS, wandaPost } from './wandaRequest'
+import { WANDA_HOSTS, wandaLoginPost, wandaPost } from './wandaRequest'
 
 function assertNotBlank(value: string, message: string): void {
   if (!value.trim()) {
@@ -11,7 +11,7 @@ function assertNotBlank(value: string, message: string): void {
 export async function sendVerifyCode(phone: string): Promise<WandaLoginRequestId> {
   assertNotBlank(phone, '手机号不能为空')
 
-  const response = await wandaPost<WandaLoginRequestId>(WANDA_HOSTS.USER, WANDA_API_PATHS.USER_LOGIN_VERIFY_CODE, {
+  const response = await wandaLoginPost<WandaLoginRequestId>(WANDA_API_PATHS.USER_LOGIN_VERIFY_CODE, {
     phone
   })
   const data = response.data
@@ -28,9 +28,9 @@ export async function loginWithCode(phone: string, code: string, requestId: stri
   assertNotBlank(code, '验证码不能为空')
   assertNotBlank(requestId, '登录请求 ID 不能为空')
 
-  const response = await wandaPost<WandaLoginResult>(WANDA_HOSTS.USER, WANDA_API_PATHS.USER_LOGIN, {
-    cinemaId: '',
-    userPlat: '6',
+  const response = await wandaLoginPost<WandaLoginResult>(WANDA_API_PATHS.USER_LOGIN, {
+    cinemaId: '7115',
+    userPlat: 'oppo',
     phone,
     vcode: code,
     requestId

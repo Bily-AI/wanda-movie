@@ -1,7 +1,16 @@
 import type {
+  AiOcrParseRequest,
+  AiOcrParseResult,
   LocalDataResult,
   LocalDataWriteResult,
   OldPackageIndexResult,
+  BaiduOcrRequest,
+  BaiduOcrResult,
+  ClipboardImageResult,
+  ClipboardTextResult,
+  ElementCaptureRequest,
+  ElementCaptureResult,
+  ElementCopyResult,
   WandaHttpRequest,
   WandaHttpResult
 } from '@shared/ipc'
@@ -16,6 +25,7 @@ declare global {
       maximize: () => Promise<void>
       close: () => Promise<void>
       getVersion: () => Promise<string>
+      getLocalIp: () => Promise<string>
       getOldPackageIndex: () => Promise<OldPackageIndexResult>
       readLocalData: <T extends LocalDataFileName>(name: T) => Promise<LocalDataResult<T>>
       writeLocalData: <T extends LocalDataFileName>(
@@ -24,6 +34,12 @@ declare global {
       ) => Promise<LocalDataWriteResult>
       wandaHttpGet: (request: WandaHttpRequest) => Promise<WandaHttpResult>
       wandaHttpPost: (request: WandaHttpRequest) => Promise<WandaHttpResult>
+      readClipboardText: () => Promise<ClipboardTextResult>
+      readClipboardImage: () => Promise<ClipboardImageResult>
+      ocrRecognize: (request: BaiduOcrRequest) => Promise<BaiduOcrResult>
+      aiParseOcr: (request: AiOcrParseRequest) => Promise<AiOcrParseResult>
+      captureElement: (request: ElementCaptureRequest) => Promise<ElementCaptureResult>
+      copyElementToClipboard: (request: ElementCaptureRequest) => Promise<ElementCopyResult>
     }
   }
 }

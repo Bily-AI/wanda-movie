@@ -109,6 +109,8 @@ export interface TicketOrderResult {
   orderId: string
   bizCode: number
   bizMsg?: string
+  requestInfo?: unknown
+  raw?: unknown
 }
 
 export interface TicketOrderSeatRef {
@@ -131,6 +133,24 @@ export interface TicketOrderContext {
   showtimeLabel: string
   amountCent: number
   seats: TicketOrderSeatRef[]
+  requestInfo?: unknown
+}
+
+export interface TicketPaymentSubmitRequest {
+  cinemaId: string
+  mobilePhone: string
+  orderId: string
+  requestInfo: unknown
+}
+
+export interface TicketPaymentSubmitResult {
+  orderId: string
+  bizCode?: number
+  bizMsg?: string
+  tradeNo?: string
+  requestInfo: unknown
+  payInfo?: unknown
+  raw: unknown
 }
 
 export interface PaymentActivityItem {
@@ -143,6 +163,7 @@ export interface PaymentActivityItem {
   groupType: string
   note: string
   typeCode: string
+  detailType: string
   allotSeat: string
   raw: unknown
 }
@@ -158,6 +179,7 @@ export interface PaymentCard {
   cardNo: string
   cardName: string
   cardTypeName: string
+  cardTypeCode: string
   balance: number
   available: boolean
   statusDesc: string
@@ -173,6 +195,27 @@ export interface CouponItem {
   amount: number
   validity: string
   detailTypeName: string
+  raw: unknown
+}
+
+export interface CouponSelectionResult {
+  allotSeat: string
+  voucher: string
+  raw: unknown
+}
+
+export interface CouponPaymentListItem {
+  actuallyPaidAmount: number
+  rightsCode: string
+  seatId: number
+  ticketCode: string
+  ticketType: number
+  usedCoupon: number
+}
+
+export interface CouponUseResult {
+  price: number
+  itemList: CouponPaymentListItem[]
   raw: unknown
 }
 
@@ -213,5 +256,6 @@ export interface OrderPayInfoResult {
   orderId: string
   ticketCodes: string[]
   qrCodes: string[]
+  payInfo?: unknown
   raw: unknown
 }

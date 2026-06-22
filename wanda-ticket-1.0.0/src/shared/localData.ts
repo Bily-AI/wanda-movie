@@ -47,6 +47,16 @@ export interface SettingsLocalData {
     phone: string
     password: string
   }
+  baiduOcr: {
+    apiKey: string
+    secretKey: string
+  }
+  aiOcr: {
+    enabled: boolean
+    baseUrl: string
+    model: string
+    apiKey: string
+  }
 }
 
 export interface RequestParamsLocalData {
@@ -110,6 +120,16 @@ export const DEFAULT_LOCAL_DATA: LocalDataMap = {
       enabled: false,
       phone: '',
       password: ''
+    },
+    baiduOcr: {
+      apiKey: '',
+      secretKey: ''
+    },
+    aiOcr: {
+      enabled: false,
+      baseUrl: 'https://api.deepseek.com/chat/completions',
+      model: 'deepseek-chat',
+      apiKey: ''
     }
   },
   requestParams: {

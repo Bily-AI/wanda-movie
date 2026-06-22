@@ -3,6 +3,7 @@ import type { WandaHttpRequest } from './ipc'
 export const WANDA_HOSTS = {
   USER: 'user-api-prd-mx.wandafilm.com',
   CINEMA: 'cinema-api-prd-mx.wandafilm.com',
+  TICKET: 'ticket-api-prd-mx.wandafilm.com',
   GATEWAY: 'front-gateway-c.wandafilm.com',
   CARD: 'card-api-prd-mx.wandafilm.com',
   COUPON: 'coupon-api-prd-mx.wandafilm.com',
@@ -27,6 +28,8 @@ export const WANDA_API_PATHS = {
   ORDER_QUERY_PAY_INFO: '/order/query_pay_info_upgrade.api',
   CARD_PAY_LIST: '/card/pay/list.api',
   CARD_USER_CARD_LIST: '/card/user_card/list.api',
+  CARD_TRANSFER: '/card/transfer.version',
+  CARD_RECHARGE: '/card/recharge.version',
   COUPON_MEMBER_GROUP_LIST: '/coupon/member/grouplist.api',
   COUPON_BIND: '/coupon/bind.api',
   COUPON_PRESENT: '/coupon/present/',
@@ -34,30 +37,21 @@ export const WANDA_API_PATHS = {
   WPLUS_MEMBER_PLUS_DETAIL: '/wplus/member/plusDetail.api',
   MKT_ACTIVITY_SECRET: '/mkt/activity/secret/',
   PACK_ACTIVITY: '/pack_activity/activity/',
+  PACK_ACTIVITY_CREATE_ORDER: '/pack_activity/activity/create_order.api',
+  GIFT_ORDERS: '/giftshop/orders',
+  GIFT_ORDER_DETAIL: '/giftshop/orders/detail',
+  GIFT_TRANSACTION_CREATE: '/giftshop/transactions/create',
+  GIFT_TRANSACTION_DETAIL: '/giftshop/transactions/detail',
   SIGN_IN_CALENDAR: '/sign_in/calendar.api'
 } as const
 
 const wandaHostValues: ReadonlySet<string> = new Set(Object.values(WANDA_HOSTS))
 const exactPathValues: readonly string[] = Object.values(WANDA_API_PATHS).filter((value) => !value.endsWith('/'))
 const prefixPathValues: readonly string[] = Object.values(WANDA_API_PATHS).filter((value) => value.endsWith('/'))
-const blockedWandaPaymentPathValues: readonly string[] = [
-  WANDA_API_PATHS.ORDER_PREPAY,
-  WANDA_API_PATHS.ORDER_MERGE_PAYMENT
-]
 const blockedWandaPaymentKeywords: readonly string[] = ['alipay']
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function isBlockedWandaPaymentUrl(parsedUrl: URL): boolean {
-  const pathname = parsedUrl.pathname.toLowerCase()
-  const pathWithSearch = `${parsedUrl.pathname}${parsedUrl.search}`.toLowerCase()
-
-  return (
-    blockedWandaPaymentPathValues.some((path) => pathname === path.toLowerCase()) ||
-    blockedWandaPaymentKeywords.some((keyword) => pathWithSearch.includes(keyword))
-  )
 }
 
 function includesBlockedWandaPaymentKeyword(value: unknown): boolean {
@@ -109,8 +103,8 @@ export function validateWandaRequest(request: WandaHttpRequest): string | null {
     return '万达请求 host 不在旧版接口白名单内'
   }
 
-  if (isBlockedWandaPaymentUrl(parsedUrl)) {
-    return '第四阶段禁止发起真实支付请求'
+  if (includesBlockedWandaPaymentKeyword(`${parsedUrl.pathname}${parsedUrl.search}`)) {
+    return '禁止发起支付宝相关请求'
   }
 
   if (!isKnownWandaPath(parsedUrl.pathname)) {
@@ -126,7 +120,7 @@ export function validateWandaRequest(request: WandaHttpRequest): string | null {
   }
 
   if (request.params !== undefined && includesBlockedWandaPaymentKeyword(request.params)) {
-    return '第四阶段禁止发起支付宝相关请求'
+    return '禁止发起支付宝相关请求'
   }
 
   if (request.body !== undefined && !isRecord(request.body) && typeof request.body !== 'string') {
@@ -134,7 +128,7 @@ export function validateWandaRequest(request: WandaHttpRequest): string | null {
   }
 
   if (request.body !== undefined && includesBlockedWandaPaymentKeyword(request.body)) {
-    return '第四阶段禁止发起支付宝相关请求'
+    return '禁止发起支付宝相关请求'
   }
 
   return null

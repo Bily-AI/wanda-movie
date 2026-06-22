@@ -22,12 +22,12 @@ const logsStore = useLogsStore()
         start-placeholder="开始日期"
         end-placeholder="结束日期"
       />
-      <el-button :icon="Delete" :disabled="logsStore.recordCount === 0">清空日志</el-button>
+      <el-button :icon="Delete" :disabled="logsStore.recordCount === 0" @click="logsStore.clearRecords">清空日志</el-button>
       <span class="record-count">共 {{ logsStore.recordCount }} 条记录</span>
     </header>
 
     <section class="table-panel">
-      <el-table :data="logsStore.records" height="100%" empty-text="暂无日志记录">
+      <el-table :data="logsStore.filteredRecords" height="100%" empty-text="暂无日志记录">
         <el-table-column prop="time" label="日期时间" min-width="180" sortable />
         <el-table-column prop="type" label="类型" width="140" />
         <el-table-column prop="account" label="账号" min-width="180" />

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download, Refresh, Search } from '@element-plus/icons-vue'
 
@@ -11,6 +11,7 @@ const accountsStore = useAccountsStore()
 const ordersStore = useOrdersStore()
 const payInfoDialogVisible = ref(false)
 const payInfoOrder = ref<OrderRecord | null>(null)
+const historyTicketCodePanelSelector = '.history-ticket-code-panel'
 
 interface PayInfoDisplayField {
   label: string
@@ -83,6 +84,20 @@ function normalizeTextList(value: string[] | undefined): string[] {
   return Array.isArray(value) ? value.map((item) => String(item ?? '').trim()).filter(Boolean) : []
 }
 
+function isImageQrCode(value: string): boolean {
+  const text = value.trim()
+
+  if (/^data:image\//.test(text)) {
+    return true
+  }
+
+  return /^(iVBORw0KGgo|\/9j\/|R0lGOD|UklGR)/.test(text)
+}
+
+function formatQrImage(value: string): string {
+  return value.startsWith('data:image/') ? value : `data:image/png;base64,${value}`
+}
+
 function collectPayInfoFields(value: unknown): PayInfoDisplayField[] {
   if (!hasVisibleValue(value)) {
     return []
@@ -118,6 +133,7 @@ const payInfoFields = computed(() => collectPayInfoFields(getPayInfoValue(orders
 const hasVisiblePayInfo = computed(
   () => ticketCodes.value.length > 0 || qrCodes.value.length > 0 || payInfoFields.value.length > 0
 )
+const canCaptureHistoryTicketCode = computed(() => hasVisiblePayInfo.value && Boolean(ordersStore.currentPayInfo))
 const payInfoDialogTitle = computed(() =>
   payInfoOrder.value?.orderNo ? `支付信息：${payInfoOrder.value.orderNo}` : '支付信息'
 )
@@ -139,6 +155,40 @@ async function handleQueryPayInfo(order: OrderRecord) {
 
   if (ordersStore.currentPayInfo) {
     payInfoDialogVisible.value = true
+  }
+}
+
+async function handleCaptureHistoryTicketCode(): Promise<void> {
+  if (!window.wandaApp) {
+    ElMessage.error('Electron 桥接未就绪，无法截图')
+    return
+  }
+
+  await nextTick()
+
+  const result = await window.wandaApp?.captureElement({ selector: historyTicketCodePanelSelector })
+
+  if (result.ok) {
+    ElMessage.success(`历史订单取票码截图已保存：${result.data.path}`)
+  } else {
+    ElMessage.error(result.error || '历史订单取票码截图失败')
+  }
+}
+
+async function handleCopyHistoryTicketCode(): Promise<void> {
+  if (!window.wandaApp) {
+    ElMessage.error('Electron 桥接未就绪，无法复制截图')
+    return
+  }
+
+  await nextTick()
+
+  const result = await window.wandaApp?.copyElementToClipboard({ selector: historyTicketCodePanelSelector })
+
+  if (result.ok) {
+    ElMessage.success('历史订单取票码截图已复制到剪贴板')
+  } else {
+    ElMessage.error(result.error || '复制历史订单取票码截图失败')
   }
 }
 
@@ -266,23 +316,40 @@ watch(
       </el-table>
     </section>
 
-    <el-dialog v-model="payInfoDialogVisible" :title="payInfoDialogTitle" width="560px" destroy-on-close>
+    <el-dialog
+      v-model="payInfoDialogVisible"
+      class="history-ticket-code-dialog"
+      :title="payInfoDialogTitle"
+      width="640px"
+      append-to-body
+      destroy-on-close
+    >
       <div v-if="ordersStore.currentPayInfo" class="pay-info-detail">
         <template v-if="hasVisiblePayInfo">
-          <section v-if="ticketCodes.length > 0" class="pay-info-section">
-            <span class="pay-info-label">取票码</span>
-            <div class="pay-info-list">
-              <el-tag v-for="(code, index) in ticketCodes" :key="`ticket-${index}-${code}`" type="success" effect="plain">
-                {{ code }}
-              </el-tag>
-            </div>
-          </section>
+          <section class="history-ticket-code-panel">
+            <header class="history-ticket-code-panel__header">
+              <span>历史订单取票码</span>
+              <strong>{{ payInfoOrder?.movieName || '-' }}</strong>
+            </header>
 
-          <section v-if="qrCodes.length > 0" class="pay-info-section">
-            <span class="pay-info-label">二维码</span>
-            <div class="pay-info-list pay-info-list--block">
-              <div v-for="(qrCode, index) in qrCodes" :key="`qr-${index}-${qrCode}`" class="pay-info-code">
-                {{ qrCode }}
+            <div class="history-ticket-code-panel__meta">
+              <span>{{ payInfoOrder?.cinema || '-' }}</span>
+              <span>{{ payInfoOrder?.showtime || '-' }}</span>
+              <span>订单号：{{ payInfoOrder?.orderNo || payInfoOrder?.orderId || '-' }}</span>
+              <span>金额：{{ payInfoOrder ? formatAmount(payInfoOrder) : '¥0.00' }}</span>
+            </div>
+
+            <div v-if="ticketCodes.length > 0" class="history-ticket-code-panel__codes">
+              <span v-for="(code, index) in ticketCodes" :key="`history-ticket-${index}-${code}`">
+                {{ code }}
+              </span>
+            </div>
+            <el-empty v-else description="暂无取票码" :image-size="52" />
+
+            <div v-if="qrCodes.length > 0" class="history-ticket-code-panel__qr-list">
+              <div v-for="(qrCode, index) in qrCodes" :key="`history-qr-${index}`" class="history-ticket-code-panel__qr">
+                <img v-if="isImageQrCode(qrCode)" :src="formatQrImage(qrCode)" alt="历史订单二维码" />
+                <span v-else>{{ qrCode }}</span>
               </div>
             </div>
           </section>
@@ -300,6 +367,17 @@ watch(
 
         <el-empty v-else description="订单尚未出票或取票码暂不可用" :image-size="64" />
       </div>
+
+      <template #footer>
+        <div class="history-ticket-code-dialog__actions">
+          <el-button :disabled="!canCaptureHistoryTicketCode" @click="handleCaptureHistoryTicketCode">
+            截图保存
+          </el-button>
+          <el-button type="primary" :disabled="!canCaptureHistoryTicketCode" @click="handleCopyHistoryTicketCode">
+            复制截图
+          </el-button>
+        </div>
+      </template>
     </el-dialog>
 
     <footer class="table-pagination">
@@ -399,6 +477,92 @@ watch(
 .pay-info-detail {
   display: grid;
   gap: 16px;
+}
+
+.history-ticket-code-panel {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid #e4e9f2;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--app-text);
+}
+
+.history-ticket-code-panel__header {
+  display: grid;
+  gap: 6px;
+  text-align: center;
+}
+
+.history-ticket-code-panel__header span {
+  color: #d9363e;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.history-ticket-code-panel__header strong {
+  overflow-wrap: anywhere;
+}
+
+.history-ticket-code-panel__meta {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f6f8fb;
+  color: var(--app-subtle);
+  line-height: 1.5;
+}
+
+.history-ticket-code-panel__codes {
+  display: grid;
+  gap: 8px;
+}
+
+.history-ticket-code-panel__codes span {
+  min-height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed #b6c4d8;
+  border-radius: 8px;
+  background: #fbfcff;
+  color: #1f2a44;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.history-ticket-code-panel__qr-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(124px, 1fr));
+  gap: 10px;
+}
+
+.history-ticket-code-panel__qr {
+  min-height: 124px;
+  display: grid;
+  place-items: center;
+  padding: 10px;
+  border: 1px solid #e4e9f2;
+  border-radius: 8px;
+  background: #fff;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.history-ticket-code-panel__qr img {
+  width: 108px;
+  height: 108px;
+  object-fit: contain;
+}
+
+.history-ticket-code-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .pay-info-section {

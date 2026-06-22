@@ -45,6 +45,7 @@ const packageJson = read('package.json')
 const ipc = read('src/shared/ipc.ts')
 const core = read('src/shared/wandaCore.ts')
 const types = read('src/shared/wandaTicketTypes.ts')
+const mainIndex = read('src/main/index.ts')
 const requestService = read('src/renderer/services/wandaRequest.ts')
 const authApi = read('src/renderer/services/wandaAuthApi.ts')
 const cinemaApi = read('src/renderer/services/cinemaApi.ts')
@@ -62,7 +63,9 @@ assertIncludes('package.json', packageJson, '"check:phase3"')
 assertIncludes('src/shared/ipc.ts', ipc, 'Record<string, unknown> | string')
 assertIncludes('src/shared/wandaCore.ts', core, 'ORDER_CREATE_TICKET')
 assertIncludes('src/shared/wandaCore.ts', core, '/order/create_order.api')
+assertIncludes('src/shared/wandaCore.ts', core, 'ticket-api-prd-mx.wandafilm.com')
 assertIncludes('src/shared/wandaCore.ts', core, "typeof request.body !== 'string'")
+assertIncludes('src/main/index.ts', mainIndex, "../preload/index.mjs")
 
 for (const label of [
   'WandaLoginRequestId',
@@ -78,9 +81,23 @@ for (const label of [
   assertIncludes('src/shared/wandaTicketTypes.ts', types, label)
 }
 
-for (const label of ['buildWandaUrl', 'toFormBody', 'wandaGet', 'wandaPost', 'buildWandaHeaders']) {
+for (const label of [
+  'buildWandaUrl',
+  'toFormBody',
+  'wandaGet',
+  'wandaPost',
+  'buildWandaHeaders',
+  'buildCinemaHeaders',
+  'wandaCinemaGet',
+  'buildWandaLoginHeaders',
+  'wandaLoginPost',
+  'setWandaRequestParams'
+]) {
   assertIncludes('src/renderer/services/wandaRequest.ts', requestService, label)
 }
+
+assertNotIncludes('src/renderer/services/wandaRequest.ts', requestService, 'getWandaApp()?.wandaHttpGet')
+assertNotIncludes('src/renderer/services/wandaRequest.ts', requestService, 'getWandaApp()?.wandaHttpPost')
 
 for (const label of [
   'MX-API',
@@ -112,15 +129,86 @@ for (const label of ['sendVerifyCode', 'loginWithCode', 'checkLoginStatus']) {
   assertIncludes('src/renderer/services/wandaAuthApi.ts', authApi, label)
 }
 
-assertIncludes('src/renderer/services/wandaAuthApi.ts', authApi, "cinemaId: ''")
+for (const [startLabel, endLabel] of [
+  ['export async function sendVerifyCode', 'export async function loginWithCode'],
+  ['export async function loginWithCode', 'export async function checkLoginStatus']
+]) {
+  const authLoginBlock = sliceRequired('src/renderer/services/wandaAuthApi.ts', authApi, startLabel, endLabel, startLabel)
+  assertIncludes('src/renderer/services/wandaAuthApi.ts', authLoginBlock, 'wandaLoginPost')
+  assertNotIncludes('src/renderer/services/wandaAuthApi.ts', authLoginBlock, 'wandaPost')
+}
+
+const authStatusBlock = sliceRequired(
+  'src/renderer/services/wandaAuthApi.ts',
+  authApi,
+  'export async function checkLoginStatus',
+  '  const data = response.data',
+  '登录状态检查函数'
+)
+assertIncludes('src/renderer/services/wandaAuthApi.ts', authStatusBlock, 'wandaPost')
+
+assertIncludes('src/renderer/services/wandaAuthApi.ts', authApi, "cinemaId: '7115'")
+assertIncludes('src/renderer/services/wandaAuthApi.ts', authApi, "userPlat: 'oppo'")
+assertIncludes('src/renderer/services/wandaRequest.ts', requestService, "DEFAULT_WANDA_MODEL = 'M2102J2SC'")
+assertIncludes('src/renderer/services/wandaRequest.ts', requestService, "DEFAULT_WANDA_USER_IDENTIFIER = 'YYDDJDKYHA'")
+assertIncludes('src/renderer/services/wandaRequest.ts', requestService, 'getDefaultWandaUserId() || userIdentifier.trim()')
+assertIncludes('src/renderer/services/wandaRequest.ts', requestService, "getRuntimeParam('model')")
+assertIncludes('src/renderer/services/wandaRequest.ts', requestService, "getRuntimeParam('userId')")
+assertIncludes('src/renderer/services/wandaRequest.ts', requestService, "getRuntimeParam('shumeiBoxId')")
+assertIncludes('src/renderer/services/wandaRequest.ts', requestService, "getRuntimeNumberParam('height', 2206)")
+assertIncludes('src/renderer/services/wandaRequest.ts', requestService, "getRuntimeNumberParam('height', 2200)")
+assertIncludes('src/renderer/services/wandaRequest.ts', requestService, "getRuntimeNumberParam('width', 1080)")
+assertIncludes('src/renderer/services/wandaRequest.ts', requestService, "'Accept-Encoding': 'gzip, deflate'")
+assertIncludes('src/renderer/services/wandaRequest.ts', requestService, "CINEMA_SYSTEM_VERSION = '10'")
+assertIncludes('src/renderer/services/wandaRequest.ts', requestService, 'generateMxCid')
+assertIncludes('src/renderer/services/wandaRequest.ts', requestService, 'Host: `${host}:443`')
+
+const loginHeaderBlock = sliceRequired(
+  'src/renderer/services/wandaRequest.ts',
+  requestService,
+  'export function buildWandaLoginHeaders',
+  'export async function wandaLoginPost',
+  '登录专用请求头函数'
+)
+assertIncludes('src/renderer/services/wandaRequest.ts', loginHeaderBlock, 'systemVersion: CINEMA_SYSTEM_VERSION')
+assertIncludes('src/renderer/services/wandaRequest.ts', loginHeaderBlock, "getRuntimeNumberParam('height', 2200)")
+assertIncludes('src/renderer/services/wandaRequest.ts', loginHeaderBlock, 'Content-Length')
+assertNotIncludes('src/renderer/services/wandaRequest.ts', loginHeaderBlock, 'X-RY-')
+assertNotIncludes('src/renderer/services/wandaRequest.ts', loginHeaderBlock, "_mi_")
+
+const cinemaHeaderBlock = sliceRequired(
+  'src/renderer/services/wandaRequest.ts',
+  requestService,
+  'export function buildCinemaHeaders',
+  'export async function wandaCinemaGet',
+  '影院专用请求头函数'
+)
+assertNotIncludes('src/renderer/services/wandaRequest.ts', cinemaHeaderBlock, 'X-RY-')
+
+assertIncludes('src/renderer/stores/accounts.ts', accountsStore, "DEFAULT_WANDA_USER_IDENTIFIER")
+assertIncludes('src/renderer/stores/accounts.ts', accountsStore, 'result.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER')
+assertIncludes('src/renderer/stores/accounts.ts', accountsStore, 'toPlainAccountsData')
+assertIncludes('src/renderer/stores/accounts.ts', accountsStore, 'structuredClone')
+assertMatches(
+  'src/renderer/stores/accounts.ts',
+  accountsStore,
+  /writeLocalData\('accounts', toPlainAccountsData\(/,
+  '账号保存必须先转成可被 Electron IPC 克隆的普通对象'
+)
 
 for (const label of ['fetchCinemaShowtime', 'fetchCinemaDetail']) {
   assertIncludes('src/renderer/services/cinemaApi.ts', cinemaApi, label)
 }
+assertIncludes('src/renderer/services/cinemaApi.ts', cinemaApi, 'wandaCinemaGet')
+assertIncludes('src/renderer/services/cinemaApi.ts', cinemaApi, 'WANDA_HOSTS.TICKET')
+assertNotIncludes('src/renderer/services/cinemaApi.ts', cinemaApi, 'wandaGet')
+assertNotIncludes('src/renderer/services/cinemaApi.ts', cinemaApi, 'assertNotBlank(userIdentifier')
 
 for (const label of ['fetchRealTimeSeat', 'createTicketOrder', 'cancelTicketOrder']) {
   assertIncludes('src/renderer/services/seatApi.ts', seatApi, label)
 }
+assertNotIncludes('src/renderer/services/seatApi.ts', seatApi, 'wandaCinemaGet')
+assertNotIncludes('src/renderer/services/seatApi.ts', seatApi, 'buildCinemaHeaders')
 
 assertIncludes('src/renderer/services/seatApi.ts', seatApi, 'WANDA_API_PATHS.ORDER_CREATE_TICKET')
 assertIncludes('src/renderer/services/seatApi.ts', seatApi, "replaceAll('%7C', '|')")

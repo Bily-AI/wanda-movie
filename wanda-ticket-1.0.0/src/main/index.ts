@@ -1,9 +1,12 @@
 import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { readFile } from 'node:fs/promises'
+import { networkInterfaces } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { IPC_CHANNELS, type OldPackageIndexResult } from '../shared/ipc'
+import { registerBaiduOcrHandlers } from './baiduOcr'
+import { registerElementCaptureHandlers } from './elementCapture'
 import { registerLocalDataHandlers } from './localData'
 import { registerWandaHttpHandlers } from './wandaHttp'
 
@@ -20,7 +23,7 @@ function createWindow(): void {
     backgroundColor: '#f4f7fb',
     show: false,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
       // 当前 Electron/Vite preload 需要关闭 sandbox；renderer 仍只通过 contextBridge 访问白名单 API。
@@ -41,6 +44,20 @@ function createWindow(): void {
 
 function getWindowFromEvent(event: IpcMainInvokeEvent): BrowserWindow | null {
   return BrowserWindow.fromWebContents(event.sender)
+}
+
+function getLocalIp(): string {
+  const networks = networkInterfaces()
+
+  for (const addresses of Object.values(networks)) {
+    for (const address of addresses ?? []) {
+      if (address.family === 'IPv4' && !address.internal) {
+        return address.address
+      }
+    }
+  }
+
+  return '127.0.0.1'
 }
 
 function oldPackageIndexError(error: unknown): string {
@@ -108,6 +125,8 @@ async function readOldPackageIndex(): Promise<OldPackageIndexResult> {
 function registerIpcHandlers(): void {
   registerLocalDataHandlers()
   registerWandaHttpHandlers()
+  registerBaiduOcrHandlers()
+  registerElementCaptureHandlers()
 
   ipcMain.handle(IPC_CHANNELS.WINDOW_MINIMIZE, (event) => {
     getWindowFromEvent(event)?.minimize()
@@ -132,6 +151,8 @@ function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC_CHANNELS.APP_GET_VERSION, () => app.getVersion() || '1.0.0')
+
+  ipcMain.handle(IPC_CHANNELS.APP_GET_LOCAL_IP, () => getLocalIp())
 
   ipcMain.handle(IPC_CHANNELS.OLD_PACKAGE_INDEX_READ, () => readOldPackageIndex())
 }

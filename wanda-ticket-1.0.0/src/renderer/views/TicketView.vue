@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 
 import {
   Connection,
@@ -11,21 +11,124 @@ import {
   Search,
   UserFilled
 } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 import SeatMap from '@renderer/components/SeatMap.vue'
 import SelectedSeatList from '@renderer/components/SelectedSeatList.vue'
 import { useAccountsStore } from '@renderer/stores/accounts'
+import { useSettingsStore } from '@renderer/stores/settings'
 import { useTicketStore } from '@renderer/stores/ticket'
 import type { WandaAccount } from '@shared/localData'
+import type { OrderPayInfoResult } from '@shared/wandaTicketTypes'
 
 const accountsStore = useAccountsStore()
+const settingsStore = useSettingsStore()
 const ticketStore = useTicketStore()
+const ticketCodeDialogVisible = ref(false)
+const payInfoDialogVisible = ref(false)
+const ticketCodePanelSelector = '.ticket-code-panel'
 
 interface PaymentDisplayItem {
   key: string
   label: string
   value: string
   meta?: string
+}
+
+interface PayInfoDisplayField {
+  label: string
+  value: string
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {}
+}
+
+function firstListRecord(value: unknown): Record<string, unknown> {
+  return asRecord(Array.isArray(value) ? value[0] : value)
+}
+
+function hasVisibleValue(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.some(hasVisibleValue)
+  }
+
+  if (isRecord(value)) {
+    return Object.values(value).some(hasVisibleValue)
+  }
+
+  if (typeof value === 'string') {
+    return value.trim().length > 0
+  }
+
+  return value !== undefined && value !== null && value !== false
+}
+
+function getPayInfoValue(payInfo: OrderPayInfoResult | null): unknown {
+  if (!payInfo) {
+    return undefined
+  }
+
+  const directPayInfo = (payInfo as OrderPayInfoResult & { payInfo?: unknown }).payInfo
+
+  if (hasVisibleValue(directPayInfo)) {
+    return directPayInfo
+  }
+
+  const raw = asRecord(payInfo.raw)
+  const data = asRecord(raw.data)
+  const directTicketInfo = firstListRecord(data.subTicketOrderInfo)
+  const orderInf = firstListRecord(data.orderInf)
+  const ticketInfo = firstListRecord(orderInf.subTicketOrderInfo)
+  const source =
+    Object.keys(ticketInfo).length > 0 ? ticketInfo : Object.keys(directTicketInfo).length > 0 ? directTicketInfo : data
+
+  return source.payInfo ?? data.payInfo ?? raw.payInfo
+}
+
+function formatPayInfoValue(value: unknown): string {
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
+}
+
+function collectPayInfoFields(value: unknown): PayInfoDisplayField[] {
+  if (!hasVisibleValue(value)) {
+    return []
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .filter(hasVisibleValue)
+      .map((item, index) => ({
+        label: `支付信息 ${index + 1}`,
+        value: formatPayInfoValue(item).trim()
+      }))
+      .filter((item) => item.value)
+  }
+
+  if (isRecord(value)) {
+    return Object.entries(value)
+      .filter(([, item]) => hasVisibleValue(item))
+      .map(([label, item]) => ({
+        label,
+        value: formatPayInfoValue(item).trim()
+      }))
+      .filter((item) => item.value)
+  }
+
+  const text = formatPayInfoValue(value).trim()
+  return text ? [{ label: '支付信息', value: text }] : []
 }
 
 const paymentActivityOptions = computed<PaymentDisplayItem[]>(() =>
@@ -84,15 +187,181 @@ const couponItems = computed<PaymentDisplayItem[]>(() =>
   })
 )
 
+const ticketCodes = computed(() => ticketStore.currentOrderPayInfo?.ticketCodes ?? [])
+const qrCodes = computed(() => ticketStore.currentOrderPayInfo?.qrCodes ?? [])
+const payInfoFields = computed(() => collectPayInfoFields(getPayInfoValue(ticketStore.currentOrderPayInfo)))
+const hasTicketCodeData = computed(() => ticketCodes.value.length > 0 || qrCodes.value.length > 0)
+const ticketCodeSeatText = computed(() =>
+  ticketStore.currentOrder?.seats.map((seat) => `${seat.rowName}排${seat.columnName}座`).join('、') || '-'
+)
+const ticketCodeAmount = computed(() => `¥${((ticketStore.currentOrder?.amountCent ?? 0) / 100).toFixed(2)}`)
+
+function isImageQrCode(value: string): boolean {
+  return /^data:image\//.test(value) || /^[A-Za-z0-9+/]+={0,2}$/.test(value)
+}
+
+function formatQrImage(value: string): string {
+  return value.startsWith('data:image/') ? value : `data:image/png;base64,${value}`
+}
+
 function handleAccountSelectionChange(rows: WandaAccount[]): void {
   accountsStore.setSelectedAccountIds(rows.map((row) => row.id))
+}
+
+async function handleMoveSelectedToGroup(): Promise<void> {
+  const movedCount = await accountsStore.moveSelectedToGroup(accountsStore.selectedGroupId)
+
+  if (movedCount > 0) {
+    ElMessage.success(accountsStore.loginForm.message)
+  } else {
+    ElMessage.warning(accountsStore.loginForm.message)
+  }
+}
+
+async function handleImportAccounts(): Promise<void> {
+  try {
+    const result = await ElMessageBox.prompt('每行一个账号，可填写手机号、CK 和用户标识', '导入万达账号', {
+      confirmButtonText: '导入',
+      cancelButtonText: '取消',
+      inputType: 'textarea',
+      inputPlaceholder: '手机号  CK 后接真实值  USER 后接用户标识'
+    })
+    const count = await accountsStore.importAccountsFromText(result.value)
+
+    if (count > 0) {
+      ElMessage.success(accountsStore.loginForm.message)
+    } else {
+      ElMessage.warning(accountsStore.loginForm.message)
+    }
+  } catch {
+    // 用户取消导入时不需要提示。
+  }
+}
+
+async function handleImageOcr(): Promise<void> {
+  if (!window.wandaApp) {
+    ElMessage.error('Electron 桥接未就绪，无法读取剪贴板图片')
+    return
+  }
+
+  try {
+    const imageResult = await window.wandaApp?.readClipboardImage()
+
+    if (!imageResult?.ok) {
+      ElMessage.warning(imageResult?.error || '剪贴板中没有图片')
+      return
+    }
+
+    const ocrResult = await window.wandaApp?.ocrRecognize({ imageBase64: imageResult.data.base64 })
+
+    if (!ocrResult?.ok) {
+      ElMessage.error(ocrResult?.error || '百度 OCR 识别失败')
+      return
+    }
+
+    const text = ocrResult.data.words.join('\n')
+
+    if (!text.trim()) {
+      ElMessage.warning('百度 OCR 未识别到文字')
+      return
+    }
+
+    const parsed = await ticketStore.applyOcrTicketText(text)
+    ElMessage.success(`图片识别完成，识别到 ${parsed.seats.length} 个座位`)
+  } catch (error) {
+    ElMessage.error(error instanceof Error && error.message ? error.message : '图片识别失败')
+  }
+}
+
+async function handleTextOcr(): Promise<void> {
+  if (!window.wandaApp) {
+    ElMessage.error('Electron 桥接未就绪，无法读取剪贴板文本')
+    return
+  }
+
+  try {
+    const textResult = await window.wandaApp?.readClipboardText()
+
+    if (!textResult?.ok) {
+      ElMessage.warning(textResult?.error || '剪贴板中没有文本内容')
+      return
+    }
+
+    const parsed = await ticketStore.applyOcrTicketText(textResult.data)
+    ElMessage.success(`文本识别完成，识别到 ${parsed.seats.length} 个座位`)
+  } catch (error) {
+    ElMessage.error(error instanceof Error && error.message ? error.message : '文本识别失败')
+  }
+}
+
+async function handleRefreshTicketCode(): Promise<void> {
+  await ticketStore.refreshTicketCode()
+
+  if (hasTicketCodeData.value) {
+    ticketCodeDialogVisible.value = true
+  } else {
+    ElMessage.warning(ticketStore.currentOrderMessage || '订单尚未出票或取票码暂不可用')
+  }
+}
+
+function handleShowPaymentInfo(): void {
+  if (payInfoFields.value.length === 0) {
+    ElMessage.warning('暂无可查看的支付参数')
+    return
+  }
+
+  payInfoDialogVisible.value = true
+}
+
+async function handleCaptureTicketCode(): Promise<void> {
+  if (!window.wandaApp) {
+    ElMessage.error('Electron 桥接未就绪，无法截图')
+    return
+  }
+
+  await nextTick()
+
+  const result = await window.wandaApp?.captureElement({ selector: ticketCodePanelSelector })
+
+  if (result.ok) {
+    ElMessage.success(`取票码截图已保存：${result.data.path}`)
+  } else {
+    ElMessage.error(result.error || '取票码截图失败')
+  }
+}
+
+async function handleCopyTicketCode(): Promise<void> {
+  if (!window.wandaApp) {
+    ElMessage.error('Electron 桥接未就绪，无法复制截图')
+    return
+  }
+
+  await nextTick()
+
+  const result = await window.wandaApp?.copyElementToClipboard({ selector: ticketCodePanelSelector })
+
+  if (result.ok) {
+    ElMessage.success('取票码截图已复制到剪贴板')
+  } else {
+    ElMessage.error(result.error || '复制取票码截图失败')
+  }
 }
 
 watch(
   () => accountsStore.currentAccountId,
   (currentAccountId, previousAccountId) => {
     if (currentAccountId !== previousAccountId) {
+      payInfoDialogVisible.value = false
       ticketStore.handleAccountChanged()
+    }
+  }
+)
+
+watch(
+  () => ticketStore.currentOrderPayInfo,
+  (payInfo) => {
+    if (!hasVisibleValue(getPayInfoValue(payInfo))) {
+      payInfoDialogVisible.value = false
     }
   }
 )
@@ -137,7 +406,9 @@ watch(
 
         <div class="account-actions">
           <span>已选 {{ accountsStore.selectedCount }} 项</span>
-          <el-button size="small" :disabled="accountsStore.selectedCount === 0">移动到分组</el-button>
+          <el-button size="small" :disabled="accountsStore.selectedCount === 0" @click="handleMoveSelectedToGroup">
+            移动到分组
+          </el-button>
           <el-button size="small" :disabled="accountsStore.selectedCount === 0" @click="accountsStore.cancelSelection">
             取消选择
           </el-button>
@@ -150,7 +421,7 @@ watch(
             <el-icon><Lock /></el-icon>
             万达账号登录
           </span>
-          <el-button size="small" text>导入账号</el-button>
+          <el-button size="small" text @click="handleImportAccounts">导入账号</el-button>
         </header>
 
         <div class="login-form">
@@ -215,7 +486,7 @@ watch(
               @change="ticketStore.selectCity"
             >
               <el-option
-                v-for="city in ticketStore.cities"
+                v-for="city in ticketStore.filteredCityOptions"
                 :key="city.value"
                 :label="city.label"
                 :value="city.value"
@@ -233,7 +504,7 @@ watch(
                 @change="ticketStore.loadCinemaShowtimes"
               >
                 <el-option
-                  v-for="cinema in ticketStore.cinemas"
+                  v-for="cinema in ticketStore.filteredCinemaOptions"
                   :key="cinema.value"
                   :label="cinema.label"
                   :value="cinema.value"
@@ -365,15 +636,25 @@ watch(
             状态：{{ ticketStore.orderStatus.showOrderStatusStr }}
           </p>
           <p v-if="ticketStore.paymentDataMessage">{{ ticketStore.paymentDataMessage }}</p>
-          <el-button
-            size="small"
-            type="warning"
-            :loading="ticketStore.orderCancelling"
-            @click="ticketStore.cancelCurrentOrder"
-            :disabled="ticketStore.orderCancelling"
-          >
-            取消订单
-          </el-button>
+          <div class="order-summary-actions">
+            <el-button
+              size="small"
+              plain
+              :disabled="payInfoFields.length === 0"
+              @click="handleShowPaymentInfo"
+            >
+              支付参数
+            </el-button>
+            <el-button
+              size="small"
+              type="warning"
+              :loading="ticketStore.orderCancelling"
+              @click="ticketStore.cancelCurrentOrder"
+              :disabled="ticketStore.orderCancelling"
+            >
+              取消订单
+            </el-button>
+          </div>
         </div>
         <div v-else class="side-empty">{{ ticketStore.currentOrderMessage || '暂无订单' }}</div>
       </section>
@@ -454,15 +735,21 @@ watch(
     </aside>
 
     <footer class="bottom-actions">
-      <el-button :icon="Refresh">刷新购票码</el-button>
-      <el-button :icon="Picture">图片识别</el-button>
-      <el-button :icon="Key">文本识别</el-button>
+      <el-button :icon="Refresh" :loading="ticketStore.checkingPayment" @click="handleRefreshTicketCode">
+        刷新购票码
+      </el-button>
+      <el-button :icon="Picture" @click="handleImageOcr">图片识别</el-button>
+      <el-button :icon="Key" @click="handleTextOcr">文本识别</el-button>
       <span class="bottom-spacer" />
-      <el-button type="warning" :disabled="ticketStore.selectedSeatCount === 0" @click="ticketStore.clearSeatSelection">
+      <el-button
+        type="warning"
+        :disabled="ticketStore.selectedSeatCount === 0 || Boolean(ticketStore.currentOrder)"
+        @click="ticketStore.clearSeatSelection"
+      >
         取消选择
       </el-button>
       <el-popconfirm
-        title="确认创建电影票订单？本阶段不会发起支付。"
+        title="确认创建电影票订单？"
         confirm-button-text="确认"
         cancel-button-text="取消"
         @confirm="ticketStore.createCurrentOrder"
@@ -477,15 +764,93 @@ watch(
           </el-button>
         </template>
       </el-popconfirm>
-      <el-button
-        type="primary"
-        :loading="ticketStore.checkingPayment"
-        :disabled="!ticketStore.currentOrder || ticketStore.checkingPayment"
-        @click="ticketStore.checkCurrentOrderBeforePayment"
+      <el-popconfirm
+        title="确认提交支付？将调用真实支付接口，请确认订单和账号无误。"
+        confirm-button-text="提交支付"
+        cancel-button-text="取消"
+        @confirm="ticketStore.submitCurrentOrderPayment"
       >
-        提交支付
-      </el-button>
+        <template #reference>
+          <el-button
+            type="primary"
+            :loading="ticketStore.submittingPayment"
+            :disabled="!ticketStore.currentOrder || ticketStore.submittingPayment"
+          >
+            提交支付
+          </el-button>
+        </template>
+      </el-popconfirm>
     </footer>
+
+    <el-dialog
+      v-model="payInfoDialogVisible"
+      class="payment-info-dialog"
+      title="支付参数"
+      width="640px"
+      append-to-body
+      destroy-on-close
+    >
+      <section v-if="payInfoFields.length > 0" class="payment-info-panel">
+        <dl class="payment-info-fields">
+          <div v-for="(field, index) in payInfoFields" :key="`${field.label}-${index}`" class="payment-info-field">
+            <dt>{{ field.label }}</dt>
+            <dd>{{ field.value }}</dd>
+          </div>
+        </dl>
+      </section>
+      <el-empty v-else description="暂无支付参数" :image-size="56" />
+    </el-dialog>
+
+    <el-dialog
+      v-model="ticketCodeDialogVisible"
+      class="ticket-code-dialog"
+      title="取票码"
+      width="420px"
+      append-to-body
+      destroy-on-close
+    >
+      <section
+        class="ticket-code-panel"
+        :class="{ 'ticket-code-panel--wanda': settingsStore.ticketCodeTemplate === '万达风格' }"
+      >
+        <header class="ticket-code-panel__header">
+          <span>万达电影</span>
+          <strong>{{ ticketStore.currentOrder?.movieName || '-' }}</strong>
+        </header>
+
+        <div class="ticket-code-panel__meta">
+          <span>{{ ticketStore.currentOrder?.cinemaName || '-' }}</span>
+          <span>{{ ticketStore.currentOrder?.showtimeLabel || '-' }}</span>
+          <span>{{ ticketCodeSeatText }}</span>
+        </div>
+
+        <div v-if="ticketCodes.length" class="ticket-code-panel__codes">
+          <span v-for="(code, index) in ticketCodes" :key="`ticket-code-${index}-${code}`">
+            {{ code }}
+          </span>
+        </div>
+        <el-empty v-else description="暂无取票码" :image-size="56" />
+
+        <div v-if="qrCodes.length" class="ticket-code-panel__qr-list">
+          <div v-for="(qrCode, index) in qrCodes" :key="`ticket-qr-${index}`" class="ticket-code-panel__qr">
+            <img v-if="isImageQrCode(qrCode)" :src="formatQrImage(qrCode)" alt="取票二维码" />
+            <span v-else>{{ qrCode }}</span>
+          </div>
+        </div>
+
+        <footer class="ticket-code-panel__footer">
+          <span>订单号：{{ ticketStore.currentOrder?.orderId || '-' }}</span>
+          <strong>{{ ticketCodeAmount }}</strong>
+        </footer>
+      </section>
+
+      <template #footer>
+        <div class="ticket-code-dialog__actions">
+          <el-button @click="handleCaptureTicketCode">截图保存</el-button>
+          <el-button type="primary" @click="handleCopyTicketCode">复制截图</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
@@ -740,6 +1105,45 @@ watch(
   margin: 0 0 8px;
 }
 
+.order-summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.payment-info-panel {
+  max-height: 58vh;
+  overflow: auto;
+}
+
+.payment-info-fields {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.payment-info-field {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.payment-info-field dt {
+  color: var(--app-muted);
+}
+
+.payment-info-field dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--app-text);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 .mini-list {
   max-height: 126px;
   overflow: auto;
@@ -786,5 +1190,132 @@ watch(
 
 .bottom-spacer {
   flex: 1;
+}
+
+.ticket-code-panel {
+  width: 100%;
+  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid #e4e9f2;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--app-text);
+}
+
+.ticket-code-panel--wanda {
+  border-color: #f1d7d7;
+  background:
+    linear-gradient(180deg, #fff7f4 0%, #ffffff 36%),
+    #fff;
+}
+
+.ticket-code-panel__header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  text-align: center;
+}
+
+.ticket-code-panel__header span {
+  color: #d9363e;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.ticket-code-panel__header strong {
+  max-width: 100%;
+  color: var(--app-text);
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.ticket-code-panel__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 8px;
+  background: #f6f8fb;
+  color: var(--app-subtle);
+  line-height: 1.5;
+}
+
+.ticket-code-panel__codes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.ticket-code-panel__codes span {
+  width: 100%;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed #b6c4d8;
+  border-radius: 8px;
+  background: #fbfcff;
+  color: #1f2a44;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.ticket-code-panel__qr-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 12px;
+}
+
+.ticket-code-panel__qr {
+  min-height: 132px;
+  display: grid;
+  place-items: center;
+  padding: 10px;
+  border: 1px solid #e4e9f2;
+  border-radius: 8px;
+  background: #fff;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.ticket-code-panel__qr img {
+  width: 116px;
+  height: 116px;
+  object-fit: contain;
+}
+
+.ticket-code-panel__footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid #e4e9f2;
+  padding-top: 14px;
+  color: var(--app-muted);
+  font-size: 13px;
+}
+
+.ticket-code-panel__footer span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ticket-code-panel__footer strong {
+  color: #d9363e;
+  font-size: 16px;
+}
+
+.ticket-code-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 </style>

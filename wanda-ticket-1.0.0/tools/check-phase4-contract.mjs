@@ -127,19 +127,15 @@ const validateWandaRequestBlock = sliceRequired(
 )
 
 for (const label of [
-  'blockedWandaPaymentPathValues',
   'blockedWandaPaymentKeywords',
-  'isBlockedWandaPaymentUrl',
   'includesBlockedWandaPaymentKeyword',
-  'WANDA_API_PATHS.ORDER_PREPAY',
-  'WANDA_API_PATHS.ORDER_MERGE_PAYMENT',
   'alipay'
 ]) {
   assertIncludes('src/shared/wandaCore.ts', core, label)
 }
 
 for (const label of [
-  'isBlockedWandaPaymentUrl(parsedUrl)',
+  'includesBlockedWandaPaymentKeyword(`${parsedUrl.pathname}${parsedUrl.search}`)',
   'includesBlockedWandaPaymentKeyword(request.params)',
   'includesBlockedWandaPaymentKeyword(request.body)'
 ]) {
@@ -157,6 +153,7 @@ for (const label of [
   'queryOrderList',
   'queryOrderByUserId',
   'queryPayInfoUpgrade',
+  'submitTicketPayment',
   '/mkt/activity/secret/list.api',
   '/mkt/activity/secret/ncoupons.api',
   'WANDA_API_PATHS.CARD_PAY_LIST',
@@ -183,9 +180,11 @@ for (const label of [
   'orderStatus',
   'loadingPaymentData',
   'checkingPayment',
+  'submittingPayment',
   'refreshPaymentPrerequisites',
   'clearCurrentOrderPaymentContext',
-  'checkCurrentOrderBeforePayment'
+  'checkCurrentOrderBeforePayment',
+  'submitCurrentOrderPayment'
 ]) {
   assertIncludes('src/renderer/stores/ticket.ts', ticketStore, label)
 }
@@ -214,7 +213,7 @@ for (const label of [
   'ticketStore.paymentActivities',
   'ticketStore.paymentCards',
   'ticketStore.coupons',
-  'ticketStore.checkCurrentOrderBeforePayment',
+  'ticketStore.submitCurrentOrderPayment',
   '@confirm="ticketStore.createCurrentOrder"'
 ]) {
   assertIncludes('src/renderer/views/TicketView.vue', ticketView, label)
@@ -231,10 +230,10 @@ assertBlockContains(
 assertBlockContains(
   'src/renderer/views/TicketView.vue',
   ticketView,
-  '<el-button',
-  '</el-button>',
-  ['提交支付', '@click="ticketStore.checkCurrentOrderBeforePayment"'],
-  '提交支付本阶段只做支付前检查'
+  '<el-popconfirm',
+  '</el-popconfirm>',
+  ['提交支付', '@confirm="ticketStore.submitCurrentOrderPayment"', '真实支付接口'],
+  '提交支付必须经确认弹窗触发真实支付接口'
 )
 
 for (const label of [
@@ -273,12 +272,8 @@ for (const [file, content] of [
   ['src/renderer/views/TicketView.vue', ticketView]
 ]) {
   assertNotIncludes(file, content, 'ORDER_PREPAY')
-  assertNotIncludes(file, content, 'ORDER_MERGE_PAYMENT')
   assertNotIncludes(file, content, '/order/prepay.api')
-  assertNotIncludes(file, content, '/order/merge_payment.api')
   assertNotIncludes(file, content, 'prepay')
-  assertNotIncludes(file, content, 'merge_payment')
-  assertNotIncludes(file, content, 'mergePayment')
   assertNotIncludes(file, content, 'alipay')
   assertNotIncludes(file, content, 'Alipay')
   assertNotIncludes(file, content, 'ALIPAY')

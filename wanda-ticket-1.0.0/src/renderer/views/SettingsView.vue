@@ -1,9 +1,34 @@
 <script setup lang="ts">
-import { Delete, InfoFilled, Monitor, Refresh, Setting, Tickets, Wallet } from '@element-plus/icons-vue'
+import { Delete, InfoFilled, Key, Monitor, Refresh, Setting, Tickets, Wallet } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { useSettingsStore } from '@renderer/stores/settings'
+import { useTicketStore } from '@renderer/stores/ticket'
 
 const settingsStore = useSettingsStore()
+const ticketStore = useTicketStore()
+
+function handleRefreshRequestParams(): void {
+  settingsStore.refreshRequestParams()
+  ElMessage.success('请求头设备参数已刷新')
+}
+
+async function handleClearCacheData(): Promise<void> {
+  try {
+    await ElMessageBox.confirm('只清除城市和影院缓存，不会删除账号、日志和设置。是否继续？', '清除缓存', {
+      confirmButtonText: '清除',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await settingsStore.clearCacheData()
+    await ticketStore.loadCityData()
+    ElMessage.success('缓存已清除，城市和影院数据已重新加载')
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      ElMessage.error(error instanceof Error && error.message ? error.message : '清除缓存失败')
+    }
+  }
+}
 </script>
 
 <template>
@@ -84,7 +109,7 @@ const settingsStore = useSettingsStore()
         <el-switch v-model="settingsStore.autoPayment.enabled" />
         <el-input v-model="settingsStore.autoPayment.phone" placeholder="输入支付宝手机号" />
         <el-input v-model="settingsStore.autoPayment.password" placeholder="输入支付密码" show-password />
-        <el-button :icon="Refresh">刷新设备</el-button>
+        <el-button :icon="Refresh" @click="handleRefreshRequestParams">刷新设备</el-button>
       </div>
       <p class="setting-warning">
         手动支付一次缓存支付宝登录信息以后再开启自动支付功能，否则会出现不确定错误或导致无限验证。
@@ -134,6 +159,85 @@ const settingsStore = useSettingsStore()
 
     <section class="setting-card">
       <header>
+        <el-icon><Key /></el-icon>
+        <strong>百度 OCR 设置</strong>
+      </header>
+      <div class="setting-row">
+        <div>
+          <span>API Key</span>
+          <small>图片识别调用百度 OCR 时使用，只保存在本地</small>
+        </div>
+        <el-input v-model="settingsStore.baiduOcr.apiKey" placeholder="输入百度 OCR API Key" show-password clearable />
+      </div>
+      <div class="setting-row">
+        <div>
+          <span>Secret Key</span>
+          <small>主进程读取后调用百度 OCR，不会暴露给页面请求</small>
+        </div>
+        <el-input
+          v-model="settingsStore.baiduOcr.secretKey"
+          placeholder="输入百度 OCR Secret Key"
+          show-password
+          clearable
+        />
+      </div>
+      <div class="setting-row">
+        <div>
+          <span>配置状态</span>
+          <small>未配置时图片识别会提示缺少百度 OCR 配置</small>
+        </div>
+        <el-tag :type="settingsStore.baiduOcrConfigured ? 'success' : 'warning'">
+          {{ settingsStore.baiduOcrConfigured ? '已配置' : '未配置' }}
+        </el-tag>
+      </div>
+    </section>
+
+    <section class="setting-card">
+      <header>
+        <el-icon><Key /></el-icon>
+        <strong>AI OCR 解析设置</strong>
+      </header>
+      <div class="setting-row">
+        <div>
+          <span>启用 AI 兜底</span>
+          <small>本地解析缺字段时再调用，不替代万达真实数据</small>
+        </div>
+        <el-switch v-model="settingsStore.aiOcr.enabled" />
+      </div>
+      <div class="setting-row">
+        <div>
+          <span>Base URL</span>
+          <small>默认使用旧版 DeepSeek 兼容接口，可按需替换</small>
+        </div>
+        <el-input v-model="settingsStore.aiOcr.baseUrl" placeholder="https://api.deepseek.com/chat/completions" clearable />
+      </div>
+      <div class="setting-row">
+        <div>
+          <span>模型名</span>
+          <small>默认 deepseek-chat，只用于整理 OCR 文本</small>
+        </div>
+        <el-input v-model="settingsStore.aiOcr.model" placeholder="deepseek-chat" clearable />
+      </div>
+      <div class="setting-row">
+        <div>
+          <span>API Key</span>
+          <small>只保存在本地，由主进程调用 AI 接口</small>
+        </div>
+        <el-input v-model="settingsStore.aiOcr.apiKey" placeholder="输入 AI OCR API Key" show-password clearable />
+      </div>
+      <div class="setting-row">
+        <div>
+          <span>配置状态</span>
+          <small>未启用或缺少密钥时会跳过 AI 兜底</small>
+        </div>
+        <el-tag :type="settingsStore.aiOcrConfigured ? 'success' : 'warning'">
+          {{ settingsStore.aiOcrConfigured ? '已启用' : '未启用' }}
+        </el-tag>
+      </div>
+    </section>
+
+    <section class="setting-card">
+      <header>
         <el-icon><Delete /></el-icon>
         <strong>数据管理</strong>
       </header>
@@ -142,7 +246,7 @@ const settingsStore = useSettingsStore()
           <span>清除缓存数据</span>
           <small>清除本地缓存，下次启动将重新加载数据</small>
         </div>
-        <el-button type="danger" plain disabled>清除缓存</el-button>
+        <el-button type="danger" plain @click="handleClearCacheData">清除缓存</el-button>
       </div>
     </section>
 

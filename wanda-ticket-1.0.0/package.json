@@ -13,6 +13,17 @@
     "check:phase2": "node tools/check-phase2-contract.mjs",
     "check:phase3": "node tools/check-phase3-contract.mjs",
     "check:phase4": "node tools/check-phase4-contract.mjs",
+    "check:flow": "node tools/check-flow-contract.mjs",
+    "check:ocr": "node --experimental-strip-types tools/check-ocr-contract.mjs",
+    "check:ai-ocr": "node tools/check-ai-ocr-contract.mjs",
+    "check:ticket-code": "node tools/check-ticket-code-contract.mjs",
+    "check:history-ticket-code": "node tools/check-history-ticket-code-contract.mjs",
+    "check:payment-submit": "node tools/check-payment-submit-contract.mjs",
+    "check:wanda-diagnostics": "node tools/check-wanda-diagnostics-contract.mjs",
+    "check:activity-gift": "node tools/check-activity-gift-contract.mjs",
+    "check:coupon-present": "node tools/check-coupon-present-contract.mjs",
+    "check:stored-card": "node tools/check-stored-card-contract.mjs",
+    "check:member-signin": "node tools/check-member-signin-contract.mjs",
     "index:old": "node tools/old-package-index.mjs"
   },
   "dependencies": {

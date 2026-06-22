@@ -60,6 +60,8 @@ watch(
     paymentCardDisplay: settingsStore.paymentCardDisplay,
     ticketCodeTemplate: settingsStore.ticketCodeTemplate,
     autoPayment: settingsStore.autoPayment,
+    baiduOcr: settingsStore.baiduOcr,
+    aiOcr: settingsStore.aiOcr,
     requestParams: settingsStore.requestParams,
     proxyApi: settingsStore.proxyApi,
     useProxyIp: settingsStore.useProxyIp
@@ -68,6 +70,8 @@ watch(
     if (!localDataLoaded) {
       return
     }
+
+    settingsStore.syncRequestParams()
 
     if (settingsSaveTimer) {
       clearTimeout(settingsSaveTimer)

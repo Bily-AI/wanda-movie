@@ -20,6 +20,38 @@ export const useLogsStore = defineStore('logs', {
   getters: {
     recordCount(state) {
       return state.records.length
+    },
+    filteredRecords(state) {
+      const type = state.filters.type.trim()
+      const keyword = state.filters.keyword.trim().toLowerCase()
+      const dateRange = Array.isArray(state.filters.dateRange) ? state.filters.dateRange : []
+      const hasDateRange = dateRange.length === 2
+      const startTime = hasDateRange ? new Date(dateRange[0]).setHours(0, 0, 0, 0) : 0
+      const endTime = hasDateRange ? new Date(dateRange[1]).setHours(23, 59, 59, 999) : 0
+
+      return state.records.filter((record) => {
+        if (type && record.type !== type) {
+          return false
+        }
+
+        if (keyword) {
+          const text = [record.type, record.account, record.detail].join(' ').toLowerCase()
+
+          if (!text.includes(keyword)) {
+            return false
+          }
+        }
+
+        if (hasDateRange) {
+          const recordTime = new Date(record.time.replace(/-/g, '/')).getTime()
+
+          if (!Number.isFinite(recordTime) || recordTime < startTime || recordTime > endTime) {
+            return false
+          }
+        }
+
+        return true
+      })
     }
   },
   actions: {
@@ -43,6 +75,9 @@ export const useLogsStore = defineStore('logs', {
       this.filters.type = ''
       this.filters.keyword = ''
       this.filters.dateRange = []
+    },
+    clearRecords() {
+      this.records = []
     }
   }
 })
