@@ -158,6 +158,12 @@ async function fetchProxy(): Promise<ProxyFetchResult> {
   }
 }
 
+export async function getProxyEndpoint(): Promise<ProxyEndpoint | null> {
+  const result = await fetchProxy()
+
+  return result.ok ? result.data : null
+}
+
 function getUsedProxy(): ProxyUsedResult {
   return {
     ok: true,

@@ -16,4 +16,5 @@
 - 主进程新增代理处理模块，不在渲染进程直接请求代理 API。
 - Preload 暴露 `fetchProxy`、`getUsedProxy`、`clearProxyCache`。
 - 活动页保存代理设置后再拉取活动或下单，避免勾选代理但配置未落盘。
-- 当前小步只恢复桥接和保存，不把所有万达请求强制走代理；后续支付/活动请求按旧包再逐步接入代理隧道。
+- `WandaHttpRequest` 支持 `useProxy` 标记；只有调用方显式传入时才使用代理，不把所有万达请求强制走代理。
+- 活动礼包列表、详情、订单、支付参数链路传递 `settingsStore.useProxyIp`。

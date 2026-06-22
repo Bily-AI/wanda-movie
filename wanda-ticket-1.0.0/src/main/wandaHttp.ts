@@ -1,8 +1,9 @@
 import { ipcMain } from 'electron'
 import axios, { type AxiosRequestConfig } from 'axios'
 
-import { IPC_CHANNELS, type WandaHttpRequest, type WandaHttpResult } from '../shared/ipc'
+import { IPC_CHANNELS, type ProxyEndpoint, type WandaHttpRequest, type WandaHttpResult } from '../shared/ipc'
 import { validateWandaRequest } from '../shared/wandaCore'
+import { getProxyEndpoint } from './proxy'
 
 function normalizeHeaders(headers?: Record<string, unknown>): AxiosRequestConfig['headers'] {
   if (!headers) {
@@ -20,13 +21,24 @@ function normalizeHeaders(headers?: Record<string, unknown>): AxiosRequestConfig
   return normalizedHeaders
 }
 
-function buildAxiosConfig(method: 'GET' | 'POST', request: WandaHttpRequest): AxiosRequestConfig {
+function buildAxiosConfig(
+  method: 'GET' | 'POST',
+  request: WandaHttpRequest,
+  proxyEndpoint: ProxyEndpoint | null
+): AxiosRequestConfig {
   return {
     method,
     url: request.url,
     headers: normalizeHeaders(request.headers),
     params: request.params,
     data: method === 'POST' ? request.body : undefined,
+    proxy: proxyEndpoint
+      ? {
+          protocol: 'http',
+          host: proxyEndpoint.host,
+          port: proxyEndpoint.port
+        }
+      : undefined,
     timeout: 30000,
     validateStatus: () => true
   }
@@ -60,7 +72,8 @@ export async function sendWandaRequest(
   }
 
   try {
-    const response = await axios.request(buildAxiosConfig(method, request))
+    const proxyEndpoint = request.useProxy ? await getProxyEndpoint() : null
+    const response = await axios.request(buildAxiosConfig(method, request, proxyEndpoint))
 
     if (response.status >= 200 && response.status < 300) {
       return {

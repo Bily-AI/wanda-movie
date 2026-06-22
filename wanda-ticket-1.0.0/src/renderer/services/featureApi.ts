@@ -832,7 +832,8 @@ export async function fetchWPlusDetail(ck: string, userIdentifier: string): Prom
 export async function fetchActivityList(
   cinemaId: string,
   ck: string,
-  userIdentifier: string
+  userIdentifier: string,
+  useProxy = false
 ): Promise<ActivityGiftRow[]> {
   assertNotBlank(cinemaId, '影院 ID 不能为空')
   assertNotBlank(ck, '万达账号 CK 不能为空')
@@ -843,7 +844,8 @@ export async function fetchActivityList(
     `${WANDA_API_PATHS.PACK_ACTIVITY}list.api`,
     { cinemaId, json: true },
     ck,
-    userIdentifier
+    userIdentifier,
+    { useProxy }
   )
   const data = ensureSuccess(response, '活动礼包加载失败')
 
@@ -856,7 +858,8 @@ export async function fetchActivityDetail(
   cinemaId: string,
   activityCode: string,
   ck: string,
-  userIdentifier: string
+  userIdentifier: string,
+  useProxy = false
 ): Promise<unknown> {
   assertNotBlank(cinemaId, '影院 ID 不能为空')
   assertNotBlank(activityCode, '活动 ID 不能为空')
@@ -868,7 +871,8 @@ export async function fetchActivityDetail(
     `${WANDA_API_PATHS.PACK_ACTIVITY}detail.api`,
     { cinemaId, activityCode, json: true },
     ck,
-    userIdentifier
+    userIdentifier,
+    { useProxy }
   )
 
   return ensureSuccess(response, '活动详情加载失败')
@@ -880,7 +884,8 @@ export async function createActivityGiftOrder(
   goodsNum: number,
   orderAmount: number,
   ck: string,
-  userIdentifier: string
+  userIdentifier: string,
+  useProxy = false
 ): Promise<ActivityGiftOrderResult> {
   assertNotBlank(cinemaId, '影院 ID 不能为空')
   assertNotBlank(activityCode, '活动 ID 不能为空')
@@ -910,7 +915,7 @@ export async function createActivityGiftOrder(
     jsonBody,
     ck,
     userIdentifier,
-    { signatureBody, contentType: 'application/json' }
+    { signatureBody, contentType: 'application/json', useProxy }
   )
   const data = ensureSuccess(response, '礼包订单创建失败')
   const result = asRecord(data.res)
@@ -931,7 +936,8 @@ export async function fetchGiftOrders(
   pageIndex: number,
   pageSize: number,
   ck: string,
-  userIdentifier: string
+  userIdentifier: string,
+  useProxy = false
 ): Promise<ActivityGiftOrderListResult> {
   assertNotBlank(ck, '万达账号 CK 不能为空')
   assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
@@ -941,7 +947,8 @@ export async function fetchGiftOrders(
     WANDA_API_PATHS.GIFT_ORDERS,
     { pageIndex, pageSize, json: true },
     ck,
-    userIdentifier
+    userIdentifier,
+    { useProxy }
   )
   const data = ensureSuccess(response, '礼包订单加载失败')
   const records = collectList(data, ['orders', 'orderList', 'items', 'list', 'records']).map(normalizeGiftOrder)
@@ -956,14 +963,15 @@ export async function fetchGiftOrders(
 export async function fetchGiftOrderDetail(
   orderId: string,
   ck: string,
-  userIdentifier: string
+  userIdentifier: string,
+  useProxy = false
 ): Promise<ActivityGiftOrderDetailResult> {
   assertNotBlank(orderId, '礼包订单号不能为空')
   assertNotBlank(ck, '万达账号 CK 不能为空')
   assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
 
   const path = `${WANDA_API_PATHS.GIFT_ORDER_DETAIL}?id=${encodeURIComponent(orderId)}&json=true`
-  const response = await wandaGet<unknown>(WANDA_HOSTS.GATEWAY, path, {}, ck, userIdentifier)
+  const response = await wandaGet<unknown>(WANDA_HOSTS.GATEWAY, path, {}, ck, userIdentifier, { useProxy })
   const data = ensureSuccess(response, '礼包订单详情加载失败')
   const result = asRecord(data.res)
   const order = asRecord(data.order ?? result.order)
@@ -984,7 +992,8 @@ export async function createGiftTransaction(
   payId: string,
   ck: string,
   userIdentifier: string,
-  payMethodId = ACTIVITY_GIFT_PAY_METHOD_ID
+  payMethodId = ACTIVITY_GIFT_PAY_METHOD_ID,
+  useProxy = false
 ): Promise<ActivityGiftTransactionResult> {
   assertNotBlank(payId, '礼包支付 ID 不能为空')
   assertNotBlank(payMethodId, '礼包支付方式不能为空')
@@ -997,7 +1006,8 @@ export async function createGiftTransaction(
     WANDA_API_PATHS.GIFT_TRANSACTION_CREATE,
     formBody,
     ck,
-    userIdentifier
+    userIdentifier,
+    { useProxy }
   )
   const data = ensureSuccess(response, '礼包交易创建失败')
   const result = asRecord(data.res)
@@ -1018,7 +1028,8 @@ export async function fetchGiftTransactionDetail(
   payId: string,
   transactionId: string,
   ck: string,
-  userIdentifier: string
+  userIdentifier: string,
+  useProxy = false
 ): Promise<ActivityGiftPaymentResult> {
   assertNotBlank(payId, '礼包支付 ID 不能为空')
   assertNotBlank(transactionId, '礼包交易 ID 不能为空')
@@ -1028,7 +1039,7 @@ export async function fetchGiftTransactionDetail(
   const path = `${WANDA_API_PATHS.GIFT_TRANSACTION_DETAIL}?payId=${encodeURIComponent(payId)}&id=${encodeURIComponent(
     transactionId
   )}&json=true`
-  const response = await wandaGet<unknown>(WANDA_HOSTS.GATEWAY, path, {}, ck, userIdentifier)
+  const response = await wandaGet<unknown>(WANDA_HOSTS.GATEWAY, path, {}, ck, userIdentifier, { useProxy })
   const data = ensureSuccess(response, '礼包交易详情加载失败')
   const result = asRecord(data.res)
   const payParams = asRecord(data.payParams ?? result.payParams)
@@ -1051,10 +1062,11 @@ export async function fetchGiftTransactionDetail(
 export async function createActivityGiftPayment(
   orderId: string,
   ck: string,
-  userIdentifier: string
+  userIdentifier: string,
+  useProxy = false
 ): Promise<ActivityGiftPaymentResult> {
-  const orderDetail = await fetchGiftOrderDetail(orderId, ck, userIdentifier)
-  const transaction = await createGiftTransaction(orderDetail.payId, ck, userIdentifier)
+  const orderDetail = await fetchGiftOrderDetail(orderId, ck, userIdentifier, useProxy)
+  const transaction = await createGiftTransaction(orderDetail.payId, ck, userIdentifier, ACTIVITY_GIFT_PAY_METHOD_ID, useProxy)
 
   for (let index = 0; index < ACTIVITY_GIFT_TRANSACTION_POLL_LIMIT; index += 1) {
     try {
@@ -1062,7 +1074,8 @@ export async function createActivityGiftPayment(
         orderDetail.payId,
         transaction.transactionId,
         ck,
-        userIdentifier
+        userIdentifier,
+        useProxy
       )
 
       return {

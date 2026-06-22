@@ -110,7 +110,12 @@ async function loadActivities() {
 
   try {
     await saveProxySettings()
-    activities.value = await fetchActivityList(settingsStore.activity.cinema, account.ck, account.userIdentifier)
+    activities.value = await fetchActivityList(
+      settingsStore.activity.cinema,
+      account.ck,
+      account.userIdentifier,
+      settingsStore.useProxyIp
+    )
     activityMessage.value = activities.value.length > 0 ? '' : '暂无可购买礼包'
     logsStore.addLog('活动', account.phone, `活动礼包加载成功：${activities.value.length} 个`)
   } catch (error) {
@@ -143,7 +148,8 @@ async function loadActivityDetail(activityCode = settingsStore.activity.activity
       settingsStore.activity.cinema,
       activityCode.trim(),
       account.ck,
-      account.userIdentifier
+      account.userIdentifier,
+      settingsStore.useProxyIp
     )
     detailDialogVisible.value = true
     logsStore.addLog('活动', account.phone, `活动详情加载成功：${activityCode}`)
@@ -186,7 +192,7 @@ async function loadGiftOrders() {
   giftOrderMessage.value = ''
 
   try {
-    const result = await fetchGiftOrders(1, 20, account.ck, account.userIdentifier)
+    const result = await fetchGiftOrders(1, 20, account.ck, account.userIdentifier, settingsStore.useProxyIp)
     giftOrders.value = result.records
     giftOrderTotal.value = result.total
     giftOrderMessage.value = result.records.length > 0 ? '' : '暂无礼包订单'
@@ -220,7 +226,7 @@ async function handleCreateGiftPayment(orderId: string, title = '礼包订单支
   buyingPaymentOrderId.value = orderId
 
   try {
-    const result = await createActivityGiftPayment(orderId, account.ck, account.userIdentifier)
+    const result = await createActivityGiftPayment(orderId, account.ck, account.userIdentifier, settingsStore.useProxyIp)
 
     showGiftPaymentResult(title, result)
     ElMessage.success('支付参数已获取')
@@ -275,7 +281,8 @@ async function handleBuyGift(row: ActivityGiftRow) {
       goodsNum,
       orderAmount,
       account.ck,
-      account.userIdentifier
+      account.userIdentifier,
+      settingsStore.useProxyIp
     )
     ElMessage.success(`礼包订单创建成功：${result.orderId}`)
     logsStore.addLog('活动', account.phone, `礼包订单创建成功：${result.orderId}`)

@@ -46,6 +46,7 @@ export interface WandaHttpRequest {
   headers?: Record<string, unknown>
   params?: Record<string, unknown>
   body?: Record<string, unknown> | string
+  useProxy?: boolean
 }
 
 export type WandaHttpResult = IpcResult<unknown>

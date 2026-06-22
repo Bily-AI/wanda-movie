@@ -19,8 +19,13 @@ const WANDA_USER_AGENT = 'okhttp/4.12.0'
 let runtimeRequestParams: Partial<RequestParamsLocalData> = {}
 
 export interface WandaPostOptions {
+  useProxy?: boolean
   signatureBody?: string
   contentType?: string
+}
+
+export interface WandaRequestOptions {
+  useProxy?: boolean
 }
 
 function getWandaApp() {
@@ -313,7 +318,8 @@ export async function wandaGet<T>(
   path: string,
   query: WandaQuery,
   ck = '',
-  userIdentifier = ''
+  userIdentifier = '',
+  options: WandaRequestOptions = {}
 ): Promise<WandaApiResponse<T>> {
   const url = buildWandaUrl(host, path, query)
   const requestPath = buildRequestPath(url)
@@ -321,7 +327,7 @@ export async function wandaGet<T>(
     ...buildWandaHeaders(requestPath, '', ck, userIdentifier),
     Host: host
   }
-  const result = await getRequiredWandaApp().wandaHttpGet({ url, headers })
+  const result = await getRequiredWandaApp().wandaHttpGet({ url, headers, useProxy: options.useProxy })
 
   if (!result?.ok) {
     throw new Error(formatWandaTransportError('GET', host, requestPath, result?.error, '万达 GET 请求失败'))
@@ -366,7 +372,12 @@ export async function wandaPost<T>(
     headers['Content-Type'] = options.contentType
   }
 
-  const result = await getRequiredWandaApp().wandaHttpPost({ url, headers, body: formBody })
+  const result = await getRequiredWandaApp().wandaHttpPost({
+    url,
+    headers,
+    body: formBody,
+    useProxy: options.useProxy
+  })
 
   if (!result?.ok) {
     throw new Error(formatWandaTransportError('POST', host, path, result?.error, '万达 POST 请求失败'))
@@ -395,7 +406,12 @@ export async function wandaPostForm<T>(
     headers['Content-Type'] = options.contentType
   }
 
-  const result = await getRequiredWandaApp().wandaHttpPost({ url, headers, body: formBody })
+  const result = await getRequiredWandaApp().wandaHttpPost({
+    url,
+    headers,
+    body: formBody,
+    useProxy: options.useProxy
+  })
 
   if (!result?.ok) {
     throw new Error(formatWandaTransportError('POST', host, path, result?.error, '万达 POST 请求失败'))
