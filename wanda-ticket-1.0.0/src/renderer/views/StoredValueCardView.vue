@@ -502,7 +502,7 @@ watch(
 
     <el-dialog v-model="purchaseDialogVisible" title="购买储值卡" width="520px">
       <el-radio-group v-model="purchaseAmount" class="denomination-group">
-        <el-radio-button v-for="item in STORED_CARD_DENOMINATIONS" :key="item.value" :label="item.value">
+        <el-radio-button v-for="item in STORED_CARD_DENOMINATIONS" :key="item.value" :value="item.value">
           {{ item.label }} 赠 {{ item.displayBonus }}元
         </el-radio-button>
       </el-radio-group>
@@ -518,7 +518,7 @@ watch(
         <strong>{{ selectedCard.cardNo }}</strong>
       </div>
       <el-radio-group v-model="rechargeAmount" class="denomination-group">
-        <el-radio-button v-for="item in STORED_CARD_DENOMINATIONS" :key="item.value" :label="item.value">
+        <el-radio-button v-for="item in STORED_CARD_DENOMINATIONS" :key="item.value" :value="item.value">
           {{ item.label }} 赠 {{ item.displayBonus }}元
         </el-radio-button>
       </el-radio-group>

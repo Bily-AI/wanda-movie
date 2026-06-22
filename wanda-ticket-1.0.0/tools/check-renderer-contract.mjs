@@ -153,6 +153,9 @@ for (const filePath of listSourceFiles(rendererRoot)) {
       failures.push(`${relativePath} 命中禁止出现的假数据或鉴权文案：${pattern}`)
     }
   }
+  if (/<el-radio-button\b[^>]*\blabel=/.test(text)) {
+    failures.push(`${relativePath} 请使用 el-radio-button 的 value 属性，避免 Element Plus label 即 value 的废弃警告`)
+  }
 }
 
 for (const view of expectedViews) {

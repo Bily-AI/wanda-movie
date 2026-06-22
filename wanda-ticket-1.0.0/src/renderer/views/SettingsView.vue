@@ -84,8 +84,8 @@ async function handleClearCacheData(): Promise<void> {
           <small>选择支付卡在购票页面的展示形式</small>
         </div>
         <el-radio-group v-model="settingsStore.paymentCardDisplay" size="small">
-          <el-radio-button label="列表" />
-          <el-radio-button label="卡片" />
+          <el-radio-button value="列表" />
+          <el-radio-button value="卡片" />
         </el-radio-group>
       </div>
       <div class="setting-row">
@@ -94,8 +94,8 @@ async function handleClearCacheData(): Promise<void> {
           <small>选择取票成功后的面板展示样式</small>
         </div>
         <el-radio-group v-model="settingsStore.ticketCodeTemplate" size="small">
-          <el-radio-button label="默认" />
-          <el-radio-button label="万达风格" />
+          <el-radio-button value="默认" />
+          <el-radio-button value="万达风格" />
         </el-radio-group>
       </div>
     </section>
