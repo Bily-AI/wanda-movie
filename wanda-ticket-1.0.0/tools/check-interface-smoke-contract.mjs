@@ -72,13 +72,17 @@ if (!existsSync(smokePath)) {
     '/order/cancel.api',
     '/order/prepay.api',
     '/order/merge_payment.api',
+    '/order/query_by_userid.api',
+    '/order/query_pay_info_upgrade.api',
     '/card/transfer.version',
     '/card/recharge.version',
     '/coupon/bind.api',
     '/coupon/present/',
     '/member/grade/gain_equity.api',
     '/pack_activity/activity/create_order.api',
+    '/giftshop/orders/detail',
     '/giftshop/transactions/create',
+    '/giftshop/transactions/detail',
     '/mkt/activity/secret/selectcoupon.api',
     '/mkt/activity/secret/conponuse.api'
   ]) {
