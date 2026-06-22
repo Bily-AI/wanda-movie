@@ -17,7 +17,10 @@ export const IPC_CHANNELS = {
   OCR_RECOGNIZE: 'ocr-recognize',
   AI_OCR_PARSE: 'ai-parse-ocr',
   ELEMENT_CAPTURE: 'capture-element',
-  ELEMENT_COPY_TO_CLIPBOARD: 'copy-element-to-clipboard'
+  ELEMENT_COPY_TO_CLIPBOARD: 'copy-element-to-clipboard',
+  PROXY_FETCH: 'fetch-proxy',
+  PROXY_GET_USED: 'proxy-get-used',
+  PROXY_CLEAR_CACHE: 'proxy-clear-cache'
 } as const
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]
@@ -104,3 +107,18 @@ export type AiOcrParseResult = IpcResult<AiOcrParsedTicket>
 export type ElementCaptureResult = IpcResult<ElementCaptureData>
 
 export type ElementCopyResult = IpcResult<boolean>
+
+export interface ProxyEndpoint {
+  host: string
+  port: number
+}
+
+export interface UsedProxyData {
+  proxy: string
+}
+
+export type ProxyFetchResult = IpcResult<ProxyEndpoint>
+
+export type ProxyUsedResult = IpcResult<UsedProxyData>
+
+export type ProxyClearResult = IpcResult<boolean>

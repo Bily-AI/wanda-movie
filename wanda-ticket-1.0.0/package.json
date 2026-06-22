@@ -23,6 +23,7 @@
     "check:activity-gift": "node tools/check-activity-gift-contract.mjs",
     "check:coupon-present": "node tools/check-coupon-present-contract.mjs",
     "check:coupon-category": "node tools/check-coupon-category-contract.mjs",
+    "check:proxy-bridge": "node tools/check-proxy-bridge-contract.mjs",
     "check:stored-card": "node tools/check-stored-card-contract.mjs",
     "check:member-signin": "node tools/check-member-signin-contract.mjs",
     "index:old": "node tools/old-package-index.mjs"

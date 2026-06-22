@@ -8,6 +8,7 @@ import { IPC_CHANNELS, type OldPackageIndexResult } from '../shared/ipc'
 import { registerBaiduOcrHandlers } from './baiduOcr'
 import { registerElementCaptureHandlers } from './elementCapture'
 import { registerLocalDataHandlers } from './localData'
+import { registerProxyHandlers } from './proxy'
 import { registerWandaHttpHandlers } from './wandaHttp'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -127,6 +128,7 @@ function registerIpcHandlers(): void {
   registerWandaHttpHandlers()
   registerBaiduOcrHandlers()
   registerElementCaptureHandlers()
+  registerProxyHandlers()
 
   ipcMain.handle(IPC_CHANNELS.WINDOW_MINIMIZE, (event) => {
     getWindowFromEvent(event)?.minimize()

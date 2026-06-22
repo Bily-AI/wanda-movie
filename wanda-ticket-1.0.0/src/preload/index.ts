@@ -14,6 +14,9 @@ import {
   type LocalDataResult,
   type LocalDataWriteResult,
   type OldPackageIndexResult,
+  type ProxyClearResult,
+  type ProxyFetchResult,
+  type ProxyUsedResult,
   type WandaHttpRequest,
   type WandaHttpResult
 } from '../shared/ipc'
@@ -32,6 +35,9 @@ export type {
   LocalDataResult,
   LocalDataWriteResult,
   OldPackageIndexResult,
+  ProxyClearResult,
+  ProxyFetchResult,
+  ProxyUsedResult,
   WandaHttpRequest,
   WandaHttpResult
 } from '../shared/ipc'
@@ -57,6 +63,9 @@ export interface WandaAppApi {
   aiParseOcr: (request: AiOcrParseRequest) => Promise<AiOcrParseResult>
   captureElement: (request: ElementCaptureRequest) => Promise<ElementCaptureResult>
   copyElementToClipboard: (request: ElementCaptureRequest) => Promise<ElementCopyResult>
+  fetchProxy: () => Promise<ProxyFetchResult>
+  getUsedProxy: () => Promise<ProxyUsedResult>
+  clearProxyCache: () => Promise<ProxyClearResult>
 }
 
 const wandaApp: WandaAppApi = {
@@ -75,7 +84,10 @@ const wandaApp: WandaAppApi = {
   ocrRecognize: (request) => ipcRenderer.invoke(IPC_CHANNELS.OCR_RECOGNIZE, request),
   aiParseOcr: (request) => ipcRenderer.invoke(IPC_CHANNELS.AI_OCR_PARSE, request),
   captureElement: (request) => ipcRenderer.invoke(IPC_CHANNELS.ELEMENT_CAPTURE, request),
-  copyElementToClipboard: (request) => ipcRenderer.invoke(IPC_CHANNELS.ELEMENT_COPY_TO_CLIPBOARD, request)
+  copyElementToClipboard: (request) => ipcRenderer.invoke(IPC_CHANNELS.ELEMENT_COPY_TO_CLIPBOARD, request),
+  fetchProxy: () => ipcRenderer.invoke(IPC_CHANNELS.PROXY_FETCH),
+  getUsedProxy: () => ipcRenderer.invoke(IPC_CHANNELS.PROXY_GET_USED),
+  clearProxyCache: () => ipcRenderer.invoke(IPC_CHANNELS.PROXY_CLEAR_CACHE)
 }
 
 contextBridge.exposeInMainWorld('wandaApp', wandaApp)

@@ -88,6 +88,10 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback
 }
 
+async function saveProxySettings() {
+  await settingsStore.saveSettings()
+}
+
 async function loadActivities() {
   const account = getCurrentAccount()
 
@@ -105,6 +109,7 @@ async function loadActivities() {
   activityMessage.value = ''
 
   try {
+    await saveProxySettings()
     activities.value = await fetchActivityList(settingsStore.activity.cinema, account.ck, account.userIdentifier)
     activityMessage.value = activities.value.length > 0 ? '' : '暂无可购买礼包'
     logsStore.addLog('活动', account.phone, `活动礼包加载成功：${activities.value.length} 个`)
@@ -133,6 +138,7 @@ async function loadActivityDetail(activityCode = settingsStore.activity.activity
   loading.value = true
 
   try {
+    await saveProxySettings()
     currentDetail.value = await fetchActivityDetail(
       settingsStore.activity.cinema,
       activityCode.trim(),
@@ -262,6 +268,7 @@ async function handleBuyGift(row: ActivityGiftRow) {
   buyingActivityCode.value = activityCode
 
   try {
+    await saveProxySettings()
     const result = await createActivityGiftOrder(
       settingsStore.activity.cinema,
       activityCode,
