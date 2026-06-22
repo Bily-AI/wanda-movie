@@ -200,7 +200,8 @@ for (const label of ['fetchCinemaShowtime', 'fetchCinemaDetail']) {
   assertIncludes('src/renderer/services/cinemaApi.ts', cinemaApi, label)
 }
 assertIncludes('src/renderer/services/cinemaApi.ts', cinemaApi, 'wandaCinemaGet')
-assertIncludes('src/renderer/services/cinemaApi.ts', cinemaApi, 'WANDA_HOSTS.TICKET')
+assertIncludes('src/renderer/services/cinemaApi.ts', cinemaApi, 'WANDA_HOSTS.CINEMA')
+assertNotIncludes('src/renderer/services/cinemaApi.ts', cinemaApi, 'WANDA_HOSTS.TICKET')
 assertNotIncludes('src/renderer/services/cinemaApi.ts', cinemaApi, 'wandaGet')
 assertNotIncludes('src/renderer/services/cinemaApi.ts', cinemaApi, 'assertNotBlank(userIdentifier')
 

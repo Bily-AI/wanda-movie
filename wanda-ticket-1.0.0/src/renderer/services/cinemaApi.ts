@@ -15,7 +15,7 @@ export async function fetchCinemaShowtime(cinemaId: string, ck: string, _userIde
     WANDA_API_PATHS.SHOWTIME_BY_CINEMA,
     { cinemaId, showType: 0, json: true },
     ck,
-    WANDA_HOSTS.TICKET
+    WANDA_HOSTS.CINEMA
   )
 
   if (response.code !== 0 && response.success !== true) {
