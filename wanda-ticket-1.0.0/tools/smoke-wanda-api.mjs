@@ -31,7 +31,10 @@ const READONLY_SMOKE_PATHS = new Set([
   '/order/real_time_seat.api',
   '/order/query_order_list.api',
   '/card/user_card/list.api',
-  '/coupon/member/grouplist.api'
+  '/coupon/member/grouplist.api',
+  '/member/grade/grade_equity_list.api',
+  '/wplus/member/plusDetail.api',
+  '/sign_in/calendar.api'
 ])
 const DANGEROUS_SMOKE_PATHS = [
   '/order/create_order.api',
@@ -137,6 +140,10 @@ function assertReadonlySmokeSuite() {
   for (const pathname of READONLY_SMOKE_PATHS) {
     assertReadonlySmokePath(pathname)
   }
+}
+
+function isExpectedBusinessRejection(message, fragments) {
+  return fragments.some((fragment) => String(message || '').includes(fragment))
 }
 
 function getNestedList(record, key, childKey) {
@@ -550,6 +557,117 @@ async function testMemberCoupons(runtime) {
   }
 }
 
+async function testMemberGradeEquity(runtime) {
+  const host = 'front-gateway-c.wandafilm.com'
+  const pathname = '/member/grade/grade_equity_list.api'
+  assertReadonlySmokePath(pathname)
+  const response = await axios.get(`https://${host}${pathname}`, {
+    headers: buildWandaGetHeaders(pathname, { ...runtime, host }),
+    timeout: 15000,
+    validateStatus: () => true
+  })
+  const data = asRecord(response.data?.data)
+  const groups = [
+    ...asList(data.gradeList),
+    ...asList(data.grades),
+    ...asList(data.list),
+    ...asList(data.items)
+  ]
+  const equities = groups.flatMap((group) => {
+    const record = asRecord(group)
+
+    return [
+      ...asList(record.equityList),
+      ...asList(record.rights),
+      ...asList(record.items),
+      ...asList(record.couponList)
+    ]
+  })
+
+  return {
+    name: '会员权益',
+    method: 'GET',
+    path: pathname,
+    httpStatus: response.status,
+    code: response.data?.code,
+    success: response.data?.success === true || response.data?.code === 0,
+    message: hideSensitive(response.data?.msg || response.data?.message || data.bizMsg || ''),
+    memberGradeCount: groups.length,
+    memberEquityCount: equities.length
+  }
+}
+
+async function testWPlusDetail(runtime) {
+  const host = 'front-gateway-c.wandafilm.com'
+  const pathname = '/wplus/member/plusDetail.api'
+  assertReadonlySmokePath(pathname)
+  const query = queryString({ json: true })
+  const requestPath = `${pathname}?${query}`
+  const response = await axios.get(`https://${host}${requestPath}`, {
+    headers: buildWandaGetHeaders(requestPath, { ...runtime, host }),
+    timeout: 15000,
+    validateStatus: () => true
+  })
+  const data = asRecord(response.data?.data)
+  const message = hideSensitive(response.data?.msg || response.data?.message || data.bizMsg || '')
+  const expectedNonMember = isExpectedBusinessRejection(message, ['不是付费会员', '非付费会员'])
+  const rights = [
+    ...asList(data.rights),
+    ...asList(data.rightList),
+    ...asList(data.equityList),
+    ...asList(data.list),
+    ...asList(data.items)
+  ]
+
+  return {
+    name: 'W+会员详情',
+    method: 'GET',
+    path: pathname,
+    httpStatus: response.status,
+    code: response.data?.code,
+    success: response.data?.success === true || response.data?.code === 0 || expectedNonMember,
+    message,
+    wPlusMember: !expectedNonMember,
+    wPlusRightCount: rights.length
+  }
+}
+
+async function testMemberSignInCalendar(runtime) {
+  const host = 'front-gateway-c.wandafilm.com'
+  const pathname = '/sign_in/calendar.api'
+  assertReadonlySmokePath(pathname)
+  const body = JSON.stringify({ ruleScene: 1 })
+  const signatureBody = encodeURIComponent(body).replace(/%[0-9A-F]{2}/g, (match) => match.toLowerCase())
+  const response = await axios.post(`https://${host}${pathname}`, body, {
+    headers: {
+      ...buildWandaHeaders(pathname, signatureBody, { ...runtime, host }),
+      'Content-Type': 'application/json',
+      'Content-Length': String(new TextEncoder().encode(body).length)
+    },
+    timeout: 15000,
+    validateStatus: () => true
+  })
+  const data = asRecord(response.data?.data)
+  const calendar = asRecord(data.data ?? data.res ?? data)
+  const days = [
+    ...asList(calendar.dataList),
+    ...asList(calendar.list),
+    ...asList(calendar.items)
+  ]
+
+  return {
+    name: '会员签到日历',
+    method: 'POST',
+    path: pathname,
+    httpStatus: response.status,
+    code: response.data?.code,
+    success: response.data?.success === true || response.data?.code === 0,
+    message: hideSensitive(response.data?.msg || response.data?.message || data.bizMsg || ''),
+    consecutiveDays: Number(calendar.consecutiveDays ?? calendar.signInStreak ?? 0) || 0,
+    signInDayCount: days.length
+  }
+}
+
 async function main() {
   assertReadonlySmokeSuite()
 
@@ -577,6 +695,9 @@ async function main() {
   tests.push(await testOrderList(runtime))
   tests.push(await testStoredCards(runtime))
   tests.push(await testMemberCoupons(runtime))
+  tests.push(await testMemberGradeEquity(runtime))
+  tests.push(await testWPlusDetail(runtime))
+  tests.push(await testMemberSignInCalendar(runtime))
 
   const summary = {
     userDataDir,
