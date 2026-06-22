@@ -370,6 +370,37 @@ async function testRealTimeSeat(runtime, showtime) {
   }
 }
 
+async function testOrderList(runtime) {
+  const host = 'front-gateway-c.wandafilm.com'
+  const pathname = '/order/query_order_list.api'
+  const body = formBody({ busiType: 3, pageIndex: 1, pageSize: 20, timeLeagth: 0 })
+  const response = await axios.post(`https://${host}${pathname}`, body, {
+    headers: buildWandaHeaders(pathname, body, { ...runtime, host }),
+    timeout: 15000,
+    validateStatus: () => true
+  })
+  const data = asRecord(response.data?.data)
+  const records = [
+    ...asList(data.listOrderInf),
+    ...asList(data.orderInf),
+    ...asList(data.records),
+    ...asList(data.orders),
+    ...asList(data.list)
+  ]
+
+  return {
+    name: '历史订单',
+    method: 'POST',
+    path: pathname,
+    httpStatus: response.status,
+    code: response.data?.code,
+    success: response.data?.success === true || response.data?.code === 0,
+    message: hideSensitive(response.data?.msg || response.data?.message || ''),
+    orderTotal: Number(data.totalCount ?? data.total ?? data.count ?? records.length) || 0,
+    orderCount: records.length
+  }
+}
+
 async function main() {
   const env = readEnv(envPath)
   const accountsData = readJson(accountPath)
@@ -392,6 +423,7 @@ async function main() {
   const showtimeResult = await testShowtimeByCinema(runtime, cinema)
   tests.push(showtimeResult.test)
   tests.push(await testRealTimeSeat(runtime, pickShowtime(showtimeResult.data)))
+  tests.push(await testOrderList(runtime))
 
   const summary = {
     userDataDir,

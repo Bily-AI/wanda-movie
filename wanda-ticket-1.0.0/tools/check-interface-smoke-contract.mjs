@@ -23,7 +23,10 @@ if (!existsSync(smokePath)) {
     '/user/islogin.api',
     '/showtime/by_cinema.api',
     '/order/real_time_seat.api',
+    '/order/query_order_list.api',
     'pickShowtime',
+    'testOrderList',
+    'orderTotal',
     'seatAreaCount',
     'availableSeatCount',
     'hideSensitive'
