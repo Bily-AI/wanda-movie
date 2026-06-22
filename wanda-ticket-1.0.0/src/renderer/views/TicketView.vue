@@ -15,6 +15,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 import SeatMap from '@renderer/components/SeatMap.vue'
 import SelectedSeatList from '@renderer/components/SelectedSeatList.vue'
+import { extractAppPayParam, openAlipayPayment } from '@renderer/services/alipayBridge'
 import { useAccountsStore } from '@renderer/stores/accounts'
 import { useSettingsStore } from '@renderer/stores/settings'
 import { useTicketStore } from '@renderer/stores/ticket'
@@ -26,6 +27,7 @@ const settingsStore = useSettingsStore()
 const ticketStore = useTicketStore()
 const ticketCodeDialogVisible = ref(false)
 const payInfoDialogVisible = ref(false)
+const openingAlipay = ref(false)
 const ticketCodePanelSelector = '.ticket-code-panel'
 
 interface PaymentDisplayItem {
@@ -190,6 +192,7 @@ const couponItems = computed<PaymentDisplayItem[]>(() =>
 const ticketCodes = computed(() => ticketStore.currentOrderPayInfo?.ticketCodes ?? [])
 const qrCodes = computed(() => ticketStore.currentOrderPayInfo?.qrCodes ?? [])
 const payInfoFields = computed(() => collectPayInfoFields(getPayInfoValue(ticketStore.currentOrderPayInfo)))
+const ticketAppPayParam = computed(() => extractAppPayParam(ticketStore.currentOrderPayInfo))
 const hasTicketCodeData = computed(() => ticketCodes.value.length > 0 || qrCodes.value.length > 0)
 const ticketCodeSeatText = computed(() =>
   ticketStore.currentOrder?.seats.map((seat) => `${seat.rowName}排${seat.columnName}座`).join('、') || '-'
@@ -311,6 +314,27 @@ function handleShowPaymentInfo(): void {
   }
 
   payInfoDialogVisible.value = true
+}
+
+async function handleOpenTicketAlipayPayment(): Promise<void> {
+  if (!ticketAppPayParam.value) {
+    ElMessage.warning('缺少支付宝支付参数')
+    return
+  }
+
+  openingAlipay.value = true
+
+  try {
+    const result = await openAlipayPayment(ticketAppPayParam.value, {
+      requestParams: settingsStore.requestParams,
+      autoPayment: settingsStore.autoPayment
+    })
+    ElMessage.success(result.reusedWindow ? '已刷新支付宝支付窗口' : '已打开支付宝支付窗口')
+  } catch (error) {
+    ElMessage.error(error instanceof Error && error.message ? error.message : '打开支付宝支付失败')
+  } finally {
+    openingAlipay.value = false
+  }
 }
 
 async function handleCaptureTicketCode(): Promise<void> {
@@ -799,6 +823,17 @@ watch(
         </dl>
       </section>
       <el-empty v-else description="暂无支付参数" :image-size="56" />
+      <template #footer>
+        <el-button @click="payInfoDialogVisible = false">关闭</el-button>
+        <el-button
+          type="primary"
+          :loading="openingAlipay"
+          :disabled="!ticketAppPayParam"
+          @click="handleOpenTicketAlipayPayment"
+        >
+          打开支付宝支付
+        </el-button>
+      </template>
     </el-dialog>
 
     <el-dialog

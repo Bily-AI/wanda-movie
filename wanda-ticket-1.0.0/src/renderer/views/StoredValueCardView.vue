@@ -13,8 +13,10 @@ import {
   type StoredCardPaymentResult,
   type StoredCardRow
 } from '@renderer/services/featureApi'
+import { openAlipayPayment } from '@renderer/services/alipayBridge'
 import { useAccountsStore } from '@renderer/stores/accounts'
 import { useLogsStore } from '@renderer/stores/logs'
+import { useSettingsStore } from '@renderer/stores/settings'
 
 const DEFAULT_WANDA_USER_IDENTIFIER = 'YYDDJDKYHA'
 
@@ -25,6 +27,7 @@ interface PaymentDialogData extends StoredCardPaymentResult {
 
 const accountsStore = useAccountsStore()
 const logsStore = useLogsStore()
+const settingsStore = useSettingsStore()
 const cards = ref<StoredCardRow[]>([])
 const balanceInfo = ref<StoredCardBalanceInfo | null>(null)
 const loading = ref(false)
@@ -45,6 +48,7 @@ const transferMobile = ref('')
 const submittingPurchase = ref(false)
 const submittingRecharge = ref(false)
 const submittingTransfer = ref(false)
+const openingAlipay = ref(false)
 const paymentResult = ref<PaymentDialogData | null>(null)
 
 let loadSerial = 0
@@ -376,6 +380,27 @@ async function copyPaymentResult() {
   }
 }
 
+async function handleOpenAlipayPayment() {
+  if (!paymentResult.value?.appPayParam) {
+    ElMessage.warning('缺少支付宝支付参数')
+    return
+  }
+
+  openingAlipay.value = true
+
+  try {
+    const result = await openAlipayPayment(paymentResult.value.appPayParam, {
+      requestParams: settingsStore.requestParams,
+      autoPayment: settingsStore.autoPayment
+    })
+    ElMessage.success(result.reusedWindow ? '已刷新支付宝支付窗口' : '已打开支付宝支付窗口')
+  } catch (error) {
+    ElMessage.error(error instanceof Error && error.message ? error.message : '打开支付宝支付失败')
+  } finally {
+    openingAlipay.value = false
+  }
+}
+
 onMounted(() => {
   void loadCards()
 })
@@ -525,6 +550,9 @@ watch(
       </el-descriptions>
       <el-input class="raw-json" type="textarea" :rows="12" :model-value="paymentResultText" readonly />
       <template #footer>
+        <el-button :loading="openingAlipay" :disabled="!paymentResult?.appPayParam" @click="handleOpenAlipayPayment">
+          打开支付宝支付
+        </el-button>
         <el-button @click="paymentResultDialogVisible = false">关闭</el-button>
         <el-button type="primary" @click="copyPaymentResult">复制支付参数</el-button>
       </template>

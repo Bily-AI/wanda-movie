@@ -13,6 +13,7 @@ import {
   type ActivityGiftOrderRow,
   type ActivityGiftRow
 } from '@renderer/services/featureApi'
+import { openAlipayPayment } from '@renderer/services/alipayBridge'
 import { useAccountsStore } from '@renderer/stores/accounts'
 import { useLogsStore } from '@renderer/stores/logs'
 import { useSettingsStore } from '@renderer/stores/settings'
@@ -37,6 +38,7 @@ const loading = ref(false)
 const loadingOrders = ref(false)
 const buyingActivityCode = ref('')
 const buyingPaymentOrderId = ref('')
+const openingAlipay = ref(false)
 const giftQuantities = ref<Record<string, number>>({})
 const detailDialogVisible = ref(false)
 const paymentResultDialogVisible = ref(false)
@@ -311,6 +313,27 @@ async function copyPaymentResult() {
   }
 }
 
+async function handleOpenAlipayPayment() {
+  if (!paymentResult.value?.appPayParam) {
+    ElMessage.warning('缺少支付宝支付参数')
+    return
+  }
+
+  openingAlipay.value = true
+
+  try {
+    const result = await openAlipayPayment(paymentResult.value.appPayParam, {
+      requestParams: settingsStore.requestParams,
+      autoPayment: settingsStore.autoPayment
+    })
+    ElMessage.success(result.reusedWindow ? '已刷新支付宝支付窗口' : '已打开支付宝支付窗口')
+  } catch (error) {
+    ElMessage.error(error instanceof Error && error.message ? error.message : '打开支付宝支付失败')
+  } finally {
+    openingAlipay.value = false
+  }
+}
+
 function formatDetail(value: unknown): string {
   try {
     return JSON.stringify(value, null, 2)
@@ -478,6 +501,9 @@ watch(
       </el-descriptions>
       <el-input class="raw-json" type="textarea" :rows="12" :model-value="paymentResultText" readonly />
       <template #footer>
+        <el-button :loading="openingAlipay" :disabled="!paymentResult?.appPayParam" @click="handleOpenAlipayPayment">
+          打开支付宝支付
+        </el-button>
         <el-button @click="paymentResultDialogVisible = false">关闭</el-button>
         <el-button type="primary" @click="copyPaymentResult">复制支付参数</el-button>
       </template>

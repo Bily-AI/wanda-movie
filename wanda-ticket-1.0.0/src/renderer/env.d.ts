@@ -1,6 +1,11 @@
 import type {
   AiOcrParseRequest,
   AiOcrParseResult,
+  AlipayClearSessionResult,
+  AlipayConvertRequest,
+  AlipayConvertResult,
+  AlipayDeviceFingerprint,
+  AlipaySyncDeviceResult,
   LocalDataResult,
   LocalDataWriteResult,
   OldPackageIndexResult,
@@ -38,6 +43,9 @@ declare global {
       readClipboardImage: () => Promise<ClipboardImageResult>
       ocrRecognize: (request: BaiduOcrRequest) => Promise<BaiduOcrResult>
       aiParseOcr: (request: AiOcrParseRequest) => Promise<AiOcrParseResult>
+      alipayConvert: (request: AlipayConvertRequest) => Promise<AlipayConvertResult>
+      alipaySyncDevice: (request: AlipayDeviceFingerprint) => Promise<AlipaySyncDeviceResult>
+      alipayClearSession: () => Promise<AlipayClearSessionResult>
       captureElement: (request: ElementCaptureRequest) => Promise<ElementCaptureResult>
       copyElementToClipboard: (request: ElementCaptureRequest) => Promise<ElementCopyResult>
     }
