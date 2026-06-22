@@ -4,7 +4,8 @@ export const LOCAL_DATA_FILES = {
   REQUEST_PARAMS: 'requestParams',
   PROXY: 'proxy',
   LOGS: 'logs',
-  CITY: 'city'
+  CITY: 'city',
+  CATEGORIES: 'categories'
 } as const
 
 export type LocalDataFileName = (typeof LOCAL_DATA_FILES)[keyof typeof LOCAL_DATA_FILES]
@@ -96,6 +97,16 @@ export interface CityLocalData {
   city: unknown[]
 }
 
+export interface CouponCategory {
+  id: string
+  name: string
+  couponNames: string[]
+}
+
+export interface CouponCategoriesLocalData {
+  categories: CouponCategory[]
+}
+
 export interface LocalDataMap {
   accounts: AccountsLocalData
   settings: SettingsLocalData
@@ -103,6 +114,7 @@ export interface LocalDataMap {
   proxy: ProxyLocalData
   logs: LogsLocalData
   city: CityLocalData
+  categories: CouponCategoriesLocalData
 }
 
 export const DEFAULT_LOCAL_DATA: LocalDataMap = {
@@ -156,6 +168,9 @@ export const DEFAULT_LOCAL_DATA: LocalDataMap = {
     cinemas: [],
     updatedAt: '',
     city: []
+  },
+  categories: {
+    categories: []
   }
 }
 

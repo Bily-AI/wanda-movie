@@ -15,19 +15,24 @@ import {
 } from '@renderer/services/featureApi'
 import { useAccountsStore } from '@renderer/stores/accounts'
 import { useLogsStore } from '@renderer/stores/logs'
+import type { CouponCategory } from '@shared/localData'
 
 const accountsStore = useAccountsStore()
 const logsStore = useLogsStore()
 const coupons = ref<MemberCouponRow[]>([])
 const selectedCoupons = ref<MemberCouponRow[]>([])
+const couponCategories = ref<CouponCategory[]>([])
 const keyword = ref('')
 const nameFilter = ref('')
-const typeFilter = ref('')
+const categoryFilter = ref('')
 const loading = ref(false)
 const couponMessage = ref('')
+const categoryDialogVisible = ref(false)
 const presentDialogVisible = ref(false)
 const couponDetailDialogVisible = ref(false)
 const currentCouponDetail = ref<MemberCouponRow | null>(null)
+const newCategoryName = ref('')
+const statsMode = ref(false)
 const pendingPresentCoupons = ref<MemberCouponRow[]>([])
 const presentTargetMobile = ref('')
 const presentMemberPhone = ref('')
@@ -53,8 +58,16 @@ const couponRows = computed(() => {
       return false
     }
 
-    if (typeFilter.value && coupon.type !== typeFilter.value) {
-      return false
+    if (categoryFilter.value) {
+      const category = couponCategories.value.find((item) => item.id === categoryFilter.value)
+
+      if (category?.couponNames.length) {
+        const categoryCouponNames = new Set(category.couponNames)
+
+        if (!categoryCouponNames.has(coupon.name)) {
+          return false
+        }
+      }
     }
 
     if (!searchText) {
@@ -69,7 +82,18 @@ const couponRows = computed(() => {
 })
 
 const nameOptions = computed(() => [...new Set(coupons.value.map((coupon) => coupon.name).filter(Boolean))])
-const typeOptions = computed(() => [...new Set(coupons.value.map((coupon) => coupon.type).filter(Boolean))])
+const couponNameStats = computed(() => {
+  const stats = new Map<string, number>()
+
+  coupons.value.forEach((coupon) => {
+    const name = coupon.name || '未知'
+    stats.set(name, (stats.get(name) || 0) + 1)
+  })
+
+  return Array.from(stats.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'))
+})
 const currentCouponJson = computed(() => JSON.stringify(currentCouponDetail.value?.raw ?? currentCouponDetail.value, null, 2))
 let couponLoadSerial = 0
 
@@ -94,6 +118,18 @@ function isCouponLoadCurrent(loadSerial: number, accountId: string): boolean {
   return loadSerial === couponLoadSerial && accountsStore.currentAccountId === accountId
 }
 
+function createCategoryId(): string {
+  return `cat_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+}
+
+function toPlainCategories(): CouponCategory[] {
+  return couponCategories.value.map((category) => ({
+    id: category.id,
+    name: category.name,
+    couponNames: [...category.couponNames]
+  }))
+}
+
 function getCurrentAccount() {
   const account = accountsStore.currentAccount
 
@@ -104,6 +140,93 @@ function getCurrentAccount() {
   }
 
   return account
+}
+
+async function loadCouponCategories() {
+  const result = await window.wandaApp?.readLocalData('categories')
+
+  if (!result?.ok) {
+    couponCategories.value = []
+    return
+  }
+
+  couponCategories.value = result.data.categories
+}
+
+async function saveCouponCategories() {
+  const result = await window.wandaApp?.writeLocalData('categories', {
+    categories: toPlainCategories()
+  })
+
+  if (!result?.ok) {
+    throw new Error(result?.error || '分类保存失败')
+  }
+}
+
+async function addCouponCategory() {
+  const name = newCategoryName.value.trim()
+
+  if (!name) {
+    return
+  }
+
+  if (couponCategories.value.some((category) => category.name === name)) {
+    ElMessage.warning('分类名称已存在')
+    return
+  }
+
+  couponCategories.value.push({
+    id: createCategoryId(),
+    name,
+    couponNames: []
+  })
+  newCategoryName.value = ''
+
+  try {
+    await saveCouponCategories()
+    ElMessage.success('分类已保存')
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, '分类保存失败'))
+  }
+}
+
+async function removeCouponCategory(categoryId: string) {
+  const confirmed = await ElMessageBox.confirm('确认删除该分类？', '分类管理', {
+    type: 'warning',
+    confirmButtonText: '删除',
+    cancelButtonText: '取消'
+  }).catch(() => false)
+
+  if (!confirmed) {
+    return
+  }
+
+  couponCategories.value = couponCategories.value.filter((category) => category.id !== categoryId)
+
+  if (categoryFilter.value === categoryId) {
+    categoryFilter.value = ''
+  }
+
+  try {
+    await saveCouponCategories()
+    ElMessage.success('分类已删除')
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, '分类删除失败'))
+  }
+}
+
+function openCategoryDialog() {
+  categoryDialogVisible.value = true
+  void loadCouponCategories()
+}
+
+async function handleCategoryCouponNamesChange() {
+  try {
+    await saveCouponCategories()
+    ElMessage.success('分类已保存')
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, '分类保存失败'))
+  }
 }
 
 function getPresentCouponNos(rows: MemberCouponRow[]): string[] {
@@ -480,10 +603,11 @@ function showCouponDetail(row: MemberCouponRow) {
 }
 
 function showStats() {
-  ElMessage.info(`当前已加载 ${coupons.value.length} 张兑换券，可见 ${couponRows.value.length} 张`)
+  statsMode.value = !statsMode.value
 }
 
 onMounted(() => {
+  void loadCouponCategories()
   void loadCoupons()
 })
 
@@ -518,17 +642,40 @@ watch(
       <el-select v-model="nameFilter" placeholder="按名称筛选" clearable>
         <el-option v-for="name in nameOptions" :key="name" :label="name" :value="name" />
       </el-select>
-      <el-select v-model="typeFilter" placeholder="按分类筛选" clearable>
-        <el-option v-for="type in typeOptions" :key="type" :label="type" :value="type" />
+      <el-select v-model="categoryFilter" placeholder="按分类筛选" clearable>
+        <el-option
+          v-for="category in couponCategories"
+          :key="category.id"
+          :label="category.name"
+          :value="category.id"
+        />
       </el-select>
-      <el-button @click="ElMessage.info('分类筛选已使用当前真实兑换券数据')">分类管理</el-button>
+      <el-button @click="openCategoryDialog">分类管理</el-button>
       <el-input v-model="keyword" placeholder="搜索关键词" :prefix-icon="Search" />
-      <el-button @click="showStats">统计</el-button>
+      <el-button :type="statsMode ? 'warning' : 'default'" @click="showStats">
+        {{ statsMode ? '明细' : '统计' }}
+      </el-button>
       <el-button :icon="Refresh" :loading="loading" @click="loadCoupons">刷新</el-button>
     </header>
 
     <section class="table-panel">
       <el-table
+        v-if="statsMode"
+        :data="couponNameStats"
+        height="100%"
+        :empty-text="couponMessage || '暂无统计数据'"
+      >
+        <el-table-column type="index" label="#" width="64" />
+        <el-table-column prop="name" label="券名称" min-width="220" />
+        <el-table-column prop="count" label="张数" width="120" align="center">
+          <template #default="{ row }">
+            <el-tag type="warning">{{ row.count }}</el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <el-table
+        v-else
         v-loading="loading"
         :data="couponRows"
         height="100%"
@@ -550,6 +697,48 @@ watch(
         </el-table-column>
       </el-table>
     </section>
+
+    <el-dialog v-model="categoryDialogVisible" title="分类管理" width="640px">
+      <div class="category-manage-body">
+        <div class="category-add-row">
+          <el-input
+            v-model.trim="newCategoryName"
+            placeholder="输入分类名称"
+            maxlength="20"
+            @keyup.enter="addCouponCategory"
+          />
+          <el-button type="primary" @click="addCouponCategory">添加</el-button>
+        </div>
+
+        <el-empty v-if="couponCategories.length === 0" description="暂无分类，请添加" :image-size="72" />
+
+        <div v-else class="category-list">
+          <section v-for="category in couponCategories" :key="category.id" class="category-card">
+            <header>
+              <strong>{{ category.name }}</strong>
+              <span>{{ category.couponNames.length }} 个券名称</span>
+              <el-button link type="danger" @click="removeCouponCategory(category.id)">删除</el-button>
+            </header>
+            <el-select
+              v-model="category.couponNames"
+              multiple
+              filterable
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="选择券名称"
+              @change="handleCategoryCouponNamesChange"
+            >
+              <el-option
+                v-for="stat in couponNameStats"
+                :key="stat.name"
+                :label="`${stat.name} (${stat.count})`"
+                :value="stat.name"
+              />
+            </el-select>
+          </section>
+        </div>
+      </div>
+    </el-dialog>
 
     <el-dialog v-model="presentDialogVisible" title="赠送兑换券" width="520px" @closed="resetPresentForm">
       <el-alert
@@ -641,6 +830,41 @@ watch(
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
+}
+
+.category-manage-body {
+  display: grid;
+  gap: 14px;
+}
+
+.category-add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px;
+  gap: 10px;
+}
+
+.category-list {
+  display: grid;
+  gap: 12px;
+}
+
+.category-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+}
+
+.category-card header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.category-card header span {
+  color: var(--app-muted);
 }
 
 .present-form {

@@ -22,6 +22,7 @@
     "check:wanda-diagnostics": "node tools/check-wanda-diagnostics-contract.mjs",
     "check:activity-gift": "node tools/check-activity-gift-contract.mjs",
     "check:coupon-present": "node tools/check-coupon-present-contract.mjs",
+    "check:coupon-category": "node tools/check-coupon-category-contract.mjs",
     "check:stored-card": "node tools/check-stored-card-contract.mjs",
     "check:member-signin": "node tools/check-member-signin-contract.mjs",
     "index:old": "node tools/old-package-index.mjs"
