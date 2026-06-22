@@ -26,6 +26,7 @@ import {
   wandaGetWithHeaders,
   wandaPost,
   wandaPostForm,
+  wandaSeatGet,
   type WandaBody
 } from './wandaRequest'
 
@@ -579,8 +580,7 @@ export async function fetchRealTimeSeat(dId: string, ck: string, userIdentifier:
   assertNotBlank(ck, '万达账号 CK 不能为空')
   assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
 
-  const response = await wandaGet<{ realtimeSeats?: RealTimeSeats }>(
-    WANDA_HOSTS.GATEWAY,
+  const response = await wandaSeatGet<{ realtimeSeats?: RealTimeSeats }>(
     WANDA_API_PATHS.ORDER_REAL_TIME_SEAT,
     { dId },
     ck,

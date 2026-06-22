@@ -64,6 +64,86 @@ function formBody(data) {
     .join('&')
 }
 
+function isRecord(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function asRecord(value) {
+  return isRecord(value) ? value : {}
+}
+
+function asList(value) {
+  return Array.isArray(value) ? value : []
+}
+
+function firstText(...values) {
+  for (const value of values) {
+    const text = typeof value === 'string' || typeof value === 'number' ? String(value).trim() : ''
+
+    if (text) {
+      return text
+    }
+  }
+
+  return ''
+}
+
+function getNestedList(record, key, childKey) {
+  return asList(asRecord(record[key])[childKey])
+}
+
+function getShowtimeFilmList(raw) {
+  const root = asRecord(raw)
+  const movies = asRecord(root.movies)
+
+  return [
+    ...asList(root.showtimeFilmInf),
+    ...asList(root.filmList),
+    ...asList(root.movies),
+    ...asList(movies.movie)
+  ]
+}
+
+function getDateList(film) {
+  return [...asList(film.showtimeFilmDateInf), ...asList(film.dateList), ...asList(film.dates)]
+}
+
+function getShowtimeList(dateRecord) {
+  return [
+    ...getNestedList(dateRecord, 'showtimesInf', 'showtimeList'),
+    ...asList(dateRecord.showtimeList),
+    ...asList(dateRecord.showtimes),
+    ...asList(dateRecord.sessions),
+    ...asList(dateRecord.timeList)
+  ]
+}
+
+function pickShowtime(raw) {
+  for (const film of getShowtimeFilmList(raw).map(asRecord)) {
+    for (const dateRecord of getDateList(film).map(asRecord)) {
+      for (const showtime of getShowtimeList(dateRecord).map(asRecord)) {
+        const dId = firstText(showtime.showtimeId, showtime.dId, showtime.did, showtime.id)
+
+        if (dId) {
+          return {
+            dId,
+            filmName: firstText(film.filmName, film.name, film.movieName),
+            date: firstText(dateRecord.date, dateRecord.showDate, dateRecord.showtimeDate, dateRecord.day),
+            label: [
+              firstText(showtime.realtime, showtime.showTime, showtime.showTimeStr, showtime.startTime),
+              firstText(showtime.hallName, showtime.hall, showtime.cinemaHallName)
+            ]
+              .filter(Boolean)
+              .join(' - ')
+          }
+        }
+      }
+    }
+  }
+
+  throw new Error('场次接口返回中没有可用于座位接口的 dId')
+}
+
 function buildWandaHeaders(pathname, body, runtime) {
   const timestamp = String(Date.now())
   const check = md5(`${runtime.signSalt}${timestamp}${pathname}${body}`)
@@ -139,6 +219,46 @@ function buildCinemaHeaders(requestPath, runtime) {
   }
 }
 
+function buildSeatHeaders(requestPath, runtime) {
+  const timestamp = String(Date.now())
+  const check = md5(`${runtime.signSalt}${timestamp}${requestPath}`)
+  const mxApi = {
+    systemVersion: WANDA_SYSTEM_VERSION,
+    height: runtime.height,
+    'Accept-Encoding': 'gzip, deflate',
+    ts: timestamp,
+    ver: WANDA_VERSION,
+    _mi_: runtime.account.ck,
+    json: true,
+    appId: 2,
+    cCode: WANDA_CHANNEL,
+    check,
+    model: runtime.model,
+    sCode: 'Wanda',
+    width: runtime.width,
+    ShumeiBoxId: runtime.shumeiBoxId
+  }
+
+  return {
+    'MX-API': JSON.stringify(mxApi),
+    'X-RY-SIGN': check,
+    'X-RY-USER': runtime.account.userIdentifier,
+    Host: runtime.host,
+    'X-RY-CHECK': check,
+    'X-RY-MODEL': runtime.model,
+    'X-RY-TOKEN': runtime.account.ck,
+    ShumeiBoxId: runtime.shumeiBoxId,
+    'X-RY-SYSTEM-VER': WANDA_SYSTEM_VERSION,
+    'X-RY-VERSION': WANDA_VERSION,
+    'Accept-Charset': 'UTF-8,*',
+    'X-RY-CHANNEL': WANDA_CHANNEL,
+    'X-RY-TIMESTAMP': timestamp,
+    Connection: 'Keep-Alive',
+    'Accept-Encoding': 'gzip',
+    'User-Agent': WANDA_USER_AGENT
+  }
+}
+
 function pickAccount(accounts) {
   return accounts.find((account) => account.ck && account.userIdentifier)
 }
@@ -203,16 +323,50 @@ async function testShowtimeByCinema(runtime, cinema) {
   const data = response.data?.data || {}
 
   return {
-    name: '影院场次',
+    data,
+    test: {
+      name: '影院场次',
+      method: 'GET',
+      path: pathname,
+      cinemaId: cinema.id || cinema.cinemaId,
+      cinemaName: cinema.name || cinema.cinemaName,
+      httpStatus: response.status,
+      code: response.data?.code,
+      success: response.data?.success === true || response.data?.code === 0,
+      message: hideSensitive(response.data?.msg || response.data?.message || ''),
+      movieCount: Array.isArray(data.showtimeFilmInf) ? data.showtimeFilmInf.length : 0
+    }
+  }
+}
+
+async function testRealTimeSeat(runtime, showtime) {
+  const host = 'front-gateway-c.wandafilm.com'
+  const pathname = '/order/real_time_seat.api'
+  const query = `dId=${encodeURIComponent(showtime.dId)}`
+  const requestPath = `${pathname}?${query}`
+  const response = await axios.get(`https://${host}${requestPath}`, {
+    headers: buildSeatHeaders(requestPath, { ...runtime, host }),
+    timeout: 15000,
+    validateStatus: () => true
+  })
+  const realtimeSeats = response.data?.data?.realtimeSeats || {}
+  const areas = asList(realtimeSeats.area)
+  const seats = areas.flatMap((area) => asList(asRecord(area).seat))
+  const availableSeatCount = seats.filter((seat) => Number(asRecord(seat).status) === 1).length
+
+  return {
+    name: '座位数据',
     method: 'GET',
     path: pathname,
-    cinemaId: cinema.id || cinema.cinemaId,
-    cinemaName: cinema.name || cinema.cinemaName,
+    showtimeId: showtime.dId,
+    showtimeLabel: showtime.label,
     httpStatus: response.status,
     code: response.data?.code,
-    success: response.data?.success === true || response.data?.code === 0,
+    success: (response.data?.success === true || response.data?.code === 0) && seats.length > 0,
     message: hideSensitive(response.data?.msg || response.data?.message || ''),
-    movieCount: Array.isArray(data.showtimeFilmInf) ? data.showtimeFilmInf.length : 0
+    seatAreaCount: areas.length,
+    seatCount: seats.length,
+    availableSeatCount
   }
 }
 
@@ -235,7 +389,9 @@ async function main() {
   const tests = []
 
   tests.push(await testIsLogin(runtime))
-  tests.push(await testShowtimeByCinema(runtime, cinema))
+  const showtimeResult = await testShowtimeByCinema(runtime, cinema)
+  tests.push(showtimeResult.test)
+  tests.push(await testRealTimeSeat(runtime, pickShowtime(showtimeResult.data)))
 
   const summary = {
     userDataDir,

@@ -88,7 +88,9 @@ for (const label of [
   'wandaPost',
   'buildWandaHeaders',
   'buildCinemaHeaders',
+  'buildSeatHeaders',
   'wandaCinemaGet',
+  'wandaSeatGet',
   'buildWandaLoginHeaders',
   'wandaLoginPost',
   'setWandaRequestParams'
@@ -187,6 +189,18 @@ const cinemaHeaderBlock = sliceRequired(
 assertIncludes('src/renderer/services/wandaRequest.ts', cinemaHeaderBlock, 'ver: CINEMA_VERSION')
 assertNotIncludes('src/renderer/services/wandaRequest.ts', cinemaHeaderBlock, 'X-RY-')
 
+const seatHeaderBlock = sliceRequired(
+  'src/renderer/services/wandaRequest.ts',
+  requestService,
+  'export function buildSeatHeaders',
+  'export async function wandaSeatGet',
+  'seat header block'
+)
+assertIncludes('src/renderer/services/wandaRequest.ts', seatHeaderBlock, 'X-RY-SIGN')
+assertIncludes('src/renderer/services/wandaRequest.ts', seatHeaderBlock, 'X-RY-USER')
+assertIncludes('src/renderer/services/wandaRequest.ts', seatHeaderBlock, 'Host: host')
+assertNotIncludes('src/renderer/services/wandaRequest.ts', seatHeaderBlock, 'MX-CID')
+
 assertIncludes('src/renderer/stores/accounts.ts', accountsStore, "DEFAULT_WANDA_USER_IDENTIFIER")
 assertIncludes('src/renderer/stores/accounts.ts', accountsStore, 'result.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER')
 assertIncludes('src/renderer/stores/accounts.ts', accountsStore, 'toPlainAccountsData')
@@ -210,6 +224,7 @@ assertNotIncludes('src/renderer/services/cinemaApi.ts', cinemaApi, 'assertNotBla
 for (const label of ['fetchRealTimeSeat', 'createTicketOrder', 'cancelTicketOrder']) {
   assertIncludes('src/renderer/services/seatApi.ts', seatApi, label)
 }
+assertIncludes('src/renderer/services/seatApi.ts', seatApi, 'wandaSeatGet')
 assertNotIncludes('src/renderer/services/seatApi.ts', seatApi, 'wandaCinemaGet')
 assertNotIncludes('src/renderer/services/seatApi.ts', seatApi, 'buildCinemaHeaders')
 

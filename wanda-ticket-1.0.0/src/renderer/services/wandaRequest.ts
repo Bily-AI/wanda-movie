@@ -314,6 +314,74 @@ export async function wandaCinemaGet<T>(
   return result.data as WandaApiResponse<T>
 }
 
+export function buildSeatHeaders(
+  path: string,
+  ck = '',
+  userIdentifier = '',
+  host: string = WANDA_HOSTS.GATEWAY
+): Record<string, string> {
+  const timestamp = String(Date.now())
+  const { signSalt, model, shumeiBoxId } = getWandaRuntimeConfig()
+  const ryUser = getDefaultWandaUserId() || userIdentifier.trim()
+  const width = getRuntimeNumberParam('width', 1080)
+  const height = getRuntimeNumberParam('height', 2206)
+  const check = CryptoJS.MD5(`${signSalt}${timestamp}${path}`).toString()
+  const mxApi = {
+    systemVersion: WANDA_SYSTEM_VERSION,
+    height,
+    'Accept-Encoding': 'gzip, deflate',
+    ts: timestamp,
+    ver: WANDA_VERSION,
+    _mi_: ck,
+    json: true,
+    appId: 2,
+    cCode: WANDA_CHANNEL,
+    check,
+    model,
+    sCode: 'Wanda',
+    width,
+    ShumeiBoxId: shumeiBoxId
+  }
+
+  return {
+    'MX-API': JSON.stringify(mxApi),
+    'X-RY-SIGN': check,
+    'X-RY-USER': ryUser,
+    Host: host,
+    'X-RY-CHECK': check,
+    'X-RY-MODEL': model,
+    'X-RY-TOKEN': ck,
+    ShumeiBoxId: shumeiBoxId,
+    'X-RY-SYSTEM-VER': WANDA_SYSTEM_VERSION,
+    'X-RY-VERSION': WANDA_VERSION,
+    'Accept-Charset': 'UTF-8,*',
+    'X-RY-CHANNEL': WANDA_CHANNEL,
+    'X-RY-TIMESTAMP': timestamp,
+    Connection: 'Keep-Alive',
+    'Accept-Encoding': 'gzip',
+    'User-Agent': WANDA_USER_AGENT
+  }
+}
+
+export async function wandaSeatGet<T>(
+  path: string,
+  query: WandaQuery,
+  ck = '',
+  userIdentifier = '',
+  host: string = WANDA_HOSTS.GATEWAY
+): Promise<WandaApiResponse<T>> {
+  const url = buildWandaUrl(host, path, query)
+  const requestPath = buildRequestPath(url)
+  const headers = buildSeatHeaders(requestPath, ck, userIdentifier, host)
+  const result = await getRequiredWandaApp().wandaHttpGet({ url, headers })
+
+  if (!result?.ok) {
+    throw new Error(formatWandaTransportError('GET', host, requestPath, result?.error, '万达座位 GET 请求失败'))
+  }
+
+  return result.data as WandaApiResponse<T>
+}
+
 export async function wandaGet<T>(
   host: string,
   path: string,

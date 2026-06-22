@@ -19,8 +19,13 @@ if (!existsSync(smokePath)) {
     'ver: CINEMA_VERSION',
     'buildWandaHeaders',
     'buildCinemaHeaders',
+    'buildSeatHeaders',
     '/user/islogin.api',
     '/showtime/by_cinema.api',
+    '/order/real_time_seat.api',
+    'pickShowtime',
+    'seatAreaCount',
+    'availableSeatCount',
     'hideSensitive'
   ]) {
     if (!smoke.includes(marker)) {
