@@ -101,6 +101,16 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback
 }
 
+function maskVoucherNo(value: string): string {
+  const rawValue = String(value || '').replace(/\s/g, '')
+
+  if (rawValue.length <= 8) {
+    return rawValue || '-'
+  }
+
+  return `${rawValue.slice(0, 4)}****${rawValue.slice(-4)}`
+}
+
 function bumpPresentOperation(): number {
   presentOperationSerial.value += 1
   return presentOperationSerial.value
@@ -344,13 +354,14 @@ async function handleBindCoupon() {
     cancelButtonText: '取消'
   }).catch(() => null)
   const password = passwordResult?.value.trim() ?? ''
+  const safeVoucherNumber = maskVoucherNo(voucherNumber)
 
   loading.value = true
 
   try {
     await bindMemberCoupon(voucherNumber, password, account.ck, account.userIdentifier)
     ElMessage.success('卡券绑定成功')
-    logsStore.addLog('兑换券', account.phone, `绑定卡券成功：${voucherNumber}`)
+    logsStore.addLog('兑换券', account.phone, `绑定卡券成功：${safeVoucherNumber}`)
     await loadCoupons()
   } catch (error) {
     const message = getErrorMessage(error, '绑定卡券失败')

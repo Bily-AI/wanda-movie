@@ -109,6 +109,8 @@ for (const label of [
   'handleSendPresentCode',
   'handleValidatePresentCode',
   'handleConfirmPresent',
+  'maskVoucherNo',
+  'safeVoucherNumber',
   'showCouponDetail',
   '@click="openPresentDialog(row)"',
   '@click="showCouponDetail(row)"'
@@ -154,6 +156,7 @@ assertMatches(
 for (const label of [
   '当前版本先保留入口',
   '后续接入旧版 present 接口',
+  '绑定卡券成功：${voucherNumber}',
   "ElMessage.info(row.couponNo || row.voucherNo || '暂无券号')"
 ]) {
   assertNotIncludes('src/renderer/views/ExchangeCouponView.vue', exchangeView, label)
