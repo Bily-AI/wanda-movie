@@ -12,11 +12,9 @@ const accountPath = path.join(localDataDir, 'accounts.json')
 const cityPath = path.join(localDataDir, 'city.json')
 const envPath = path.join(projectRoot, '.env.local')
 const defaultCinemaKeyword = '巴中'
+const cityKeyword = readCliOption('--city=')
 const cinemaKeyword =
-  process.argv
-    .find((arg) => arg.startsWith('--cinema='))
-    ?.slice('--cinema='.length)
-    .trim() || defaultCinemaKeyword
+  readCliOption('--cinema=') || defaultCinemaKeyword
 
 const WANDA_VERSION = '9.3.2'
 const WANDA_CHANNEL = '1_2'
@@ -59,6 +57,15 @@ const DANGEROUS_SMOKE_PATHS = [
   '/mkt/activity/secret/selectcoupon.api',
   '/mkt/activity/secret/conponuse.api'
 ]
+
+function readCliOption(prefix) {
+  return (
+    process.argv
+      .find((arg) => arg.startsWith(prefix))
+      ?.slice(prefix.length)
+      .trim() || ''
+  )
+}
 
 function readJson(filePath) {
   return JSON.parse(readFileSync(filePath, 'utf8'))
@@ -127,6 +134,94 @@ function firstText(...values) {
   }
 
   return ''
+}
+
+function cityMatchesKeyword(city, keyword) {
+  if (!keyword) {
+    return true
+  }
+
+  const record = asRecord(city)
+  return [
+    record.id,
+    record.cityId,
+    record.cityid,
+    record.CityID,
+    record.name,
+    record.cityName,
+    record.CityName,
+    record.pinyin,
+    record.firstLetter
+  ].some((value) => String(value || '').includes(keyword))
+}
+
+function collectMatchedCityIds(cityData) {
+  if (!cityKeyword) {
+    return new Set()
+  }
+
+  const cityIds = new Set()
+
+  for (const city of [...asList(cityData.cities), ...asList(cityData.city)]) {
+    if (!cityMatchesKeyword(city, cityKeyword)) {
+      continue
+    }
+
+    const record = asRecord(city)
+    const cityId = firstText(record.id, record.cityId, record.cityid, record.CityID)
+
+    if (cityId) {
+      cityIds.add(cityId)
+    }
+  }
+
+  return cityIds
+}
+
+function cinemaMatchesCity(cinema, matchedCityIds) {
+  if (matchedCityIds.size === 0) {
+    return true
+  }
+
+  const record = asRecord(cinema)
+  const cityId = firstText(record.cityId, record.cityid, record.cityCode, record.CityID, record.cityID)
+
+  return matchedCityIds.has(cityId)
+}
+
+function listCinemas(cityData) {
+  const cinemas = new Map()
+
+  for (const cinema of asList(cityData.cinemas)) {
+    const record = asRecord(cinema)
+    const id = firstText(record.id, record.cinemaId, record.cinemaid, record.CmID, record.cmID)
+
+    if (id) {
+      cinemas.set(id, cinema)
+    }
+  }
+
+  for (const city of asList(cityData.city)) {
+    const cityRecord = asRecord(city)
+    const cityId = firstText(cityRecord.id, cityRecord.cityId, cityRecord.cityid, cityRecord.CityID)
+
+    for (const cinema of asList(cityRecord.CmList)) {
+      const record = asRecord(cinema)
+      const id = firstText(record.id, record.cinemaId, record.cinemaid, record.CmID, record.cmID)
+
+      if (id) {
+        const current = asRecord(cinemas.get(id))
+        const currentName = firstText(current.name, current.cinemaName, current.CmName)
+        const nestedName = firstText(record.name, record.cinemaName, record.CmName)
+
+        if (!cinemas.has(id) || nestedName.length > currentName.length) {
+          cinemas.set(id, { ...current, ...record, name: nestedName || currentName, cityId })
+        }
+      }
+    }
+  }
+
+  return [...cinemas.values()]
 }
 
 function matchesPathRule(pathname, rule) {
@@ -338,9 +433,15 @@ function pickAccount(accounts) {
 }
 
 function pickCinema(cityData) {
+  const cinemas = listCinemas(cityData)
+  const matchedCityIds = collectMatchedCityIds(cityData)
+  const cityCinemas = cinemas.filter((cinema) => cinemaMatchesCity(cinema, matchedCityIds))
+
   return (
-    (cityData.cinemas || []).find((cinema) => String(cinema.name || cinema.cinemaName).includes(cinemaKeyword)) ||
-    (cityData.cinemas || [])[0]
+    cityCinemas.find((cinema) => String(cinema.name || cinema.cinemaName || cinema.CmName).includes(cinemaKeyword)) ||
+    cityCinemas[0] ||
+    cinemas.find((cinema) => String(cinema.name || cinema.cinemaName || cinema.CmName).includes(cinemaKeyword)) ||
+    cinemas[0]
   )
 }
 
