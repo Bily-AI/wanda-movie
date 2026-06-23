@@ -75,6 +75,7 @@ if (!existsSync(smokePath)) {
     'giftOrderTotal',
     'seatAreaCount',
     'availableSeatCount',
+    'formatShowtimeTime',
     'hideSensitive'
   ]) {
     if (!smoke.includes(marker)) {
@@ -112,6 +113,10 @@ if (!existsSync(smokePath)) {
 
   if (readonlyGuardCount < axiosCallCount) {
     failures.push(`tools/smoke-wanda-api.mjs 姣忎釜鐪熷疄璇锋眰閮藉繀椤堕€氳繃鍙鐧藉悕鍗曟牎楠岋細${readonlyGuardCount}/${axiosCallCount}`)
+  }
+
+  if (!/label: \[[\s\S]*?formatShowtimeTime\(firstText\(showtime\.realtime/.test(smoke)) {
+    failures.push('tools/smoke-wanda-api.mjs 场次冒烟输出必须格式化 realtime 时间戳')
   }
 }
 

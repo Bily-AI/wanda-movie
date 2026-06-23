@@ -136,6 +136,27 @@ function firstText(...values) {
   return ''
 }
 
+function formatShowtimeTime(value) {
+  const text = String(value || '').trim()
+
+  if (!/^\d{10,13}$/.test(text)) {
+    return text
+  }
+
+  const timestamp = Number(text.length === 10 ? `${text}000` : text)
+  const date = new Date(timestamp)
+
+  if (!Number.isFinite(date.getTime())) {
+    return text
+  }
+
+  return new Intl.DateTimeFormat('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(date)
+}
+
 function cityMatchesKeyword(city, keyword) {
   if (!keyword) {
     return true
@@ -290,7 +311,7 @@ function pickShowtime(raw) {
             filmName: firstText(film.filmName, film.name, film.movieName),
             date: firstText(dateRecord.date, dateRecord.showDate, dateRecord.showtimeDate, dateRecord.day),
             label: [
-              firstText(showtime.realtime, showtime.showTime, showtime.showTimeStr, showtime.startTime),
+              formatShowtimeTime(firstText(showtime.realtime, showtime.showTime, showtime.showTimeStr, showtime.startTime)),
               firstText(showtime.hallName, showtime.hall, showtime.cinemaHallName)
             ]
               .filter(Boolean)
