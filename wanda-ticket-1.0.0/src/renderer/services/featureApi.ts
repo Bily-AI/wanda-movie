@@ -74,6 +74,17 @@ export interface MemberEquityRow {
   raw: unknown
 }
 
+export interface MemberGradeGroup {
+  gradeId: string
+  gradeName: string
+  gradeDesc: string
+  growthValue: number
+  needGrowthValue: number
+  isCurrent: boolean
+  equities: MemberEquityRow[]
+  raw: unknown
+}
+
 export interface MemberSignInDay {
   sortOrder: string
   day: string
@@ -332,15 +343,67 @@ function normalizeCoupon(item: unknown): MemberCouponRow {
 function normalizeEquity(item: unknown, group: Record<string, unknown> = {}): MemberEquityRow {
   const record = asRecord(item)
 
+  const EQUITY_TYPES: Record<number, string> = {
+    1: '票务券',
+    2: '卖品券',
+    3: '兑换券',
+    4: '折扣券',
+    5: '积分',
+    6: '线下特权'
+  }
+
+  const STATUS_MAP: Record<number, string> = {
+    1: '未解锁',
+    2: '已生效',
+    3: '可领取',
+    4: '已抢光',
+    5: '已领取',
+    6: '未达条件'
+  }
+
+  const equityTypeStr = record.equityType ? EQUITY_TYPES[Number(record.equityType)] || String(record.equityType) : ''
+  const statusStr = record.equityGainStatus != null ? STATUS_MAP[Number(record.equityGainStatus)] || String(record.equityGainStatus) : ''
+
   return {
     gradeId: firstText(record.gradeId, group.gradeId, group.id),
     equityId: firstText(record.equityId, record.id, record.rightCode, record.code),
     gradeName: firstText(group.gradeName, group.name, record.gradeName),
     name: firstText(record.equityName, record.name, record.title),
-    amount: firstText(record.amount, record.faceValue, record.price, '-'),
-    count: firstText(record.count, record.num, record.quantity, '-'),
-    category: firstText(record.categoryName, record.typeName, record.type, '-'),
-    status: firstText(record.statusName, record.status, record.receiveStatus, '-'),
+    amount: firstText(record.prizeName, record.amount, record.faceValue, record.price, '-'),
+    count: firstText(record.prizeNum != null ? String(record.prizeNum) : '', record.count, record.num, record.quantity, '-'),
+    category: firstText(equityTypeStr, record.categoryName, record.typeName, record.type, '-'),
+    status: firstText(statusStr, record.statusName, record.status, record.receiveStatus, '-'),
+    raw: item
+  }
+}
+
+function normalizeGradeGroup(item: unknown): MemberGradeGroup {
+  const record = asRecord(item)
+  const equitiesRaw = collectList(record, ['equityList', 'rights', 'items', 'couponList', 'gradeEquityList'])
+  const equities = equitiesRaw.map((eq) => normalizeEquity(eq, record))
+
+  const growthValue = Number(record.growthValue ?? record.memberGrowthVal ?? record.currentGrowth) || 0
+  const minVal = Number(record.growthMinVal ?? 0)
+  const maxVal = record.growthMaxVal != null ? Number(record.growthMaxVal) : Infinity
+  
+  const isCurrent = Boolean(
+    record.isCurrent ?? record.current ?? record.isCurrentGrade ?? 
+    (growthValue >= minVal && growthValue <= maxVal)
+  )
+
+  let needGrowthValue = Number(record.needGrowthValue ?? record.nextGrowthVal) || 0
+  if (!needGrowthValue && isCurrent && maxVal !== Infinity) {
+    needGrowthValue = maxVal + 1 - growthValue
+  }
+
+  return {
+    gradeId: firstText(record.gradeId, record.id, record.code),
+    gradeName: firstText(record.gradeName, record.name, record.title),
+    gradeDesc: firstText(record.gradeDesc, record.desc, record.description, record.guidingText),
+    growthValue,
+    needGrowthValue,
+    isCurrent,
+    equities,
     raw: item
   }
 }
@@ -740,7 +803,7 @@ export async function presentMemberCoupons(
   ensureSuccess(response, '兑换券赠送失败')
 }
 
-export async function fetchMemberGradeEquityList(ck: string, userIdentifier: string): Promise<MemberEquityRow[]> {
+export async function fetchMemberGradeEquityList(ck: string, userIdentifier: string): Promise<MemberGradeGroup[]> {
   assertNotBlank(ck, '万达账号 CK 不能为空')
   assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
 
@@ -752,15 +815,9 @@ export async function fetchMemberGradeEquityList(ck: string, userIdentifier: str
     userIdentifier
   )
   const data = ensureSuccess(response, '会员权益加载失败')
-  const groups = collectList(data, ['gradeList', 'grades', 'list', 'items'])
-  const rows = groups.flatMap((group) => {
-    const groupRecord = asRecord(group)
-    const items = collectList(group, ['equityList', 'rights', 'items', 'couponList'])
-
-    return (items.length > 0 ? items : [group]).map((item) => normalizeEquity(item, groupRecord))
-  })
-
-  return rows.filter((item) => item.name || item.gradeName)
+  const groups = collectList(data, ['gradeEquityList', 'gradeList', 'grades', 'list', 'items'])
+  
+  return groups.map(normalizeGradeGroup).filter((group) => group.gradeName)
 }
 
 export async function fetchMemberSignInCalendar(ck: string, userIdentifier: string): Promise<MemberSignInCalendar> {

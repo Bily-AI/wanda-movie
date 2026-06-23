@@ -97,7 +97,7 @@ watch(
 )
 
 function isActive(path: string) {
-  return route.path === path
+  return route.path === path || route.path.startsWith(path + '/')
 }
 
 function navigate(path: string) {
@@ -401,14 +401,15 @@ function registerAutoOrderListener(): void {
 }
 
 .nav-button:hover {
-  background: var(--app-hover);
-  color: var(--app-accent);
+  background-color: var(--app-hover) !important;
+  color: var(--app-accent) !important;
 }
 
 .nav-button--active,
+.nav-button--active:focus,
 .nav-button--active:hover {
-  background: var(--app-accent-soft);
-  color: var(--app-accent);
+  background-color: var(--app-accent-soft) !important;
+  color: var(--app-accent) !important;
 }
 
 .account-strip {

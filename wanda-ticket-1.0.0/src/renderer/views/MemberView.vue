@@ -8,6 +8,7 @@ import {
   fetchMemberSignInCalendar,
   fetchWPlusDetail,
   gainMemberEquity,
+  type MemberGradeGroup,
   type MemberEquityRow,
   type MemberSignInCalendar
 } from '@renderer/services/featureApi'
@@ -19,7 +20,7 @@ const DEFAULT_WANDA_USER_IDENTIFIER = 'YYDDJDKYHA'
 const accountsStore = useAccountsStore()
 const logsStore = useLogsStore()
 const activeTab = ref('rtime')
-const gradeRows = ref<MemberEquityRow[]>([])
+const gradeGroups = ref<MemberGradeGroup[]>([])
 const wplusRows = ref<MemberEquityRow[]>([])
 const signInCalendar = ref<MemberSignInCalendar | null>(null)
 const loading = ref(false)
@@ -27,7 +28,31 @@ const memberMessage = ref('')
 const signInMessage = ref('')
 
 const currentAccountText = computed(() => accountsStore.currentAccount?.phone || '未选择账号')
-const currentGrade = computed(() => gradeRows.value[0]?.gradeName || '-')
+
+const currentGradeRecord = computed(() => {
+  return gradeGroups.value.find((g) => g.isCurrent) || gradeGroups.value[0] || null
+})
+
+const currentGrade = computed(() => currentGradeRecord.value?.gradeName || '-')
+const currentGrowthValue = computed(() => currentGradeRecord.value?.growthValue || 0)
+
+const nextGradeRecord = computed(() => {
+  const index = gradeGroups.value.findIndex((g) => g.isCurrent)
+  if (index >= 0 && index < gradeGroups.value.length - 1) {
+    return gradeGroups.value[index + 1]
+  }
+  return null
+})
+
+const progressPercentage = computed(() => {
+  if (!nextGradeRecord.value) return 100
+  const need = currentGradeRecord.value?.needGrowthValue || 0
+  if (need === 0) return 100
+  const current = currentGrowthValue.value
+  const total = current + need
+  return Math.min(100, (current / total) * 100)
+})
+
 const signInDays = computed(() => signInCalendar.value?.dataList ?? [])
 const signInTitle = computed(() => {
   if (!signInCalendar.value) {
@@ -44,7 +69,7 @@ function getCurrentAccount() {
   const account = accountsStore.currentAccount
 
   if (!account?.ck) {
-    gradeRows.value = []
+    gradeGroups.value = []
     wplusRows.value = []
     signInCalendar.value = null
     signInMessage.value = ''
@@ -76,9 +101,10 @@ async function loadMemberData() {
     ])
 
     if (gradeResult.status === 'fulfilled') {
-      gradeRows.value = gradeResult.value
+      gradeGroups.value = gradeResult.value
     } else {
-      gradeRows.value = []
+      gradeGroups.value = []
+      memberMessage.value = String(gradeResult.reason)
       logsStore.addLog('会员', account.phone, `Rtime会员加载失败：${gradeResult.reason}`)
     }
 
@@ -98,14 +124,16 @@ async function loadMemberData() {
       logsStore.addLog('会员', account.phone, `会员签到加载失败：${signInMessage.value}`)
     }
 
-    memberMessage.value =
-      gradeRows.value.length || wplusRows.value.length
-        ? ''
-        : '暂无会员权益数据'
-    logsStore.addLog('会员', account.phone, `会员数据加载完成：Rtime ${gradeRows.value.length} 条，W+ ${wplusRows.value.length} 条`)
+    if (!memberMessage.value) {
+      memberMessage.value =
+        gradeGroups.value.length || wplusRows.value.length
+          ? ''
+          : '暂无会员权益数据'
+    }
+    logsStore.addLog('会员', account.phone, `会员数据加载完成：Rtime ${gradeGroups.value.length} 个等级，W+ ${wplusRows.value.length} 条权益`)
   } catch (error) {
     const message = error instanceof Error && error.message ? error.message : '会员数据加载失败'
-    gradeRows.value = []
+    gradeGroups.value = []
     wplusRows.value = []
     memberMessage.value = message
     logsStore.addLog('会员', account.phone, `会员数据加载失败：${message}`)
@@ -177,7 +205,7 @@ async function handleGainEquity(row: MemberEquityRow) {
 }
 
 function handleGainFirstEquity() {
-  const row = gradeRows.value.find((item) => item.gradeId && item.equityId)
+  const row = gradeGroups.value.flatMap((g) => g.equities).find((item) => item.gradeId && item.equityId)
 
   if (!row) {
     ElMessage.warning('暂无可领取的 Rtime 权益')
@@ -251,34 +279,50 @@ watch(
         <el-empty v-else description="暂无签到数据" :image-size="72" />
       </section>
 
+      <section v-if="activeTab === 'rtime' && gradeGroups.length" class="progress-panel">
+        <div class="progress-info">
+          <span>当前成长值：<strong>{{ currentGrowthValue }}</strong></span>
+          <span v-if="nextGradeRecord">还差 <strong>{{ currentGradeRecord?.needGrowthValue || 0 }}</strong> 成长值升级到 {{ nextGradeRecord.gradeName }}</span>
+          <span v-else>已达到最高等级</span>
+        </div>
+        <el-progress :percentage="progressPercentage" :show-text="false" status="warning" :stroke-width="10" />
+        <div class="progress-marks">
+          <span v-for="grade in gradeGroups" :key="grade.gradeId" :class="{ 'mark-active': grade.isCurrent }">{{ grade.gradeName }}</span>
+        </div>
+      </section>
+
       <section class="level-panel">
         <header>
           <span>
             <el-icon><Trophy /></el-icon>
-            {{ activeTab === 'rtime' ? `全部等级 (${gradeRows.length})` : `W+权益 (${wplusRows.length})` }}
+            {{ activeTab === 'rtime' ? `全部等级 (${gradeGroups.length})` : `W+权益 (${wplusRows.length})` }}
           </span>
           <el-button size="small" :icon="Refresh" :loading="loading" @click="loadMemberData">刷新等级权益</el-button>
         </header>
 
-        <el-table
-          v-if="activeTab === 'rtime'"
-          v-loading="loading"
-          :data="gradeRows"
-          height="100%"
-          :empty-text="memberMessage || '暂无会员权益数据'"
-        >
-          <el-table-column prop="gradeName" label="等级" min-width="120" />
-          <el-table-column prop="name" label="权益名称" min-width="220" />
-          <el-table-column prop="amount" label="面额" width="100" />
-          <el-table-column prop="count" label="数量" width="100" />
-          <el-table-column prop="category" label="分类" width="120" />
-          <el-table-column prop="status" label="状态" width="120" />
-          <el-table-column label="操作" width="120">
-            <template #default="{ row }">
-              <el-button link type="primary" @click="handleGainEquity(row)">去使用</el-button>
+        <div v-if="activeTab === 'rtime'" v-loading="loading" class="grade-cards">
+          <el-empty v-if="!gradeGroups.length" :description="memberMessage || '暂无会员权益数据'" />
+          <el-card v-for="grade in gradeGroups" :key="grade.gradeId" class="grade-card" shadow="never">
+            <template #header>
+              <div class="grade-header">
+                <span class="grade-name">{{ grade.gradeName }} <el-tag v-if="grade.isCurrent" size="small" type="danger" effect="dark">当前等级</el-tag></span>
+                <span class="grade-desc">{{ grade.gradeDesc }}</span>
+              </div>
             </template>
-          </el-table-column>
-        </el-table>
+            <el-table :data="grade.equities" :show-header="true">
+              <el-table-column prop="name" label="权益名称" min-width="180" />
+              <el-table-column prop="amount" label="面额" width="90" />
+              <el-table-column prop="count" label="数量" width="90" />
+              <el-table-column prop="category" label="分类" width="100" />
+              <el-table-column prop="status" label="状态" width="100" />
+              <el-table-column label="操作" width="90">
+                <template #default="{ row }">
+                  <el-button link type="primary" @click="handleGainEquity(row)">去使用</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-card>
+        </div>
 
         <el-table
           v-else
@@ -410,8 +454,71 @@ watch(
 .level-panel {
   flex: 1;
   min-height: 260px;
-  display: grid;
-  grid-template-rows: 40px minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 16px;
+  overflow: hidden;
+}
+
+.progress-panel {
+  padding: 16px 20px;
+  border-radius: 8px;
+  background: var(--app-bg);
+  border: 1px solid var(--app-border);
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.progress-info strong {
+  color: #e6a23c;
+}
+
+.progress-marks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--app-muted);
+}
+
+.mark-active {
+  color: #e6a23c;
+  font-weight: 600;
+}
+
+.grade-cards {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-right: 6px;
+}
+
+.grade-card {
+  border-radius: 8px;
+}
+
+.grade-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.grade-name {
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.grade-desc {
+  font-size: 13px;
+  color: var(--app-muted);
 }
 </style>
