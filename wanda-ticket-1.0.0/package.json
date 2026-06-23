@@ -9,6 +9,8 @@
     "build": "npm run typecheck && electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "vue-tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json",
+    "check:all": "node tools/check-all-contracts.mjs",
+    "check:all-contracts": "node tools/check-all-contracts-contract.mjs",
     "check:renderer": "node tools/check-renderer-contract.mjs",
     "check:phase2": "node tools/check-phase2-contract.mjs",
     "check:phase3": "node tools/check-phase3-contract.mjs",
