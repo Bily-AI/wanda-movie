@@ -193,7 +193,7 @@ async function convertAlipayToH5(appPayParam: string): Promise<string> {
   const responseData = response.data?.params?.res_data
 
   if (!responseData) {
-    throw new Error('支付宝转换响应缺少 res_data')
+    throw new Error(`支付宝转换响应缺少 res_data: ${responseText}`)
   }
 
   const decodedText = decrypt3DES(Buffer.from(responseData, 'hex'))
