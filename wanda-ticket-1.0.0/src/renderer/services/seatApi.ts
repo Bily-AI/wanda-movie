@@ -317,11 +317,12 @@ function normalizeCoupon(item: unknown): CouponItem {
 function normalizeOrderStatus(value: unknown): OrderStatusResult {
   const record = asRecord(value)
   const data = asRecord(record.data)
-  const orderInf = asRecord(data.orderInf)
-  const rawStatus = Object.keys(orderInf).length > 0 ? orderInf : data
+  const res = asRecord(data.res)
+  const orderInf = firstListRecord(data.orderInf ?? res.orderInf)
+  const rawStatus = Object.keys(orderInf).length > 0 ? orderInf : Object.keys(res).length > 0 ? res : data
   const result: OrderStatusResult = { raw: value }
-  const bizCode = maybeNumber(data.bizCode ?? record.code)
-  const bizMsg = firstText(data.bizMsg, record.msg)
+  const bizCode = maybeNumber(data.bizCode ?? res.bizCode ?? record.code)
+  const bizMsg = firstText(data.bizMsg, res.bizMsg, res.msg, record.msg)
 
   if (bizCode !== undefined) {
     result.bizCode = bizCode

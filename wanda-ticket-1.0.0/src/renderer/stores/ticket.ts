@@ -633,16 +633,21 @@ export const useTicketStore = defineStore('ticket', {
           return
         }
 
-        if (statusResult.status === 'rejected') {
-          throw statusResult.reason
-        }
-
         const activityData =
           activityResult.status === 'fulfilled'
             ? activityResult.value
             : { availableActivities: [], unavailableActivities: [] }
         const cards = cardsResult.status === 'fulfilled' ? cardsResult.value : []
         const coupons = couponsResult.status === 'fulfilled' ? couponsResult.value : []
+        const orderStatus = statusResult.status === 'fulfilled' ? statusResult.value : null
+
+        if (statusResult.status === 'rejected') {
+          const message =
+            statusResult.reason instanceof Error && statusResult.reason.message
+              ? statusResult.reason.message
+              : '查询订单状态失败'
+          useLogsStore().addLog('支付前置', account.phone, `订单状态查询失败：${message}`)
+        }
 
         if (activityResult.status === 'rejected') {
           const message =
@@ -675,7 +680,7 @@ export const useTicketStore = defineStore('ticket', {
         this.unavailablePaymentActivities = activityData.unavailableActivities
         this.paymentCards = cards
         this.coupons = coupons
-        this.orderStatus = statusResult.value
+        this.orderStatus = orderStatus
         this.paymentDataMessage = `支付前置数据已刷新：可用活动 ${this.paymentActivities.length} 个，可用卡 ${this.paymentCards.length} 张，可用券 ${this.coupons.length} 张`
         useLogsStore().addLog('支付前置', account.phone, `支付前置数据刷新成功：${orderId}`)
       } catch (error) {

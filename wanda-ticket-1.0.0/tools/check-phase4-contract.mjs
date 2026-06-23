@@ -184,6 +184,18 @@ assertMatches(
   /fetchPayCards[\s\S]*?collectList\(response\.data, \['cards', 'cardList', 'itemList', 'items', 'list', 'commendcards'\]\)[\s\S]*?filter\(\(card\) => \(card\.cardNo \|\| card\.cardName\) && card\.available\)/,
   '支付卡列表必须兼容旧接口常见列表字段'
 )
+assertMatches(
+  'src/renderer/services/seatApi.ts',
+  seatApi,
+  /normalizeOrderStatus[\s\S]*?const res = asRecord\(data\.res\)[\s\S]*?firstListRecord\(data\.orderInf \?\? res\.orderInf\)[\s\S]*?const rawStatus = Object\.keys\(orderInf\)\.length > 0 \? orderInf : Object\.keys\(res\)\.length > 0 \? res : data/,
+  '订单状态必须兼容 data.res/orderInf 返回层级'
+)
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /refreshPaymentPrerequisites\(\)[\s\S]*?const orderStatus = statusResult\.status === 'fulfilled' \? statusResult\.value : null[\s\S]*?if \(statusResult\.status === 'rejected'\)[\s\S]*?useLogsStore\(\)\.addLog[\s\S]*?this\.orderStatus = orderStatus/,
+  '订单状态失败不能阻断支付活动、支付卡和兑换券前置数据'
+)
 
 assertMatches(
   'src/renderer/services/seatApi.ts',
