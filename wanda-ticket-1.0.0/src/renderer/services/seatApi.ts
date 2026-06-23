@@ -594,7 +594,37 @@ function normalizeTicketOrderResult(response: unknown): TicketOrderResult {
 }
 
 function escapeRequestInfoForSignature(requestInfoJson: string): string {
-  return escape(requestInfoJson.replaceAll('\\\\u003d', '\\u003d'))
+  const allowed = new Set<number>()
+
+  for (let i = 0; i < 26; i++) {
+    allowed.add(0x41 + i)
+    allowed.add(0x61 + i)
+  }
+
+  for (let i = 0; i < 10; i++) {
+    allowed.add(0x30 + i)
+  }
+
+  const specialChars = ' ()-@*.=&'
+  for (let i = 0; i < specialChars.length; i++) {
+    allowed.add(specialChars.charCodeAt(i))
+  }
+
+  const text = requestInfoJson.replaceAll('\\\\u003d', '\\u003d')
+  let result = ''
+
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i)
+    if (allowed.has(code)) {
+      result += text[i]
+    } else if (code < 0x100) {
+      result += '%' + code.toString(16)
+    } else {
+      result += '%u' + code.toString(16).padStart(4, '0')
+    }
+  }
+
+  return result
 }
 
 function normalizePaymentSubmitResult(

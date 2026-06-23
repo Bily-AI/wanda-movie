@@ -92,7 +92,7 @@ interface BuiltTicketPaymentRequestInfo {
   }
   goodInfo: string
   orderId: string
-  verifyCode: string
+  verifyCode?: string
   activity?: unknown
   cardPayment?: TicketStoredCardPayment
   storedCardPayments?: TicketStoredCardPayment[]
@@ -954,8 +954,7 @@ export const useTicketStore = defineStore('ticket', {
           returnUrl: 'wandafilm/pay/finished'
         },
         goodInfo: '',
-        orderId: String(currentOrder.orderId),
-        verifyCode: ''
+        orderId: String(currentOrder.orderId)
       }
 
       if (couponPaymentInfo) {
