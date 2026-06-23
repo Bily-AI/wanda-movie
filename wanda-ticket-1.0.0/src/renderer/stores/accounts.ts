@@ -176,6 +176,44 @@ export const useAccountsStore = defineStore('accounts', {
         throw new Error(result.error || '账号保存失败')
       }
     },
+    setCurrentAccount(id: string) {
+      this.currentAccountId = id
+    },
+    async updateAccountRemark(id: string, remark: string) {
+      const index = this.accounts.findIndex((acc) => acc.id === id)
+      if (index !== -1) {
+        this.accounts[index] = { ...this.accounts[index], remark }
+        await this.saveAccounts()
+        this.loginForm.message = '备注已更新'
+      }
+    },
+    async deleteAccount(id: string) {
+      const index = this.accounts.findIndex((acc) => acc.id === id)
+      if (index !== -1) {
+        this.accounts.splice(index, 1)
+        if (this.currentAccountId === id) {
+          this.currentAccountId = ''
+        }
+        this.selectedAccountIds = this.selectedAccountIds.filter(selId => selId !== id)
+        await this.saveAccounts()
+        this.loginForm.message = '账号已删除'
+      }
+    },
+    async createGroup(name: string) {
+      const id = 'group_' + Date.now()
+      this.groups.push({ id, name })
+      await this.saveAccounts()
+      this.loginForm.message = '分组创建成功'
+      return id
+    },
+    async moveAccountToGroup(accountId: string, groupId: string) {
+      const index = this.accounts.findIndex((acc) => acc.id === accountId)
+      if (index !== -1) {
+        this.accounts[index] = { ...this.accounts[index], groupId }
+        await this.saveAccounts()
+        this.loginForm.message = '账号分组已更新'
+      }
+    },
     setSelectedAccountIds(ids: string[]) {
       this.selectedAccountIds = ids
 
