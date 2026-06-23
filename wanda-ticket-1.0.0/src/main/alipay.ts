@@ -127,7 +127,10 @@ function httpPostRaw(url: string, headers: Record<string, string>, body: string)
         port: parsedUrl.port || (isHttps ? 443 : 80),
         path: parsedUrl.pathname + parsedUrl.search,
         method: 'POST',
-        headers,
+        headers: {
+          ...headers,
+          'Content-Length': Buffer.byteLength(body, 'utf-8').toString()
+        },
         rejectUnauthorized: false
       },
       (response) => {
