@@ -359,10 +359,24 @@ for (const label of [
   'showtimeId',
   'realtime',
   'filmList',
-  'versionLanguage'
+  'versionLanguage',
+  'formatShowtimeTime'
 ]) {
   assertIncludes('src/renderer/stores/ticket.ts', ticketStore, label)
 }
+
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /function formatShowtimeTime\(value: unknown\)[\s\S]*?zh-CN[\s\S]*?hour: '2-digit'[\s\S]*?minute: '2-digit'/,
+  '旧接口 realtime 毫秒时间戳必须格式化为 HH:mm'
+)
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /const startTime = formatShowtimeTime\(firstText\(record\.realtime[\s\S]*?record\.beginTime\)\)/,
+  '场次标签必须使用格式化后的开始时间'
+)
 
 for (const label of ['CityID', 'CityName', 'CmList', 'CmID', 'CmName', 'MyCmName', 'CmAdd']) {
   assertIncludes('src/main/localData.ts', mainLocalData, label)

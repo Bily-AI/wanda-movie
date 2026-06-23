@@ -128,6 +128,27 @@ function firstText(...values: unknown[]): string {
   return ''
 }
 
+function formatShowtimeTime(value: unknown): string {
+  const text = toText(value).trim()
+
+  if (!/^\d{10,13}$/.test(text)) {
+    return text
+  }
+
+  const timestamp = Number(text.length === 10 ? `${text}000` : text)
+  const date = new Date(timestamp)
+
+  if (!Number.isFinite(date.getTime())) {
+    return text
+  }
+
+  return new Intl.DateTimeFormat('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(date)
+}
+
 function asList(value: unknown): unknown[] {
   return Array.isArray(value) ? value : []
 }
@@ -1270,7 +1291,7 @@ export const useTicketStore = defineStore('ticket', {
           const record = asRecord(item)
           const filmInfo = firstShowtimeFilm(record)
           const dId = firstText(record.showtimeId, record.dId, record.did, record.id)
-          const startTime = firstText(record.realtime, record.showTime, record.showTimeStr, record.startTime, record.beginTime)
+          const startTime = formatShowtimeTime(firstText(record.realtime, record.showTime, record.showTimeStr, record.startTime, record.beginTime))
           const endTime = firstText(record.showEndTime, record.showEndTimeStr, record.endTime)
           const hallName = firstText(record.hallName, record.hall, record.cinemaHallName)
           const version = firstText(
