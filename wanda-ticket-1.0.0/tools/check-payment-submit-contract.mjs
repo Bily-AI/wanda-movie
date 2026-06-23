@@ -113,6 +113,19 @@ for (const label of ['ORDER_MERGE_PAYMENT', '/order/merge_payment.api']) {
   assertIncludes('src/shared/wandaCore.ts', core, label)
 }
 
+assertMatches(
+  'src/renderer/services/seatApi.ts',
+  seatApi,
+  /normalizeCouponUseResult[\s\S]*?const itemList = asList\(res\.itemList\)[\s\S]*?if \(itemList\.length === 0\)[\s\S]*?throw new Error/,
+  '兑换券支付分摊明细为空时必须明确失败'
+)
+assertMatches(
+  'src/renderer/services/seatApi.ts',
+  seatApi,
+  /actuallyPaidAmount: toNumber\(record\.actuallyPaidAmount \?\? record\.actualPaidAmount \?\? record\.payPrice\)[\s\S]*?rightsCode: firstText\(record\.rightsCode[\s\S]*?ticketCode: firstText\(record\.ticketCode[\s\S]*?ticketType: toNumber\(record\.ticketType[\s\S]*?usedCoupon: toNumber\(record\.usedCoupon/,
+  '兑换券支付分摊明细必须优先保留接口原字段'
+)
+
 for (const label of [
   'blockedWandaPaymentPathValues',
   'isBlockedWandaPaymentUrl(parsedUrl)',

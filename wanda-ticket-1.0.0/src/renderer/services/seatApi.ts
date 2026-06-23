@@ -470,19 +470,24 @@ function normalizeCouponSelectionResult(payload: Record<string, unknown>): Coupo
 
 function normalizeCouponUseResult(payload: Record<string, unknown>): CouponUseResult {
   const res = asRecord(payload.res)
+  const itemList = asList(res.itemList)
+
+  if (itemList.length === 0) {
+    throw new Error(firstText(res.bizMsg, res.msg, payload.bizMsg, payload.msg, '兑换券支付分摊明细为空'))
+  }
 
   return {
     price: toNumber(res.price),
-    itemList: asList(res.itemList).map((item) => {
+    itemList: itemList.map((item) => {
       const record = asRecord(item)
 
       return {
-        actuallyPaidAmount: toNumber(record.payPrice),
-        rightsCode: '',
-        seatId: toNumber(record.seat),
-        ticketCode: '',
-        ticketType: 0,
-        usedCoupon: 1
+        actuallyPaidAmount: toNumber(record.actuallyPaidAmount ?? record.actualPaidAmount ?? record.payPrice),
+        rightsCode: firstText(record.rightsCode, record.rightsNo, record.rightCode, record.couponCode),
+        seatId: toNumber(record.seatId ?? record.seat),
+        ticketCode: firstText(record.ticketCode, record.ticketNo, record.code),
+        ticketType: toNumber(record.ticketType),
+        usedCoupon: toNumber(record.usedCoupon, 1)
       }
     }),
     raw: payload
