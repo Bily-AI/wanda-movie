@@ -21,6 +21,7 @@ import { useAppStore } from './stores/app'
 import { useAccountsStore } from './stores/accounts'
 import { useSettingsStore } from './stores/settings'
 import { useTicketStore } from './stores/ticket'
+import AccountSidebar from './components/AccountSidebar.vue'
 import { extractAppPayParam, openAlipayPayment } from './services/alipayBridge'
 import type { AutoOrderTicketRequest, AutoOrderTicketResult } from '@shared/ipc'
 
@@ -262,7 +263,12 @@ function registerAutoOrderListener(): void {
     </header>
 
     <main class="app-main">
-      <router-view />
+      <div class="workspace-layout">
+        <AccountSidebar />
+        <section class="workspace-content">
+          <router-view />
+        </section>
+      </div>
     </main>
   </div>
 </template>
@@ -440,12 +446,25 @@ function registerAutoOrderListener(): void {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
   padding: 16px;
   overflow: auto;
   background:
     linear-gradient(180deg, var(--app-bg) 0%, var(--app-bg-soft) 100%);
+}
+
+.workspace-layout {
+  min-width: 1180px;
+  min-height: 100%;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.workspace-content {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .nav-button + .nav-button {
