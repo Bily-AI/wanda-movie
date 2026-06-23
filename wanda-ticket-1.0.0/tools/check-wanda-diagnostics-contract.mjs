@@ -37,6 +37,7 @@ function sliceRequired(file, content, startLabel, endLabel, label) {
 
 const packageJson = JSON.parse(read('package.json'))
 const wandaRequest = read('src/renderer/services/wandaRequest.ts')
+const wandaHttp = read('src/main/wandaHttp.ts')
 
 if (packageJson.scripts?.['check:wanda-diagnostics'] !== 'node tools/check-wanda-diagnostics-contract.mjs') {
   throw new Error('package.json 缺少正确的 check:wanda-diagnostics 脚本')
@@ -52,6 +53,10 @@ for (const label of [
   '万达影院 GET 请求失败'
 ]) {
   assertIncludes('src/renderer/services/wandaRequest.ts', wandaRequest, label)
+}
+
+for (const label of ['toCloneableWandaData', 'toCloneableWandaData(response.data)']) {
+  assertIncludes('src/main/wandaHttp.ts', wandaHttp, label)
 }
 
 const formatterBlock = sliceRequired(

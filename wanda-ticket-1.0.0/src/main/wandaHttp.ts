@@ -58,6 +58,18 @@ function formatHttpError(status: number, data: unknown): string {
   return `万达请求失败，HTTP 状态码 ${status}`
 }
 
+function toCloneableWandaData(data: unknown): unknown {
+  if (data === undefined) {
+    return null
+  }
+
+  try {
+    return JSON.parse(JSON.stringify(data))
+  } catch {
+    return String(data)
+  }
+}
+
 export async function sendWandaRequest(
   method: 'GET' | 'POST',
   request: WandaHttpRequest
@@ -78,7 +90,7 @@ export async function sendWandaRequest(
     if (response.status >= 200 && response.status < 300) {
       return {
         ok: true,
-        data: response.data
+        data: toCloneableWandaData(response.data)
       }
     }
 
