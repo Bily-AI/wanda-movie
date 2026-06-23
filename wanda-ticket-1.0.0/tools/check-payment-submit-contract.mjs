@@ -306,8 +306,8 @@ assertNotIncludes('src/renderer/views/TicketView.vue', ticketView, '@click="tick
 assertIncludes(
   'src/renderer/services/wandaRequest.ts',
   wandaRequest,
-  "const ryUser = getDefaultWandaUserId() || userIdentifier.trim()",
-  'X-RY-USER 必须优先使用设备 userId'
+  "const ryUser = userIdentifier.trim() || getDefaultWandaUserId()",
+  'X-RY-USER 必须优先使用当前账号 userIdentifier'
 )
 
 for (const [file, content] of [

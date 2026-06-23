@@ -153,7 +153,7 @@ assertIncludes('src/renderer/services/wandaAuthApi.ts', authApi, "cinemaId: '711
 assertIncludes('src/renderer/services/wandaAuthApi.ts', authApi, "userPlat: 'oppo'")
 assertIncludes('src/renderer/services/wandaRequest.ts', requestService, "DEFAULT_WANDA_MODEL = 'M2102J2SC'")
 assertIncludes('src/renderer/services/wandaRequest.ts', requestService, "DEFAULT_WANDA_USER_IDENTIFIER = 'YYDDJDKYHA'")
-assertIncludes('src/renderer/services/wandaRequest.ts', requestService, 'getDefaultWandaUserId() || userIdentifier.trim()')
+assertIncludes('src/renderer/services/wandaRequest.ts', requestService, 'userIdentifier.trim() || getDefaultWandaUserId()')
 assertIncludes('src/renderer/services/wandaRequest.ts', requestService, "getRuntimeParam('model')")
 assertIncludes('src/renderer/services/wandaRequest.ts', requestService, "getRuntimeParam('userId')")
 assertIncludes('src/renderer/services/wandaRequest.ts', requestService, "getRuntimeParam('shumeiBoxId')")
@@ -200,6 +200,18 @@ assertIncludes('src/renderer/services/wandaRequest.ts', seatHeaderBlock, 'X-RY-S
 assertIncludes('src/renderer/services/wandaRequest.ts', seatHeaderBlock, 'X-RY-USER')
 assertIncludes('src/renderer/services/wandaRequest.ts', seatHeaderBlock, 'Host: host')
 assertNotIncludes('src/renderer/services/wandaRequest.ts', seatHeaderBlock, 'MX-CID')
+assertMatches(
+  'src/renderer/services/wandaRequest.ts',
+  requestService,
+  /export function buildWandaHeaders[\s\S]*?const ryUser = userIdentifier\.trim\(\) \|\| getDefaultWandaUserId\(\)/,
+  '普通万达请求头必须优先使用当前账号 userIdentifier'
+)
+assertMatches(
+  'src/renderer/services/wandaRequest.ts',
+  requestService,
+  /export function buildSeatHeaders[\s\S]*?const ryUser = userIdentifier\.trim\(\) \|\| getDefaultWandaUserId\(\)/,
+  '座位/支付请求头必须优先使用当前账号 userIdentifier'
+)
 
 assertIncludes('src/renderer/stores/accounts.ts', accountsStore, "DEFAULT_WANDA_USER_IDENTIFIER")
 assertIncludes('src/renderer/stores/accounts.ts', accountsStore, 'result.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER')

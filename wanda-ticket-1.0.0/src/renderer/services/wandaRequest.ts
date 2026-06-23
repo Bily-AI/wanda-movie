@@ -165,7 +165,7 @@ export function buildWandaHeaders(
 ): Record<string, string> {
   const timestamp = String(Date.now())
   const { signSalt, model, shumeiBoxId, mxCid } = getWandaRuntimeConfig()
-  const ryUser = getDefaultWandaUserId() || userIdentifier.trim()
+  const ryUser = userIdentifier.trim() || getDefaultWandaUserId()
   const width = getRuntimeNumberParam('width', 1080)
   const height = getRuntimeNumberParam('height', 2206)
   const check = CryptoJS.MD5(`${signSalt}${timestamp}${path}${body}`).toString()
@@ -322,7 +322,7 @@ export function buildSeatHeaders(
 ): Record<string, string> {
   const timestamp = String(Date.now())
   const { signSalt, model, shumeiBoxId } = getWandaRuntimeConfig()
-  const ryUser = getDefaultWandaUserId() || userIdentifier.trim()
+  const ryUser = userIdentifier.trim() || getDefaultWandaUserId()
   const width = getRuntimeNumberParam('width', 1080)
   const height = getRuntimeNumberParam('height', 2206)
   const check = CryptoJS.MD5(`${signSalt}${timestamp}${path}`).toString()
