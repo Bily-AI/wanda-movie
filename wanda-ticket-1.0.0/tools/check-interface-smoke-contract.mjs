@@ -33,11 +33,23 @@ if (!existsSync(smokePath)) {
     'buildSeatHeaders',
     'READONLY_SMOKE_PATHS',
     'DANGEROUS_SMOKE_PATHS',
+    'PAYMENT_DIAGNOSTIC_PATHS',
     'assertReadonlySmokePath',
+    'assertPaymentDiagnosticPath',
     'assertReadonlySmokeSuite',
     'readCliOption',
     '--city=',
     '--cinema=',
+    '--payment-order=',
+    '--payment-cinema=',
+    '--payment-did=',
+    '--payment-seats=',
+    'hasPaymentDiagnosticArgs',
+    'testPaymentPrerequisites',
+    '/order/order_status.api',
+    '/card/pay/list.api',
+    '/mkt/activity/secret/list.api',
+    '/mkt/activity/secret/ncoupons.api',
     'cityKeyword',
     'cinemaMatchesCity',
     '/user/islogin.api',
@@ -111,8 +123,9 @@ if (!existsSync(smokePath)) {
 
   const axiosCallCount = (smoke.match(/await axios\./g) || []).length
   const readonlyGuardCount = (smoke.match(/\n\s*assertReadonlySmokePath\(pathname\)/g) || []).length
+  const paymentGuardCount = (smoke.match(/\n\s*assertPaymentDiagnosticPath\(pathname\)/g) || []).length
 
-  if (readonlyGuardCount < axiosCallCount) {
+  if (readonlyGuardCount + paymentGuardCount < axiosCallCount) {
     failures.push(`tools/smoke-wanda-api.mjs 姣忎釜鐪熷疄璇锋眰閮藉繀椤堕€氳繃鍙鐧藉悕鍗曟牎楠岋細${readonlyGuardCount}/${axiosCallCount}`)
   }
 

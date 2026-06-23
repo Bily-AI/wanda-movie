@@ -1,4 +1,5 @@
 import axios from 'axios'
+import CryptoJS from 'crypto-js'
 import crypto from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import os from 'node:os'
@@ -15,6 +16,10 @@ const defaultCinemaKeyword = '巴中'
 const cityKeyword = readCliOption('--city=')
 const cinemaKeyword =
   readCliOption('--cinema=') || defaultCinemaKeyword
+const paymentOrderId = readCliOption('--payment-order=')
+const paymentCinemaId = readCliOption('--payment-cinema=')
+const paymentDId = readCliOption('--payment-did=')
+const paymentSeats = readCliOption('--payment-seats=')
 
 const WANDA_VERSION = '9.3.2'
 const WANDA_CHANNEL = '1_2'
@@ -23,6 +28,7 @@ const CINEMA_SYSTEM_VERSION = '10'
 const CINEMA_VERSION = '9.1.8'
 const WANDA_MODEL = 'M2102J2SC'
 const WANDA_USER_AGENT = 'okhttp/4.12.0'
+const ACTIVITY_AES_KEY = '6f34faeefba8fd39'
 const READONLY_SMOKE_PATHS = new Set([
   '/user/islogin.api',
   '/showtime/by_cinema.api',
@@ -36,6 +42,12 @@ const READONLY_SMOKE_PATHS = new Set([
   '/pack_activity/activity/list.api',
   '/pack_activity/activity/detail.api',
   '/giftshop/orders'
+])
+const PAYMENT_DIAGNOSTIC_PATHS = new Set([
+  '/order/order_status.api',
+  '/card/pay/list.api',
+  '/mkt/activity/secret/list.api',
+  '/mkt/activity/secret/ncoupons.api'
 ])
 const DANGEROUS_SMOKE_PATHS = [
   '/order/create_order.api',
@@ -136,6 +148,27 @@ function firstText(...values) {
   return ''
 }
 
+function collectList(value, keys) {
+  if (Array.isArray(value)) {
+    return value
+  }
+
+  const record = asRecord(value)
+  const result = []
+
+  for (const key of keys) {
+    result.push(...asList(record[key]))
+  }
+
+  for (const key of ['data', 'res', 'result']) {
+    if (record[key] !== value) {
+      result.push(...collectList(record[key], keys))
+    }
+  }
+
+  return result
+}
+
 function formatShowtimeTime(value) {
   const text = String(value || '').trim()
 
@@ -155,6 +188,82 @@ function formatShowtimeTime(value) {
     minute: '2-digit',
     hour12: false
   }).format(date)
+}
+
+function decryptActivityPayload(value) {
+  const text = firstText(value)
+
+  if (!text) {
+    return {}
+  }
+
+  try {
+    const key = CryptoJS.enc.Utf8.parse(ACTIVITY_AES_KEY)
+    const ciphertext = CryptoJS.enc.Base64.parse(text)
+    const params = CryptoJS.lib.CipherParams.create({ ciphertext })
+    const decrypted = CryptoJS.AES.decrypt(params, key, {
+      mode: CryptoJS.mode.ECB,
+      padding: CryptoJS.pad.Pkcs7
+    }).toString(CryptoJS.enc.Utf8)
+
+    return asRecord(JSON.parse(decrypted))
+  } catch {
+    return {}
+  }
+}
+
+function hasPaymentDiagnosticArgs() {
+  return Boolean(paymentOrderId || paymentCinemaId || paymentDId || paymentSeats)
+}
+
+function requirePaymentDiagnosticContext() {
+  if (!paymentOrderId || !paymentCinemaId || !paymentDId || !paymentSeats) {
+    throw new Error('支付前置诊断需要同时提供 --payment-order=订单号 --payment-cinema=影院ID --payment-did=场次ID --payment-seats=旧接口分区座位参数')
+  }
+
+  return {
+    orderId: paymentOrderId,
+    cinemaId: paymentCinemaId,
+    dId: paymentDId,
+    partition: paymentSeats
+  }
+}
+
+function collectPaymentGroups(payload) {
+  const record = asRecord(payload)
+  const res = asRecord(record.res)
+
+  return [
+    ...asList(record.res),
+    ...asList(record.groups),
+    ...asList(record.groupList),
+    ...asList(record.activityList),
+    ...asList(res.groups),
+    ...asList(res.groupList),
+    ...asList(res.activityList)
+  ]
+}
+
+function collectGroupItems(group) {
+  const record = asRecord(group)
+
+  return [...asList(record.groupItems), ...asList(record.items), ...asList(record.activityList)]
+}
+
+function collectCoupons(payload) {
+  const record = asRecord(payload)
+  const res = asRecord(record.res)
+
+  return [
+    ...asList(record.coupons),
+    ...asList(record.couponList),
+    ...asList(record.items),
+    ...asList(record.list),
+    ...asList(res.coupons),
+    ...asList(res.couponList),
+    ...asList(res.items),
+    ...asList(res.list)
+  ]
 }
 
 function cityMatchesKeyword(city, keyword) {
@@ -256,6 +365,12 @@ function assertReadonlySmokePath(pathname) {
 
   if (!READONLY_SMOKE_PATHS.has(pathname)) {
     throw new Error(`真实冒烟接口未加入只读白名单：${pathname}`)
+  }
+}
+
+function assertPaymentDiagnosticPath(pathname) {
+  if (!PAYMENT_DIAGNOSTIC_PATHS.has(pathname)) {
+    throw new Error(`支付诊断接口未加入显式白名单：${pathname}`)
   }
 }
 
@@ -882,6 +997,137 @@ async function testActivityGiftDetail(runtime, cinema, activity) {
   }
 }
 
+async function testPaymentOrderStatus(runtime, context) {
+  const host = 'front-gateway-c.wandafilm.com'
+  const pathname = '/order/order_status.api'
+  assertPaymentDiagnosticPath(pathname)
+  const body = formBody({ orderId: context.orderId })
+  const response = await axios.post(`https://${host}${pathname}`, body, {
+    headers: buildWandaHeaders(pathname, body, { ...runtime, host }),
+    timeout: 15000,
+    validateStatus: () => true
+  })
+  const data = asRecord(response.data?.data)
+  const res = asRecord(data.res)
+  const orderInf = asRecord(data.orderInf ?? res.orderInf)
+
+  return {
+    name: '支付订单状态诊断',
+    method: 'POST',
+    path: pathname,
+    orderId: context.orderId,
+    httpStatus: response.status,
+    code: response.data?.code,
+    success: response.data?.success === true || response.data?.code === 0,
+    message: hideSensitive(response.data?.msg || response.data?.message || data.bizMsg || res.bizMsg || ''),
+    payStatus: firstText(orderInf.payStatus, res.payStatus, data.payStatus),
+    showOrderStatus: firstText(orderInf.showOrderStatus, res.showOrderStatus, data.showOrderStatus),
+    showOrderStatusStr: firstText(orderInf.showOrderStatusStr, res.showOrderStatusStr, data.showOrderStatusStr)
+  }
+}
+
+async function testPaymentPayCards(runtime, context) {
+  const host = 'card-api-prd-mx.wandafilm.com'
+  const pathname = '/card/pay/list.api'
+  assertPaymentDiagnosticPath(pathname)
+  const query = queryString({ orderId: context.orderId })
+  const requestPath = `${pathname}?${query}`
+  const response = await axios.get(`https://${host}${requestPath}`, {
+    headers: buildWandaGetHeaders(requestPath, { ...runtime, host }),
+    timeout: 15000,
+    validateStatus: () => true
+  })
+  const data = asRecord(response.data?.data)
+  const cards = collectList(data, ['cards', 'cardList', 'itemList', 'items', 'list', 'commendcards'])
+
+  return {
+    name: '支付卡诊断',
+    method: 'GET',
+    path: pathname,
+    orderId: context.orderId,
+    httpStatus: response.status,
+    code: response.data?.code,
+    success: response.data?.success === true || response.data?.code === 0,
+    message: hideSensitive(response.data?.msg || response.data?.message || data.bizMsg || ''),
+    paymentCardCount: cards.length
+  }
+}
+
+async function testPaymentActivities(runtime, context) {
+  const host = 'mkt-activity-api-prd-mx.wandafilm.com'
+  const pathname = '/mkt/activity/secret/list.api'
+  assertPaymentDiagnosticPath(pathname)
+  const query = queryString({ partition: context.partition, orderId: context.orderId, did: context.dId })
+  const requestPath = `${pathname}?${query}`
+  const response = await axios.get(`https://${host}${requestPath}`, {
+    headers: buildWandaGetHeaders(requestPath, { ...runtime, host }),
+    timeout: 15000,
+    validateStatus: () => true
+  })
+  const decrypted = decryptActivityPayload(response.data?.data)
+  const groups = collectPaymentGroups(decrypted)
+  const activities = groups.flatMap((group) => collectGroupItems(group))
+
+  return {
+    name: '支付活动诊断',
+    method: 'GET',
+    path: pathname,
+    orderId: context.orderId,
+    httpStatus: response.status,
+    code: response.data?.code,
+    success: response.data?.success === true || response.data?.code === 0,
+    message: hideSensitive(response.data?.msg || response.data?.message || asRecord(decrypted).bizMsg || ''),
+    paymentActivityGroupCount: groups.length,
+    paymentActivityCount: activities.length
+  }
+}
+
+async function testPaymentCoupons(runtime, context) {
+  const host = 'mkt-activity-api-prd-mx.wandafilm.com'
+  const pathname = '/mkt/activity/secret/ncoupons.api'
+  assertPaymentDiagnosticPath(pathname)
+  const query = queryString({
+    partition: context.partition,
+    cinemaId: context.cinemaId,
+    latitude: '',
+    did: context.dId,
+    able: true,
+    longitude: '',
+    coordinateType: 2
+  })
+  const requestPath = `${pathname}?${query}`
+  const response = await axios.get(`https://${host}${requestPath}`, {
+    headers: buildWandaGetHeaders(requestPath, { ...runtime, host }),
+    timeout: 15000,
+    validateStatus: () => true
+  })
+  const decrypted = decryptActivityPayload(response.data?.data)
+  const coupons = collectCoupons(decrypted)
+
+  return {
+    name: '支付兑换券诊断',
+    method: 'GET',
+    path: pathname,
+    orderId: context.orderId,
+    httpStatus: response.status,
+    code: response.data?.code,
+    success: response.data?.success === true || response.data?.code === 0,
+    message: hideSensitive(response.data?.msg || response.data?.message || asRecord(decrypted).bizMsg || ''),
+    paymentCouponCount: coupons.length
+  }
+}
+
+async function testPaymentPrerequisites(runtime) {
+  const context = requirePaymentDiagnosticContext()
+
+  return [
+    await testPaymentOrderStatus(runtime, context),
+    await testPaymentPayCards(runtime, context),
+    await testPaymentActivities(runtime, context),
+    await testPaymentCoupons(runtime, context)
+  ]
+}
+
 async function testGiftOrders(runtime) {
   const host = 'front-gateway-c.wandafilm.com'
   const pathname = '/giftshop/orders'
@@ -949,6 +1195,10 @@ async function main() {
   tests.push(activityResult.test)
   tests.push(await testActivityGiftDetail(runtime, cinema, activityResult.firstActivity))
   tests.push(await testGiftOrders(runtime))
+
+  if (hasPaymentDiagnosticArgs()) {
+    tests.push(...(await testPaymentPrerequisites(runtime)))
+  }
 
   const summary = {
     userDataDir,
