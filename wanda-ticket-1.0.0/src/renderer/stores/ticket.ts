@@ -915,7 +915,7 @@ export const useTicketStore = defineStore('ticket', {
       const primaryCard = selectedCards[0]
       const seatTotalPrice = Math.max(0, currentOrder.amountCent)
       const payablePrice = couponPaymentInfo
-        ? Math.max(0, couponPaymentInfo.useResult.price)
+        ? couponPaymentInfo.useResult.itemList.reduce((sum, item) => sum + item.actuallyPaidAmount, 0)
         : selectedActivity
           ? yuanToCents(selectedActivity.price)
           : seatTotalPrice

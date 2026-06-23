@@ -499,9 +499,9 @@ function normalizeCouponUseResult(payload: Record<string, unknown>): CouponUseRe
 
       return {
         actuallyPaidAmount: toNumber(record.actuallyPaidAmount ?? record.actualPaidAmount ?? record.payPrice),
-        rightsCode: firstText(record.rightsCode, record.rightsNo, record.rightCode, record.couponCode),
+        rightsCode: '',
         seatId: toNumber(record.seatId ?? record.seat),
-        ticketCode: firstText(record.ticketCode, record.ticketNo, record.code),
+        ticketCode: '',
         ticketType: toNumber(record.ticketType),
         usedCoupon: toNumber(record.usedCoupon, 1)
       }

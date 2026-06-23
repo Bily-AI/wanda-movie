@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, toRaw, watch } from 'vue'
 
 import {
   Connection,
@@ -289,8 +289,8 @@ async function handleOpenTicketAlipayPayment(): Promise<void> {
 
   try {
     const result = await openAlipayPayment(ticketAppPayParam.value, {
-      requestParams: settingsStore.requestParams,
-      autoPayment: settingsStore.autoPayment
+      requestParams: toRaw(settingsStore.requestParams),
+      autoPayment: toRaw(settingsStore.autoPayment)
     })
     ElMessage.success(result.reusedWindow ? '已刷新支付宝支付窗口' : '已打开支付宝支付窗口')
     void ticketStore.startTicketCodePolling()
