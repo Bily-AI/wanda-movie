@@ -330,6 +330,7 @@ async function handleOpenTicketAlipayPayment(): Promise<void> {
       autoPayment: settingsStore.autoPayment
     })
     ElMessage.success(result.reusedWindow ? '已刷新支付宝支付窗口' : '已打开支付宝支付窗口')
+    void ticketStore.startTicketCodePolling()
   } catch (error) {
     ElMessage.error(error instanceof Error && error.message ? error.message : '打开支付宝支付失败')
   } finally {
@@ -660,6 +661,7 @@ watch(
             状态：{{ ticketStore.orderStatus.showOrderStatusStr }}
           </p>
           <p v-if="ticketStore.paymentDataMessage">{{ ticketStore.paymentDataMessage }}</p>
+          <p v-if="ticketStore.currentOrderMessage">{{ ticketStore.currentOrderMessage }}</p>
           <div class="order-summary-actions">
             <el-button
               size="small"
@@ -767,7 +769,12 @@ watch(
     </aside>
 
     <footer class="bottom-actions">
-      <el-button :icon="Refresh" :loading="ticketStore.checkingPayment" @click="handleRefreshTicketCode">
+      <el-button
+        :icon="Refresh"
+        :loading="ticketStore.checkingPayment || ticketStore.ticketCodePolling"
+        :disabled="ticketStore.ticketCodePolling"
+        @click="handleRefreshTicketCode"
+      >
         刷新购票码
       </el-button>
       <el-button :icon="Picture" @click="handleImageOcr">图片识别</el-button>

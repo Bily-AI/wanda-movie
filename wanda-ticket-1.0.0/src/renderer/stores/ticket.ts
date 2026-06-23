@@ -322,6 +322,10 @@ function optionMatchesTime(option: TicketOption, time: string): boolean {
   return option.value.includes(time) || option.label.includes(time)
 }
 
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
+}
+
 function matchesSearchKeyword(
   record: Pick<CityRecord | CinemaRecord, 'name' | 'pinyin' | 'firstLetter'> & { address?: string },
   keyword: string
@@ -385,6 +389,9 @@ export const useTicketStore = defineStore('ticket', {
     paymentCheckSerial: 0,
     paymentSubmitSerial: 0,
     checkingPayment: false,
+    ticketCodePolling: false,
+    ticketCodePollingSerial: 0,
+    ticketCodePollingAttempts: 0,
     submittingPayment: false,
     paymentSubmitResult: null as TicketPaymentSubmitResult | null,
     paymentDataMessage: '',
@@ -581,6 +588,7 @@ export const useTicketStore = defineStore('ticket', {
       ++this.paymentRequestSerial
       ++this.paymentCheckSerial
       ++this.paymentSubmitSerial
+      ++this.ticketCodePollingSerial
       this.currentOrderId = ''
       this.currentOrderAccountId = ''
       this.currentOrder = null
@@ -589,6 +597,8 @@ export const useTicketStore = defineStore('ticket', {
       this.orderCancelling = false
       this.loadingPaymentData = false
       this.checkingPayment = false
+      this.ticketCodePolling = false
+      this.ticketCodePollingAttempts = 0
       this.submittingPayment = false
       this.paymentSubmissionLocked = false
     },
@@ -1141,6 +1151,111 @@ export const useTicketStore = defineStore('ticket', {
           useAccountsStore().currentAccount?.id === accountId
         ) {
           this.checkingPayment = false
+        }
+      }
+    },
+    async startTicketCodePolling() {
+      const account = useAccountsStore().currentAccount
+      const currentOrder = this.currentOrder
+
+      if (this.ticketCodePolling) {
+        this.currentOrderMessage = '取票码追踪中，请勿重复启动'
+        return
+      }
+
+      if (!currentOrder?.orderId) {
+        this.currentOrderMessage = '暂无可追踪取票码的订单'
+        return
+      }
+
+      if (!account?.ck || !account.userIdentifier) {
+        this.currentOrderMessage = '请先选择创建订单的已登录账号'
+        return
+      }
+
+      if (currentOrder.accountId !== account.id) {
+        this.currentOrderMessage = '请切回创建订单的账号追踪取票码'
+        return
+      }
+
+      const maxAttempts = 10
+      const pollIntervalMs = 3000
+      const orderId = currentOrder.orderId
+      const accountId = account.id
+      const pollSerial = ++this.ticketCodePollingSerial
+      this.ticketCodePolling = true
+      this.ticketCodePollingAttempts = 0
+      this.currentOrderMessage = '正在追踪出票状态'
+
+      try {
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+          if (
+            pollSerial !== this.ticketCodePollingSerial ||
+            this.currentOrder?.orderId !== orderId ||
+            useAccountsStore().currentAccount?.id !== accountId
+          ) {
+            return
+          }
+
+          this.ticketCodePollingAttempts = attempt
+
+          try {
+            const status = await queryOrderStatus(orderId, account.ck, account.userIdentifier)
+
+            if (
+              pollSerial !== this.ticketCodePollingSerial ||
+              this.currentOrder?.orderId !== orderId ||
+              useAccountsStore().currentAccount?.id !== accountId
+            ) {
+              return
+            }
+
+            this.orderStatus = status
+          } catch (error) {
+            const message = error instanceof Error && error.message ? error.message : '订单状态查询失败'
+            useLogsStore().addLog('取票码', account.phone, `出票追踪状态查询失败：${message}`)
+          }
+
+          try {
+            const payInfo = await queryOrderByUserId(orderId, account.ck, account.userIdentifier)
+
+            if (
+              pollSerial !== this.ticketCodePollingSerial ||
+              this.currentOrder?.orderId !== orderId ||
+              useAccountsStore().currentAccount?.id !== accountId
+            ) {
+              return
+            }
+
+            this.currentOrderPayInfo = payInfo
+            const codeCount = payInfo.ticketCodes.length + payInfo.qrCodes.length
+
+            if (codeCount > 0) {
+              this.currentOrderMessage = `已出票，取票码共 ${codeCount} 条`
+              useLogsStore().addLog('取票码', account.phone, `出票追踪完成：${orderId}`)
+              return
+            }
+          } catch (error) {
+            const message = error instanceof Error && error.message ? error.message : '取票码查询失败'
+            useLogsStore().addLog('取票码', account.phone, `出票追踪取票码查询失败：${message}`)
+          }
+
+          this.currentOrderMessage = `出票追踪中（${attempt}/${maxAttempts}），未取到取票码`
+
+          if (attempt < maxAttempts) {
+            await wait(pollIntervalMs)
+          }
+        }
+
+        this.currentOrderMessage = '暂未取到取票码，可稍后手动刷新'
+        useLogsStore().addLog('取票码', account.phone, `出票追踪结束仍未出票：${orderId}`)
+      } finally {
+        if (
+          pollSerial === this.ticketCodePollingSerial &&
+          this.currentOrder?.orderId === orderId &&
+          useAccountsStore().currentAccount?.id === accountId
+        ) {
+          this.ticketCodePolling = false
         }
       }
     },

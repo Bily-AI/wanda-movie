@@ -104,6 +104,7 @@ for (const label of [
   'ticketCodeDialogVisible',
   'ticketCodePanelSelector',
   'handleRefreshTicketCode',
+  'ticketStore.startTicketCodePolling',
   'handleCaptureTicketCode',
   'handleCopyTicketCode',
   'ticket-code-dialog',
@@ -116,7 +117,14 @@ for (const label of [
   assertIncludes('src/renderer/views/TicketView.vue', ticketView, label)
 }
 
-for (const label of ['refreshTicketCode', 'currentOrderPayInfo']) {
+for (const label of [
+  'refreshTicketCode',
+  'startTicketCodePolling',
+  'ticketCodePolling',
+  'ticketCodePollingSerial',
+  'ticketCodePollingAttempts',
+  'currentOrderPayInfo'
+]) {
   assertIncludes('src/renderer/stores/ticket.ts', ticketStore, label)
 }
 
@@ -125,6 +133,25 @@ assertMatches(
   ticketStore,
   /refreshTicketCode\(\)[\s\S]*?this\.currentOrderPayInfo = null[\s\S]*?queryOrderByUserId/,
   '刷新取票码前必须清空上一次取票码'
+)
+
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /startTicketCodePolling\(\)[\s\S]*?if \(this\.ticketCodePolling\)[\s\S]*?const pollSerial = \+\+this\.ticketCodePollingSerial[\s\S]*?for \(let attempt = 1; attempt <= maxAttempts; attempt \+= 1\)[\s\S]*?queryOrderStatus[\s\S]*?queryOrderByUserId[\s\S]*?await wait\(pollIntervalMs\)/,
+  '支付后出票追踪必须有限轮询订单状态和取票码'
+)
+assertMatches(
+  'src/renderer/views/TicketView.vue',
+  ticketView,
+  /openAlipayPayment[\s\S]*?ticketStore\.startTicketCodePolling\(\)/,
+  '打开支付宝成功后必须启动取票码追踪'
+)
+assertMatches(
+  'src/renderer/views/TicketView.vue',
+  ticketView,
+  /ticketStore\.checkingPayment \|\| ticketStore\.ticketCodePolling/,
+  '刷新取票码按钮必须展示自动追踪加载状态'
 )
 
 console.log('取票码截图复制契约检查通过')
