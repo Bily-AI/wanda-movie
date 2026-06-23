@@ -588,6 +588,34 @@ export const useTicketStore = defineStore('ticket', {
       this.paymentDataMessage = ''
       this.paymentPrerequisiteError = ''
     },
+    autoMatchPaymentCard(): PaymentCard | null {
+      if (!this.paymentActivity || this.paymentCards.length === 0) {
+        return null
+      }
+
+      const activity = this.paymentActivities.find(
+        (a) => a.code === this.paymentActivity || a.name === this.paymentActivity
+      )
+
+      if (!activity) {
+        return null
+      }
+
+      const matchedCards = this.paymentCards.filter(
+        (card) => card.cardTypeCode === activity.typeCode && card.available
+      )
+
+      if (matchedCards.length > 0) {
+        const bestCard = matchedCards.reduce((prev, current) => {
+          return current.balance > prev.balance ? current : prev
+        })
+
+        this.selectedPaymentCards = [bestCard.cardNo]
+        return bestCard
+      }
+
+      return null
+    },
     clearCurrentOrderPaymentContext() {
       ++this.orderRequestSerial
       ++this.paymentRequestSerial
@@ -951,10 +979,6 @@ export const useTicketStore = defineStore('ticket', {
           ticketTypeName: primaryCard.cardTypeName,
           type: selectedActivity.detailType
         }
-      }
-
-      if (storedCardPayments[0]) {
-        requestInfo.cardPayment = storedCardPayments[0]
       }
 
       if (storedCardPayments.length > 0) {

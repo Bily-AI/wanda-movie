@@ -353,6 +353,27 @@ watch(
     }
   }
 )
+
+watch(
+  () => ticketAppPayParam.value,
+  (newParam, oldParam) => {
+    if (newParam && newParam !== oldParam && !openingAlipay.value) {
+      handleOpenTicketAlipayPayment()
+    }
+  }
+)
+
+watch(
+  () => ticketStore.paymentActivity,
+  (newActivityCode) => {
+    if (newActivityCode) {
+      const bestCard = ticketStore.autoMatchPaymentCard()
+      if (bestCard) {
+        ElMessage.success(`已为你自动匹配最佳支付卡：${bestCard.cardName || bestCard.cardNo}`)
+      }
+    }
+  }
+)
 </script>
 
 <template>
