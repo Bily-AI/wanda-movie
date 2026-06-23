@@ -669,15 +669,23 @@ watch(
             >
               支付参数
             </el-button>
-            <el-button
-              size="small"
-              type="warning"
-              :loading="ticketStore.orderCancelling"
-              @click="ticketStore.cancelCurrentOrder"
-              :disabled="ticketStore.orderCancelling"
+            <el-popconfirm
+              title="确认取消当前真实订单？取消后需要重新选座下单。"
+              confirm-button-text="确认取消"
+              cancel-button-text="保留订单"
+              @confirm="ticketStore.cancelCurrentOrder"
             >
-              取消订单
-            </el-button>
+              <template #reference>
+                <el-button
+                  size="small"
+                  type="warning"
+                  :loading="ticketStore.orderCancelling"
+                  :disabled="ticketStore.orderCancelling"
+                >
+                  取消订单
+                </el-button>
+              </template>
+            </el-popconfirm>
           </div>
         </div>
         <div v-else class="side-empty">{{ ticketStore.currentOrderMessage || '暂无订单' }}</div>
@@ -798,7 +806,7 @@ watch(
           <el-button
             type="primary"
             :loading="ticketStore.submittingPayment"
-            :disabled="!ticketStore.currentOrder || ticketStore.submittingPayment"
+            :disabled="!ticketStore.canSubmitCurrentOrderPayment"
           >
             提交支付
           </el-button>
@@ -825,14 +833,22 @@ watch(
       <el-empty v-else description="暂无支付参数" :image-size="56" />
       <template #footer>
         <el-button @click="payInfoDialogVisible = false">关闭</el-button>
-        <el-button
-          type="primary"
-          :loading="openingAlipay"
-          :disabled="!ticketAppPayParam"
-          @click="handleOpenTicketAlipayPayment"
+        <el-popconfirm
+          title="确认打开支付宝支付？如已开启自动支付，窗口可能尝试自动填写。"
+          confirm-button-text="打开支付宝"
+          cancel-button-text="取消"
+          @confirm="handleOpenTicketAlipayPayment"
         >
-          打开支付宝支付
-        </el-button>
+          <template #reference>
+            <el-button
+              type="primary"
+              :loading="openingAlipay"
+              :disabled="!ticketAppPayParam"
+            >
+              打开支付宝支付
+            </el-button>
+          </template>
+        </el-popconfirm>
       </template>
     </el-dialog>
 

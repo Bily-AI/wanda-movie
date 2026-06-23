@@ -256,6 +256,22 @@ function decryptActivityPayload(
   throw new Error(firstText(responseMessage, fallbackMessage))
 }
 
+function readOptionalActivityPayload(
+  value: unknown,
+  fallbackMessage: string,
+  responseMessage?: unknown
+): Record<string, unknown> | null {
+  try {
+    const payload = decryptActivityPayload(value, fallbackMessage, responseMessage)
+
+    assertSuccessfulActivityPayload(payload, fallbackMessage, responseMessage)
+
+    return payload
+  } catch {
+    return null
+  }
+}
+
 function decryptPaymentSubmitPayload(
   value: unknown,
   fallbackMessage: string,
@@ -718,12 +734,14 @@ export async function fetchPaymentActivity(
   const response = await wandaGet<unknown>(WANDA_HOSTS.MKT_ACTIVITY, path, {}, ck, userIdentifier)
 
   if (response.code !== 0 || !response.data) {
-    throw new Error(response.msg || fallbackMessage)
+    return { availableActivities: [], unavailableActivities: [] }
   }
 
-  const decrypted = decryptActivityPayload(response.data, fallbackMessage, response.msg)
+  const decrypted = readOptionalActivityPayload(response.data, fallbackMessage, response.msg)
 
-  assertSuccessfulActivityPayload(decrypted, fallbackMessage, response.msg)
+  if (!decrypted) {
+    return { availableActivities: [], unavailableActivities: [] }
+  }
 
   const availableActivities: PaymentActivityItem[] = []
   const unavailableActivities: PaymentActivityItem[] = []
@@ -759,15 +777,8 @@ export async function fetchPayCards(orderId: string, ck: string, userIdentifier:
   )
   const fallbackMessage = '获取支付卡失败'
 
-  if (response.code !== 0) {
-    const data = asRecord(response.data)
-    const res = asRecord(data.res)
-
-    throw new Error(firstText(response.msg, data.bizMsg, data.msg, res.bizMsg, res.msg, fallbackMessage))
-  }
-
-  if (!isRecord(response.data)) {
-    throw new Error(firstText(response.msg, fallbackMessage))
+  if (response.code !== 0 || !isRecord(response.data)) {
+    return []
   }
 
   const data = response.data
@@ -775,10 +786,14 @@ export async function fetchPayCards(orderId: string, ck: string, userIdentifier:
   const bizCode = maybeBizCode(data.bizCode)
 
   if (!hasOwn(data, 'bizCode') || bizCode !== 0) {
-    throw new Error(firstText(data.bizMsg, data.msg, response.msg, fallbackMessage))
+    return []
   }
 
-  assertSuccessfulBusinessPayload(res, fallbackMessage, firstText(data.bizMsg, data.msg, response.msg))
+  try {
+    assertSuccessfulBusinessPayload(res, fallbackMessage, firstText(data.bizMsg, data.msg, response.msg))
+  } catch {
+    return []
+  }
 
   return collectList(response.data, ['cards', 'cardList', 'itemList', 'items', 'list', 'commendcards'])
     .map(normalizePaymentCard)
@@ -814,12 +829,14 @@ export async function fetchCoupons(
   const response = await wandaGet<unknown>(WANDA_HOSTS.MKT_ACTIVITY, path, {}, ck, userIdentifier)
 
   if (response.code !== 0 || !response.data) {
-    throw new Error(response.msg || fallbackMessage)
+    return []
   }
 
-  const decrypted = decryptActivityPayload(response.data, fallbackMessage, response.msg)
+  const decrypted = readOptionalActivityPayload(response.data, fallbackMessage, response.msg)
 
-  assertSuccessfulActivityPayload(decrypted, fallbackMessage, response.msg)
+  if (!decrypted) {
+    return []
+  }
 
   return collectCoupons(decrypted).map(normalizeCoupon).filter((coupon) => coupon.able)
 }

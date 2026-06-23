@@ -548,7 +548,7 @@ assertNotIncludes('src/renderer/views/TicketView.vue', ticketView, '@click="tick
 assertMatches(
   'src/renderer/views/TicketView.vue',
   ticketView,
-  /@click="ticketStore\.cancelCurrentOrder"[\s\S]*?:disabled="ticketStore\.orderCancelling"/,
+  /@confirm="ticketStore\.cancelCurrentOrder"[\s\S]*?:disabled="ticketStore\.orderCancelling"/,
   '取消订单按钮必须禁用重复点击'
 )
 

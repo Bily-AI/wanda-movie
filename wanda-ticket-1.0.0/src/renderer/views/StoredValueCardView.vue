@@ -531,7 +531,16 @@ watch(
       </el-radio-group>
       <template #footer>
         <el-button @click="purchaseDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submittingPurchase" @click="handleConfirmPurchase">确认购买</el-button>
+        <el-popconfirm
+          title="确认购买储值卡？将调用真实万达接口并生成支付参数。"
+          confirm-button-text="确认购买"
+          cancel-button-text="取消"
+          @confirm="handleConfirmPurchase"
+        >
+          <template #reference>
+            <el-button type="primary" :loading="submittingPurchase">确认购买</el-button>
+          </template>
+        </el-popconfirm>
       </template>
     </el-dialog>
 
@@ -547,7 +556,16 @@ watch(
       </el-radio-group>
       <template #footer>
         <el-button @click="rechargeDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submittingRecharge" @click="handleConfirmRecharge">确认充值</el-button>
+        <el-popconfirm
+          title="确认充值储值卡？将调用真实万达接口并生成支付参数。"
+          confirm-button-text="确认充值"
+          cancel-button-text="取消"
+          @confirm="handleConfirmRecharge"
+        >
+          <template #reference>
+            <el-button type="primary" :loading="submittingRecharge">确认充值</el-button>
+          </template>
+        </el-popconfirm>
       </template>
     </el-dialog>
 
@@ -562,7 +580,16 @@ watch(
       </el-form>
       <template #footer>
         <el-button @click="transferDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submittingTransfer" @click="handleConfirmTransfer">确认赠送</el-button>
+        <el-popconfirm
+          title="确认赠送储值卡？将把当前卡转赠到填写的手机号。"
+          confirm-button-text="确认赠送"
+          cancel-button-text="取消"
+          @confirm="handleConfirmTransfer"
+        >
+          <template #reference>
+            <el-button type="primary" :loading="submittingTransfer">确认赠送</el-button>
+          </template>
+        </el-popconfirm>
       </template>
     </el-dialog>
 
@@ -573,9 +600,18 @@ watch(
       </el-descriptions>
       <el-input class="raw-json" type="textarea" :rows="12" :model-value="paymentResultText" readonly />
       <template #footer>
-        <el-button :loading="openingAlipay" :disabled="!paymentResult?.appPayParam" @click="handleOpenAlipayPayment">
-          打开支付宝支付
-        </el-button>
+        <el-popconfirm
+          title="确认打开支付宝支付？如已开启自动支付，窗口可能尝试自动填写。"
+          confirm-button-text="打开支付宝"
+          cancel-button-text="取消"
+          @confirm="handleOpenAlipayPayment"
+        >
+          <template #reference>
+            <el-button :loading="openingAlipay" :disabled="!paymentResult?.appPayParam">
+              打开支付宝支付
+            </el-button>
+          </template>
+        </el-popconfirm>
         <el-button @click="paymentResultDialogVisible = false">关闭</el-button>
         <el-button type="primary" @click="copyPaymentResult">复制支付参数</el-button>
       </template>

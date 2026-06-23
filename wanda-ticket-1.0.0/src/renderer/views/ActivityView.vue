@@ -501,9 +501,18 @@ watch(
       </el-descriptions>
       <el-input class="raw-json" type="textarea" :rows="12" :model-value="paymentResultText" readonly />
       <template #footer>
-        <el-button :loading="openingAlipay" :disabled="!paymentResult?.appPayParam" @click="handleOpenAlipayPayment">
-          打开支付宝支付
-        </el-button>
+        <el-popconfirm
+          title="确认打开支付宝支付？如已开启自动支付，窗口可能尝试自动填写。"
+          confirm-button-text="打开支付宝"
+          cancel-button-text="取消"
+          @confirm="handleOpenAlipayPayment"
+        >
+          <template #reference>
+            <el-button :loading="openingAlipay" :disabled="!paymentResult?.appPayParam">
+              打开支付宝支付
+            </el-button>
+          </template>
+        </el-popconfirm>
         <el-button @click="paymentResultDialogVisible = false">关闭</el-button>
         <el-button type="primary" @click="copyPaymentResult">复制支付参数</el-button>
       </template>

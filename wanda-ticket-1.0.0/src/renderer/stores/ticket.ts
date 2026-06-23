@@ -388,6 +388,8 @@ export const useTicketStore = defineStore('ticket', {
     submittingPayment: false,
     paymentSubmitResult: null as TicketPaymentSubmitResult | null,
     paymentDataMessage: '',
+    paymentPrerequisiteError: '',
+    paymentSubmissionLocked: false,
     selectedSeats: [] as SelectedSeat[],
     maxSeatCount: 8
   }),
@@ -430,6 +432,15 @@ export const useTicketStore = defineStore('ticket', {
     },
     selectedSeatTotalPrice(state) {
       return state.selectedSeatNodes.reduce((sum, seat) => sum + seat.price, 0)
+    },
+    canSubmitCurrentOrderPayment(state) {
+      return Boolean(
+        state.currentOrder &&
+          !state.submittingPayment &&
+          !state.loadingPaymentData &&
+          !state.paymentPrerequisiteError &&
+          !state.paymentSubmissionLocked
+      )
     }
   },
   actions: {
@@ -563,6 +574,7 @@ export const useTicketStore = defineStore('ticket', {
       this.selectedCoupons = []
       this.paymentSubmitResult = null
       this.paymentDataMessage = ''
+      this.paymentPrerequisiteError = ''
     },
     clearCurrentOrderPaymentContext() {
       ++this.orderRequestSerial
@@ -578,6 +590,7 @@ export const useTicketStore = defineStore('ticket', {
       this.loadingPaymentData = false
       this.checkingPayment = false
       this.submittingPayment = false
+      this.paymentSubmissionLocked = false
     },
     async refreshPaymentPrerequisites() {
       const account = useAccountsStore().currentAccount
@@ -591,12 +604,14 @@ export const useTicketStore = defineStore('ticket', {
 
       if (!account?.ck || !account.userIdentifier) {
         this.clearPaymentPrerequisiteData()
+        this.paymentPrerequisiteError = '请先选择创建订单的已登录账号'
         this.paymentDataMessage = '请先选择创建订单的已登录账号'
         return
       }
 
       if (currentOrder.accountId !== account.id) {
         this.clearPaymentPrerequisiteData()
+        this.paymentPrerequisiteError = '请切回创建订单的账号刷新支付前置数据'
         this.paymentDataMessage = '请切回创建订单的账号刷新支付前置数据'
         return
       }
@@ -606,6 +621,7 @@ export const useTicketStore = defineStore('ticket', {
 
       if (!currentOrder.orderId || !currentOrder.cinemaId || !currentOrder.showtimeId || !hasValidSeats) {
         this.clearPaymentPrerequisiteData()
+        this.paymentPrerequisiteError = '订单上下文缺少场次、影院或座位信息'
         this.paymentDataMessage = '订单上下文缺少场次、影院或座位信息，无法刷新支付前置数据'
         useLogsStore().addLog('支付前置', account.phone, `订单上下文字段不足：${currentOrder.orderId || '无订单号'}`)
         return
@@ -615,6 +631,7 @@ export const useTicketStore = defineStore('ticket', {
       const accountId = account.id
       const paymentSerial = ++this.paymentRequestSerial
       this.loadingPaymentData = true
+      this.paymentPrerequisiteError = ''
       this.paymentDataMessage = ''
 
       try {
@@ -640,12 +657,14 @@ export const useTicketStore = defineStore('ticket', {
         const cards = cardsResult.status === 'fulfilled' ? cardsResult.value : []
         const coupons = couponsResult.status === 'fulfilled' ? couponsResult.value : []
         const orderStatus = statusResult.status === 'fulfilled' ? statusResult.value : null
+        const prerequisiteFailures: string[] = []
 
         if (statusResult.status === 'rejected') {
           const message =
             statusResult.reason instanceof Error && statusResult.reason.message
               ? statusResult.reason.message
               : '查询订单状态失败'
+          prerequisiteFailures.push(`订单状态：${message}`)
           useLogsStore().addLog('支付前置', account.phone, `订单状态查询失败：${message}`)
         }
 
@@ -654,6 +673,7 @@ export const useTicketStore = defineStore('ticket', {
             activityResult.reason instanceof Error && activityResult.reason.message
               ? activityResult.reason.message
               : '获取支付活动失败'
+          prerequisiteFailures.push(`支付活动：${message}`)
           useLogsStore().addLog('支付前置', account.phone, `支付活动获取失败：${message}`)
           this.paymentActivity = ''
         }
@@ -663,6 +683,7 @@ export const useTicketStore = defineStore('ticket', {
             cardsResult.reason instanceof Error && cardsResult.reason.message
               ? cardsResult.reason.message
               : '获取支付卡失败'
+          prerequisiteFailures.push(`支付卡：${message}`)
           useLogsStore().addLog('支付前置', account.phone, `支付卡获取失败：${message}`)
           this.selectedPaymentCards = []
         }
@@ -672,6 +693,7 @@ export const useTicketStore = defineStore('ticket', {
             couponsResult.reason instanceof Error && couponsResult.reason.message
               ? couponsResult.reason.message
               : '获取优惠券失败'
+          prerequisiteFailures.push(`兑换券：${message}`)
           useLogsStore().addLog('支付前置', account.phone, `优惠券获取失败：${message}`)
           this.selectedCoupons = []
         }
@@ -681,8 +703,17 @@ export const useTicketStore = defineStore('ticket', {
         this.paymentCards = cards
         this.coupons = coupons
         this.orderStatus = orderStatus
-        this.paymentDataMessage = `支付前置数据已刷新：可用活动 ${this.paymentActivities.length} 个，可用卡 ${this.paymentCards.length} 张，可用券 ${this.coupons.length} 张`
-        useLogsStore().addLog('支付前置', account.phone, `支付前置数据刷新成功：${orderId}`)
+        this.paymentPrerequisiteError = prerequisiteFailures.join('；')
+        this.paymentDataMessage = prerequisiteFailures.length
+          ? `支付前置数据部分失败：${this.paymentPrerequisiteError}`
+          : `支付前置数据已刷新：可用活动 ${this.paymentActivities.length} 个，可用卡 ${this.paymentCards.length} 张，可用券 ${this.coupons.length} 张`
+        useLogsStore().addLog(
+          '支付前置',
+          account.phone,
+          prerequisiteFailures.length
+            ? `支付前置数据部分失败：${this.paymentPrerequisiteError}`
+            : `支付前置数据刷新成功：${orderId}`
+        )
       } catch (error) {
         if (
           paymentSerial !== this.paymentRequestSerial ||
@@ -694,6 +725,7 @@ export const useTicketStore = defineStore('ticket', {
 
         const message = error instanceof Error && error.message ? error.message : '支付前置数据刷新失败'
         this.clearPaymentPrerequisiteData()
+        this.paymentPrerequisiteError = message
         this.paymentDataMessage = `支付前置数据刷新失败：${message}`
         useLogsStore().addLog('支付前置', account.phone, `支付前置数据刷新失败：${message}`)
       } finally {
@@ -913,6 +945,21 @@ export const useTicketStore = defineStore('ticket', {
         return
       }
 
+      if (this.paymentSubmissionLocked) {
+        this.paymentDataMessage = '支付已提交，请刷新订单状态或取票码，避免重复调用真实支付接口'
+        return
+      }
+
+      if (this.loadingPaymentData) {
+        this.paymentDataMessage = '支付前置数据刷新中，请稍后再提交'
+        return
+      }
+
+      if (this.paymentPrerequisiteError) {
+        this.paymentDataMessage = `支付前置数据异常，暂不允许提交：${this.paymentPrerequisiteError}`
+        return
+      }
+
       if (!currentOrder) {
         this.paymentDataMessage = '请先确认选座创建订单'
         return
@@ -968,6 +1015,7 @@ export const useTicketStore = defineStore('ticket', {
 
         this.paymentSubmitResult = result
         this.currentOrder = { ...currentOrder, requestInfo }
+        this.paymentSubmissionLocked = true
         this.paymentDataMessage = result.bizMsg
           ? `提交支付完成：${result.bizMsg}`
           : '提交支付完成，已调用真实支付接口'
@@ -1621,6 +1669,7 @@ export const useTicketStore = defineStore('ticket', {
         }
 
         this.currentOrderId = result.orderId
+        this.paymentSubmissionLocked = false
         this.currentOrderAccountId = snapshot.accountId
         this.currentOrder = this.buildCurrentOrderContext(result.orderId, snapshot.accountId, snapshot.phone, {
           ...snapshot,

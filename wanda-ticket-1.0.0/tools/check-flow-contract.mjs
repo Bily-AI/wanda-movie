@@ -115,6 +115,52 @@ for (const label of [
   assertIncludes('src/renderer/views/TicketView.vue', ticketView, label)
 }
 
+assertMatches(
+  'src/renderer/views/TicketView.vue',
+  ticketView,
+  /title="确认取消当前真实订单[\s\S]*?@confirm="ticketStore\.cancelCurrentOrder"/,
+  '取消真实订单必须经过二次确认'
+)
+
+assertMatches(
+  'src/renderer/views/TicketView.vue',
+  ticketView,
+  /title="确认打开支付宝支付[\s\S]*?@confirm="handleOpenTicketAlipayPayment"/,
+  '影票打开支付宝支付必须经过二次确认'
+)
+
+assertIncludes(
+  'src/renderer/views/TicketView.vue',
+  ticketView,
+  '!ticketStore.canSubmitCurrentOrderPayment'
+)
+
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /paymentPrerequisiteError:[\s\S]*?paymentSubmissionLocked:[\s\S]*?canSubmitCurrentOrderPayment/,
+  '提交支付必须受支付前置错误和提交锁控制'
+)
+
+assertMatches(
+  'src/renderer/views/StoredValueCardView.vue',
+  storedCardView,
+  /title="确认购买储值卡[\s\S]*?@confirm="handleConfirmPurchase"[\s\S]*?title="确认充值储值卡[\s\S]*?@confirm="handleConfirmRecharge"[\s\S]*?title="确认赠送储值卡[\s\S]*?@confirm="handleConfirmTransfer"/,
+  '储值卡真实购买、充值和赠送必须经过二次确认'
+)
+
+for (const [file, content] of [
+  ['src/renderer/views/StoredValueCardView.vue', storedCardView],
+  ['src/renderer/views/ActivityView.vue', activityView]
+]) {
+  assertMatches(
+    file,
+    content,
+    /title="确认打开支付宝支付[\s\S]*?@confirm="handleOpenAlipayPayment"/,
+    '打开支付宝支付必须经过二次确认'
+  )
+}
+
 for (const label of ['moveSelectedToGroup', 'importAccountsFromText']) {
   assertIncludes('src/renderer/stores/accounts.ts', accountsStore, label)
 }

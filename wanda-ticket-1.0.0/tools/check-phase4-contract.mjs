@@ -323,4 +323,29 @@ for (const [file, content] of [
   assertNotIncludes(file, content, '支付宝')
 }
 
+assertMatches(
+  'src/renderer/services/seatApi.ts',
+  seatApi,
+  /function readOptionalActivityPayload[\s\S]*?return null/,
+  '支付活动和兑换券列表业务异常必须按空列表容错'
+)
+assertMatches(
+  'src/renderer/services/seatApi.ts',
+  seatApi,
+  /fetchPaymentActivity[\s\S]*?return \{ availableActivities: \[\], unavailableActivities: \[\] \}/,
+  '支付活动接口繁忙或无数据时不能阻断下单'
+)
+assertMatches(
+  'src/renderer/services/seatApi.ts',
+  seatApi,
+  /fetchPayCards[\s\S]*?if \(response\.code !== 0 \|\| !isRecord\(response\.data\)\) \{[\s\S]*?return \[\][\s\S]*?if \(!hasOwn\(data, 'bizCode'\) \|\| bizCode !== 0\) \{[\s\S]*?return \[\]/,
+  '支付卡接口繁忙或业务异常时不能阻断下单'
+)
+assertMatches(
+  'src/renderer/services/seatApi.ts',
+  seatApi,
+  /fetchCoupons[\s\S]*?return \[\]/,
+  '兑换券列表接口繁忙或无数据时不能阻断下单'
+)
+
 console.log('第四阶段支付前置与订单查询契约检查通过')
