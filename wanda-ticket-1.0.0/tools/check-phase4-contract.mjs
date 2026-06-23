@@ -145,6 +145,7 @@ for (const label of [
 for (const label of [
   'buildSeatPartition',
   'buildQueryPath',
+  'collectList',
   'decryptActivityPayload',
   'fetchPaymentActivity',
   'fetchPayCards',
@@ -164,6 +165,25 @@ for (const label of [
 ]) {
   assertIncludes('src/renderer/services/seatApi.ts', seatApi, label)
 }
+
+assertMatches(
+  'src/renderer/services/seatApi.ts',
+  seatApi,
+  /function collectList\(value: unknown, keys: string\[\]\)[\s\S]*?for \(const key of \['data', 'res', 'result'\][\s\S]*?collectList\(record\[key\], keys\)/,
+  '支付接口列表解析必须递归兼容 data/res/result'
+)
+assertMatches(
+  'src/renderer/services/seatApi.ts',
+  seatApi,
+  /normalizePaymentCard[\s\S]*?available: record\.available === undefined && record\.able === undefined \? true : toBoolean\(record\.available \?\? record\.able\)/,
+  '支付卡缺少 available/able 时必须按可用处理'
+)
+assertMatches(
+  'src/renderer/services/seatApi.ts',
+  seatApi,
+  /fetchPayCards[\s\S]*?collectList\(response\.data, \['cards', 'cardList', 'itemList', 'items', 'list', 'commendcards'\]\)[\s\S]*?filter\(\(card\) => \(card\.cardNo \|\| card\.cardName\) && card\.available\)/,
+  '支付卡列表必须兼容旧接口常见列表字段'
+)
 
 assertMatches(
   'src/renderer/services/seatApi.ts',

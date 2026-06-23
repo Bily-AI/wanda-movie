@@ -55,6 +55,27 @@ function asList(value: unknown): unknown[] {
   return Array.isArray(value) ? value : []
 }
 
+function collectList(value: unknown, keys: string[]): unknown[] {
+  if (Array.isArray(value)) {
+    return value
+  }
+
+  const record = asRecord(value)
+  const result: unknown[] = []
+
+  for (const key of keys) {
+    result.push(...asList(record[key]))
+  }
+
+  for (const key of ['data', 'res', 'result']) {
+    if (record[key] !== value) {
+      result.push(...collectList(record[key], keys))
+    }
+  }
+
+  return result
+}
+
 function toText(value: unknown): string {
   return typeof value === 'string' || typeof value === 'number' ? String(value) : ''
 }
@@ -266,12 +287,12 @@ function normalizePaymentCard(item: unknown): PaymentCard {
   const record = asRecord(item)
 
   return {
-    cardNo: firstText(record.cardNo, record.card_no, record.no),
-    cardName: firstText(record.cardName, record.name),
+    cardNo: firstText(record.cardNo, record.card_no, record.no, record.cardNumber),
+    cardName: firstText(record.cardName, record.name, record.cardTypeName),
     cardTypeName: firstText(record.cardTypeName, record.typeName),
     cardTypeCode: firstText(record.cardTypeCode, record.typeCode),
-    balance: centsToYuan(record.balance),
-    available: toBoolean(record.available ?? record.able),
+    balance: centsToYuan(record.balance ?? record.cardBalance ?? record.amount),
+    available: record.available === undefined && record.able === undefined ? true : toBoolean(record.available ?? record.able),
     statusDesc: firstText(record.statusDesc, record.status),
     raw: item
   }
@@ -753,15 +774,9 @@ export async function fetchPayCards(orderId: string, ck: string, userIdentifier:
 
   assertSuccessfulBusinessPayload(res, fallbackMessage, firstText(data.bizMsg, data.msg, response.msg))
 
-  return [
-    ...asList(response.data),
-    ...asList(data.cards),
-    ...asList(res.cards),
-    ...asList(data.cardList),
-    ...asList(data.list)
-  ]
+  return collectList(response.data, ['cards', 'cardList', 'itemList', 'items', 'list', 'commendcards'])
     .map(normalizePaymentCard)
-    .filter((card) => card.available)
+    .filter((card) => (card.cardNo || card.cardName) && card.available)
 }
 
 export async function fetchCoupons(
