@@ -1,5 +1,4 @@
 import { defineStore } from 'pinia'
-import { toRaw } from 'vue'
 
 import { sendVerifyCode, loginWithCode, checkLoginStatus } from '@renderer/services/wandaAuthApi'
 import { DEFAULT_LOCAL_DATA, type AccountGroup, type AccountsLocalData, type WandaAccount } from '@shared/localData'
@@ -23,6 +22,34 @@ function normalizeAccount(account: WandaAccount): WandaAccount {
   return {
     ...account,
     userIdentifier: account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
+  }
+}
+
+function normalizeAccountStatus(status: string): WandaAccount['status'] {
+  return status === 'normal' || status === 'expired' || status === 'error' || status === 'unknown' ? status : 'unknown'
+}
+
+function toPlainGroup(group: AccountGroup): AccountGroup {
+  return {
+    id: String(group.id || ''),
+    name: String(group.name || '')
+  }
+}
+
+function toPlainAccount(account: WandaAccount): WandaAccount {
+  return {
+    id: String(account.id || ''),
+    phone: String(account.phone || ''),
+    remark: String(account.remark || ''),
+    status: normalizeAccountStatus(String(account.status || 'unknown')),
+    statusText: String(account.statusText || ''),
+    groupId: String(account.groupId || 'default'),
+    ck: String(account.ck || ''),
+    userIdentifier: String(account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER),
+    loginDate: String(account.loginDate || ''),
+    loginTime: String(account.loginTime || ''),
+    createdAt: String(account.createdAt || ''),
+    isPayMember: Boolean(account.isPayMember)
   }
 }
 
@@ -60,9 +87,9 @@ function buildImportedAccount(line: string, groupId: string): WandaAccount | nul
 
 function toPlainAccountsData(data: AccountsLocalData): AccountsLocalData {
   return structuredClone({
-    groups: data.groups.map((group) => ({ ...toRaw(group) })),
-    accounts: data.accounts.map((account) => ({ ...toRaw(account) })),
-    currentAccountId: data.currentAccountId
+    groups: data.groups.map(toPlainGroup),
+    accounts: data.accounts.map(toPlainAccount),
+    currentAccountId: String(data.currentAccountId || '')
   })
 }
 

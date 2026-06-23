@@ -48,7 +48,13 @@ requireFile('src/shared/localData.ts', ['DEFAULT_LOCAL_DATA', 'LocalDataFileName
 requireFile('src/main/localData.ts', ['readLocalDataFile', 'writeLocalDataFile'])
 requireFile('src/shared/wandaCore.ts', ['WANDA_HOSTS', 'WANDA_API_PATHS', 'validateWandaRequest'])
 requireFile('src/main/wandaHttp.ts', ['sendWandaRequest'])
-requireFile('src/renderer/stores/accounts.ts', ['useAccountsStore', 'loginForm'])
+const accountsStoreText = requireFile('src/renderer/stores/accounts.ts', [
+  'useAccountsStore',
+  'loginForm',
+  'toPlainAccount',
+  'toPlainGroup',
+  'toPlainAccountsData'
+])
 requireFile('src/renderer/stores/ticket.ts', ['useTicketStore', 'query'])
 const settingsStoreText = requireFile('src/renderer/stores/settings.ts', ['useSettingsStore', 'proxyApi'])
 requireFile('src/renderer/stores/orders.ts', ['useOrdersStore'])
@@ -126,6 +132,14 @@ if (settingsStoreText.includes("writeLocalData('requestParams', this.requestPara
 
 if (settingsStoreText.includes('setWandaRequestParams(this.requestParams)')) {
   failures.push('src/renderer/stores/settings.ts 不能直接同步 this.requestParams，应使用普通对象')
+}
+
+if (accountsStoreText.includes('{ ...toRaw(account) }')) {
+  failures.push('src/renderer/stores/accounts.ts 保存账号时不能原样展开账号对象，避免旧数据或接口对象混入不可克隆字段')
+}
+
+if (accountsStoreText.includes('{ ...toRaw(group) }')) {
+  failures.push('src/renderer/stores/accounts.ts 保存分组时不能原样展开分组对象，应只保留本地数据字段')
 }
 
 const forbiddenPatterns = [
