@@ -75,6 +75,7 @@ if (!existsSync(smokePath)) {
     'giftOrderTotal',
     'seatAreaCount',
     'availableSeatCount',
+    'seatStatusCounts',
     'formatShowtimeTime',
     'hideSensitive'
   ]) {

@@ -551,6 +551,13 @@ async function testRealTimeSeat(runtime, showtime) {
   const realtimeSeats = response.data?.data?.realtimeSeats || {}
   const areas = asList(realtimeSeats.area)
   const seats = areas.flatMap((area) => asList(asRecord(area).seat))
+  const seatStatusCounts = Object.fromEntries(
+    [...seats.reduce((counts, seat) => {
+      const status = firstText(asRecord(seat).status, 'unknown')
+      counts.set(status, (counts.get(status) || 0) + 1)
+      return counts
+    }, new Map()).entries()].sort(([left], [right]) => left.localeCompare(right))
+  )
   const availableSeatCount = seats.filter((seat) => Number(asRecord(seat).status) === 1).length
 
   return {
@@ -565,6 +572,7 @@ async function testRealTimeSeat(runtime, showtime) {
     message: hideSensitive(response.data?.msg || response.data?.message || ''),
     seatAreaCount: areas.length,
     seatCount: seats.length,
+    seatStatusCounts,
     availableSeatCount
   }
 }
