@@ -64,7 +64,8 @@ if (!existsSync(smokePath)) {
     '/pack_activity/activity/list.api',
     '/pack_activity/activity/detail.api',
     '/giftshop/orders',
-    'pickShowtime',
+    'pickShowtimes',
+    'findSeatSmokeResult',
     'testOrderList',
     'orderTotal',
     'testStoredCards',
@@ -117,7 +118,7 @@ if (!existsSync(smokePath)) {
     '/mkt/activity/secret/conponuse.api'
   ]) {
     if (!smoke.includes(dangerousPath)) {
-      failures.push(`tools/smoke-wanda-api.mjs 缂哄皯鍗遍櫓鎺ュ彛榛戝悕鍗曪細${dangerousPath}`)
+      failures.push(`tools/smoke-wanda-api.mjs 缺少危险接口白名单项：${dangerousPath}`)
     }
   }
 
@@ -126,11 +127,21 @@ if (!existsSync(smokePath)) {
   const paymentGuardCount = (smoke.match(/\n\s*assertPaymentDiagnosticPath\(pathname\)/g) || []).length
 
   if (readonlyGuardCount + paymentGuardCount < axiosCallCount) {
-    failures.push(`tools/smoke-wanda-api.mjs 姣忎釜鐪熷疄璇锋眰閮藉繀椤堕€氳繃鍙鐧藉悕鍗曟牎楠岋細${readonlyGuardCount}/${axiosCallCount}`)
+    failures.push(
+      `tools/smoke-wanda-api.mjs 每个真实请求前必须有只读或支付诊断白名单保护：${readonlyGuardCount + paymentGuardCount}/${axiosCallCount}`
+    )
   }
 
   if (!/label: \[[\s\S]*?formatShowtimeTime\(firstText\(showtime\.realtime/.test(smoke)) {
-    failures.push('tools/smoke-wanda-api.mjs 场次冒烟输出必须格式化 realtime 时间戳')
+    failures.push('tools/smoke-wanda-api.mjs 场次冒烟输出必须格式化 realtime 时间')
+  }
+
+  if (
+    !/for \(const showtime of pickShowtimes\(showtimeResult\.data\)\)[\s\S]*?await testRealTimeSeat\(runtime, showtime\)[\s\S]*?seatResult\.success/.test(
+      smoke
+    )
+  ) {
+    failures.push('tools/smoke-wanda-api.mjs 座位冒烟必须遍历多个真实场次，避免单个空场次误判接口失败')
   }
 }
 

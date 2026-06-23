@@ -519,7 +519,7 @@ assertMatches(
 assertMatches(
   'src/renderer/stores/ticket.ts',
   ticketStore,
-  /if \(this\.currentOrderId \|\| this\.orderCreating\)[\s\S]*?return[\s\S]*?createTicketOrder/,
+  /if \(this\.hasPendingCurrentOrder \|\| this\.orderCreating\)[\s\S]*?return[\s\S]*?createTicketOrder/,
   '已有订单或正在创建订单时不能重复创建'
 )
 assertMatches(
@@ -548,7 +548,7 @@ assertNotIncludes('src/renderer/views/TicketView.vue', ticketView, '@click="tick
 assertMatches(
   'src/renderer/views/TicketView.vue',
   ticketView,
-  /@confirm="ticketStore\.cancelCurrentOrder"[\s\S]*?:disabled="ticketStore\.orderCancelling"/,
+  /@confirm="ticketStore\.cancelCurrentOrder"[\s\S]*?:disabled="ticketStore\.orderCancelling \|\| ticketStore\.currentOrderFinalized"/,
   '取消订单按钮必须禁用重复点击'
 )
 

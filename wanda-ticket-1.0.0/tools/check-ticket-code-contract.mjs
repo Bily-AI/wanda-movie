@@ -97,7 +97,7 @@ assertNotMatches(
   'src/main/elementCapture.ts',
   elementCapture,
   /const result = await captureElement\(event, request\)/,
-  '复制截图复用会落盘的保存函数'
+  '复制截图不应复用会落盘的保存函数'
 )
 
 for (const label of [
@@ -112,7 +112,9 @@ for (const label of [
   'ticketStore.currentOrderPayInfo?.ticketCodes',
   'ticketStore.currentOrderPayInfo?.qrCodes',
   'window.wandaApp?.captureElement',
-  'window.wandaApp?.copyElementToClipboard'
+  'window.wandaApp?.copyElementToClipboard',
+  'ticketStore.hasPendingCurrentOrder',
+  'ticketStore.currentOrderFinalized'
 ]) {
   assertIncludes('src/renderer/views/TicketView.vue', ticketView, label)
 }
@@ -120,6 +122,9 @@ for (const label of [
 for (const label of [
   'refreshTicketCode',
   'startTicketCodePolling',
+  'finalizeCurrentOrder',
+  'currentOrderFinalized',
+  'hasPendingCurrentOrder',
   'ticketCodePolling',
   'ticketCodePollingSerial',
   'ticketCodePollingAttempts',
@@ -141,17 +146,47 @@ assertMatches(
   /startTicketCodePolling\(\)[\s\S]*?if \(this\.ticketCodePolling\)[\s\S]*?const pollSerial = \+\+this\.ticketCodePollingSerial[\s\S]*?for \(let attempt = 1; attempt <= maxAttempts; attempt \+= 1\)[\s\S]*?queryOrderStatus[\s\S]*?queryOrderByUserId[\s\S]*?await wait\(pollIntervalMs\)/,
   '支付后出票追踪必须有限轮询订单状态和取票码'
 )
+
 assertMatches(
   'src/renderer/views/TicketView.vue',
   ticketView,
   /openAlipayPayment[\s\S]*?ticketStore\.startTicketCodePolling\(\)/,
   '打开支付宝成功后必须启动取票码追踪'
 )
+
 assertMatches(
   'src/renderer/views/TicketView.vue',
   ticketView,
   /ticketStore\.checkingPayment \|\| ticketStore\.ticketCodePolling/,
   '刷新取票码按钮必须展示自动追踪加载状态'
+)
+
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /refreshTicketCode\(\)[\s\S]*?codeCount > 0[\s\S]*?this\.finalizeCurrentOrder\(/,
+  '手动刷新取到取票码后必须把当前订单标记为已完成'
+)
+
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /startTicketCodePolling\(\)[\s\S]*?codeCount > 0[\s\S]*?this\.finalizeCurrentOrder\(/,
+  '自动追踪取到取票码后必须把当前订单标记为已完成'
+)
+
+assertMatches(
+  'src/renderer/views/TicketView.vue',
+  ticketView,
+  /ticketStore\.hasPendingCurrentOrder/,
+  '购票页按钮锁定必须区分待处理订单和已完成订单'
+)
+
+assertMatches(
+  'src/renderer/views/TicketView.vue',
+  ticketView,
+  /ticketStore\.currentOrderFinalized[\s\S]*?已完成/,
+  '全局订单信息必须展示已完成态'
 )
 
 console.log('取票码截图复制契约检查通过')

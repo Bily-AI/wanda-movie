@@ -657,7 +657,8 @@ watch(
           <p>{{ ticketStore.currentOrder.movieName }} / {{ ticketStore.currentOrder.cinemaName }}</p>
           <p>{{ ticketStore.currentOrder.showtimeLabel }}</p>
           <p>金额：￥{{ (ticketStore.currentOrder.amountCent / 100).toFixed(2) }}</p>
-          <p v-if="ticketStore.orderStatus?.showOrderStatusStr">
+          <p v-if="ticketStore.currentOrderFinalized">状态：已完成</p>
+          <p v-else-if="ticketStore.orderStatus?.showOrderStatusStr">
             状态：{{ ticketStore.orderStatus.showOrderStatusStr }}
           </p>
           <p v-if="ticketStore.paymentDataMessage">{{ ticketStore.paymentDataMessage }}</p>
@@ -682,7 +683,7 @@ watch(
                   size="small"
                   type="warning"
                   :loading="ticketStore.orderCancelling"
-                  :disabled="ticketStore.orderCancelling"
+                  :disabled="ticketStore.orderCancelling || ticketStore.currentOrderFinalized"
                 >
                   取消订单
                 </el-button>
@@ -782,7 +783,7 @@ watch(
       <span class="bottom-spacer" />
       <el-button
         type="warning"
-        :disabled="ticketStore.selectedSeatCount === 0 || Boolean(ticketStore.currentOrder)"
+        :disabled="ticketStore.selectedSeatCount === 0 || ticketStore.hasPendingCurrentOrder"
         @click="ticketStore.clearSeatSelection"
       >
         取消选择
@@ -797,7 +798,7 @@ watch(
           <el-button
             type="success"
             :loading="ticketStore.orderCreating"
-            :disabled="ticketStore.selectedSeatCount === 0 || ticketStore.orderCreating || Boolean(ticketStore.currentOrder)"
+            :disabled="ticketStore.selectedSeatCount === 0 || ticketStore.orderCreating || ticketStore.hasPendingCurrentOrder"
           >
             确认选座
           </el-button>

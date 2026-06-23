@@ -414,14 +414,15 @@ function getShowtimeList(dateRecord) {
   ]
 }
 
-function pickShowtime(raw) {
+function pickShowtimes(raw) {
+  const showtimes = []
   for (const film of getShowtimeFilmList(raw).map(asRecord)) {
     for (const dateRecord of getDateList(film).map(asRecord)) {
       for (const showtime of getShowtimeList(dateRecord).map(asRecord)) {
         const dId = firstText(showtime.showtimeId, showtime.dId, showtime.did, showtime.id)
 
         if (dId) {
-          return {
+          showtimes.push({
             dId,
             filmName: firstText(film.filmName, film.name, film.movieName),
             date: firstText(dateRecord.date, dateRecord.showDate, dateRecord.showtimeDate, dateRecord.day),
@@ -431,13 +432,21 @@ function pickShowtime(raw) {
             ]
               .filter(Boolean)
               .join(' - ')
-          }
+          })
         }
       }
     }
   }
 
+  if (showtimes.length > 0) {
+    return showtimes
+  }
+
   throw new Error('场次接口返回中没有可用于座位接口的 dId')
+}
+
+function pickShowtime(raw) {
+  return pickShowtimes(raw)[0]
 }
 
 function buildWandaHeaders(pathname, body, runtime) {
@@ -690,6 +699,22 @@ async function testRealTimeSeat(runtime, showtime) {
     seatStatusCounts,
     availableSeatCount
   }
+}
+
+async function findSeatSmokeResult(runtime, showtimeResult) {
+  let lastSeatResult = null
+
+  for (const showtime of pickShowtimes(showtimeResult.data)) {
+    const seatResult = await testRealTimeSeat(runtime, showtime)
+
+    if (seatResult.success) {
+      return seatResult
+    }
+
+    lastSeatResult = seatResult
+  }
+
+  return lastSeatResult
 }
 
 async function testOrderList(runtime) {
@@ -1184,7 +1209,7 @@ async function main() {
   tests.push(await testIsLogin(runtime))
   const showtimeResult = await testShowtimeByCinema(runtime, cinema)
   tests.push(showtimeResult.test)
-  tests.push(await testRealTimeSeat(runtime, pickShowtime(showtimeResult.data)))
+  tests.push(await findSeatSmokeResult(runtime, showtimeResult))
   tests.push(await testOrderList(runtime))
   tests.push(await testStoredCards(runtime))
   tests.push(await testMemberCoupons(runtime))

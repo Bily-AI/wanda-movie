@@ -372,6 +372,7 @@ export const useTicketStore = defineStore('ticket', {
     currentOrderMessage: '',
     currentOrderAccountId: '',
     currentOrder: null as TicketOrderContext | null,
+    currentOrderFinalized: false,
     currentOrderPayInfo: null as OrderPayInfoResult | null,
     orderStatus: null as OrderStatusResult | null,
     orderCreating: false,
@@ -443,16 +444,20 @@ export const useTicketStore = defineStore('ticket', {
     canSubmitCurrentOrderPayment(state) {
       return Boolean(
         state.currentOrder &&
+          !state.currentOrderFinalized &&
           !state.submittingPayment &&
           !state.loadingPaymentData &&
           !state.paymentPrerequisiteError &&
           !state.paymentSubmissionLocked
       )
+    },
+    hasPendingCurrentOrder(state) {
+      return Boolean(state.currentOrderId || (state.currentOrder && !state.currentOrderFinalized))
     }
   },
   actions: {
     clearSeatSelection(force = false) {
-      if ((this.currentOrder || this.currentOrderId) && !force) {
+      if (this.hasPendingCurrentOrder && !force) {
         this.currentOrderMessage = '已有待处理订单，请先取消当前订单后再调整座位'
         return
       }
@@ -592,6 +597,7 @@ export const useTicketStore = defineStore('ticket', {
       this.currentOrderId = ''
       this.currentOrderAccountId = ''
       this.currentOrder = null
+      this.currentOrderFinalized = false
       this.clearPaymentPrerequisiteData()
       this.orderCreating = false
       this.orderCancelling = false
@@ -601,6 +607,17 @@ export const useTicketStore = defineStore('ticket', {
       this.ticketCodePollingAttempts = 0
       this.submittingPayment = false
       this.paymentSubmissionLocked = false
+    },
+    finalizeCurrentOrder(message?: string) {
+      this.currentOrderFinalized = true
+      this.currentOrderId = ''
+      this.currentOrderAccountId = this.currentOrder?.accountId ?? this.currentOrderAccountId
+      this.orderCancelling = false
+      this.paymentSubmissionLocked = true
+
+      if (message) {
+        this.currentOrderMessage = message
+      }
     },
     async refreshPaymentPrerequisites() {
       const account = useAccountsStore().currentAccount
@@ -1130,7 +1147,11 @@ export const useTicketStore = defineStore('ticket', {
 
         this.currentOrderPayInfo = payInfo
         const codeCount = payInfo.ticketCodes.length + payInfo.qrCodes.length
-        this.currentOrderMessage = codeCount > 0 ? `取票码已刷新，共 ${codeCount} 条` : '订单尚未出票或取票码暂不可用'
+        if (codeCount > 0) {
+          this.finalizeCurrentOrder(`取票码已刷新，共 ${codeCount} 条`)
+        } else {
+          this.currentOrderMessage = '订单尚未出票或取票码暂不可用'
+        }
         useLogsStore().addLog('取票码', account.phone, `取票码刷新完成：${orderId}`)
       } catch (error) {
         if (
@@ -1231,7 +1252,7 @@ export const useTicketStore = defineStore('ticket', {
             const codeCount = payInfo.ticketCodes.length + payInfo.qrCodes.length
 
             if (codeCount > 0) {
-              this.currentOrderMessage = `已出票，取票码共 ${codeCount} 条`
+              this.finalizeCurrentOrder(`已出票，取票码共 ${codeCount} 条`)
               useLogsStore().addLog('取票码', account.phone, `出票追踪完成：${orderId}`)
               return
             }
@@ -1586,7 +1607,7 @@ export const useTicketStore = defineStore('ticket', {
       }
     },
     selectSeatsByParsedOcr(parsed: ParsedOcrTicket): number {
-      if (this.currentOrder || this.currentOrderId) {
+      if (this.hasPendingCurrentOrder) {
         this.currentOrderMessage = '已有待处理订单，请先取消当前订单后再按 OCR 调整座位'
         return 0
       }
@@ -1713,8 +1734,8 @@ export const useTicketStore = defineStore('ticket', {
     async createCurrentOrder() {
       const account = useAccountsStore().currentAccount
 
-      if (this.currentOrderId || this.orderCreating) {
-        this.currentOrderMessage = this.currentOrderId ? '已有待处理订单，请先取消当前订单' : '订单创建中，请勿重复提交'
+      if (this.hasPendingCurrentOrder || this.orderCreating) {
+        this.currentOrderMessage = this.hasPendingCurrentOrder ? '已有待处理订单，请先取消当前订单' : '订单创建中，请勿重复提交'
         return
       }
 
@@ -1784,6 +1805,7 @@ export const useTicketStore = defineStore('ticket', {
         }
 
         this.currentOrderId = result.orderId
+        this.currentOrderFinalized = false
         this.paymentSubmissionLocked = false
         this.currentOrderAccountId = snapshot.accountId
         this.currentOrder = this.buildCurrentOrderContext(result.orderId, snapshot.accountId, snapshot.phone, {
@@ -1871,7 +1893,7 @@ export const useTicketStore = defineStore('ticket', {
       }
     },
     toggleSeat(seat: SeatNode) {
-      if (this.currentOrder || this.currentOrderId) {
+      if (this.hasPendingCurrentOrder) {
         this.currentOrderMessage = '已有待处理订单，请先取消当前订单后再调整座位'
         return
       }
