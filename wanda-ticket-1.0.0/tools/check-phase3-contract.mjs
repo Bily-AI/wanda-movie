@@ -296,6 +296,7 @@ for (const label of [
   'loadCityData',
   'selectCity',
   'loadCinemaShowtimes',
+  'mergeCinemaRecord',
   'selectMovie',
   'selectDate',
   'setShowtime',
@@ -337,6 +338,19 @@ assertMatches(
   /catch \(error\)[\s\S]*?requestSerial !== this\.showtimeRequestSerial[\s\S]*?cinemaId !== this\.query\.cinema[\s\S]*?accountId !== useAccountsStore\(\)\.currentAccount\?\.id[\s\S]*?this\.showtimeError = message/,
   '场次失败路径防旧影院和旧账号覆盖'
 )
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /mergeCinemaRecord\([\s\S]*?currentName[\s\S]*?name\.length > currentName\.length[\s\S]*?cinemaMap\.set/,
+  '同一影院 ID 来自旧包 CmList 时必须保留更完整的影院名称'
+)
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /const name = firstText\([\s\S]*?record\.CmName[\s\S]*?record\.MyCmName/,
+  '旧包影院名称应优先使用 CmName，再使用 MyCmName'
+)
+
 for (const label of [
   'showtimeFilmInf',
   'showtimeFilmDateInf',

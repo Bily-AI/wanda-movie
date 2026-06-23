@@ -1087,17 +1087,34 @@ export const useTicketStore = defineStore('ticket', {
         raw: item
       })
     },
+    mergeCinemaRecord(cinemaMap: Map<string, CinemaRecord>, cinema: CinemaRecord) {
+      const current = cinemaMap.get(cinema.id)
+
+      if (!current) {
+        cinemaMap.set(cinema.id, cinema)
+        return
+      }
+
+      const currentName = current.name
+
+      if (cinema.name.length > currentName.length) {
+        cinemaMap.set(cinema.id, {
+          ...current,
+          ...cinema
+        })
+      }
+    },
     addCinemaRecord(item: unknown, defaultCityId: string, cinemaMap: Map<string, CinemaRecord>) {
       const record = asRecord(item)
       const id = firstText(record.id, record.cinemaId, record.cinemaid, record.CmID, record.cmID)
       const cityId = firstText(record.cityId, record.cityid, record.cityCode, record.CityID, record.cityID, defaultCityId)
-      const name = firstText(record.name, record.cinemaName, record.MyCmName, record.CmName, record.maoyanName)
+      const name = firstText(record.name, record.cinemaName, record.CmName, record.MyCmName, record.maoyanName)
 
-      if (!id || !cityId || !name || cinemaMap.has(id)) {
+      if (!id || !cityId || !name) {
         return
       }
 
-      cinemaMap.set(id, {
+      this.mergeCinemaRecord(cinemaMap, {
         id,
         cityId,
         name,
