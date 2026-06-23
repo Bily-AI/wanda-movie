@@ -89,6 +89,26 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback
 }
 
+function maskCardNo(value: string): string {
+  const rawValue = String(value || '').replace(/\s/g, '')
+
+  if (rawValue.length <= 8) {
+    return rawValue || '-'
+  }
+
+  return `${rawValue.slice(0, 4)}****${rawValue.slice(-4)}`
+}
+
+function maskPhone(value: string): string {
+  const rawValue = String(value || '').trim()
+
+  if (!/^1\d{10}$/.test(rawValue)) {
+    return rawValue || '-'
+  }
+
+  return `${rawValue.slice(0, 3)}****${rawValue.slice(-4)}`
+}
+
 function nextLoadSerial(): number {
   loadSerial += 1
   return loadSerial
@@ -313,6 +333,7 @@ async function handleConfirmRecharge() {
   }
 
   const denomination = findDenomination(rechargeAmount.value)
+  const safeCardNo = maskCardNo(card.cardNo)
   submittingRecharge.value = true
 
   try {
@@ -324,8 +345,8 @@ async function handleConfirmRecharge() {
     )
 
     rechargeDialogVisible.value = false
-    showPaymentResult('储值卡充值支付参数', `${card.cardNo} / ${denomination.label}`, result)
-    logsStore.addLog('储值卡', account.phone, `储值卡充值支付参数获取成功：${card.cardNo}`)
+    showPaymentResult('储值卡充值支付参数', `${safeCardNo} / ${denomination.label}`, result)
+    logsStore.addLog('储值卡', account.phone, `储值卡充值支付参数获取成功：${safeCardNo}`)
     ElMessage.success('支付参数已获取')
   } catch (error) {
     const message = getErrorMessage(error, '储值卡充值失败')
@@ -350,12 +371,14 @@ async function handleConfirmTransfer() {
     return
   }
 
+  const safeCardNo = maskCardNo(card.cardNo)
+  const safeMobile = maskPhone(mobile)
   submittingTransfer.value = true
 
   try {
     await transferStoredCard(card.cardNo, mobile, account.ck, account.userIdentifier)
     transferDialogVisible.value = false
-    logsStore.addLog('储值卡', account.phone, `储值卡赠送成功：${card.cardNo} -> ${mobile}`)
+    logsStore.addLog('储值卡', account.phone, `储值卡赠送成功：${safeCardNo} -> ${safeMobile}`)
     ElMessage.success('储值卡赠送成功')
     await loadCards()
   } catch (error) {
