@@ -26,6 +26,7 @@
     "check:coupon-present": "node tools/check-coupon-present-contract.mjs",
     "check:coupon-category": "node tools/check-coupon-category-contract.mjs",
     "check:proxy-bridge": "node tools/check-proxy-bridge-contract.mjs",
+    "check:auto-order": "node tools/check-auto-order-contract.mjs",
     "check:alipay-bridge": "node tools/check-alipay-bridge-contract.mjs",
     "check:alipay-ui": "node tools/check-alipay-ui-contract.mjs",
     "check:stored-card": "node tools/check-stored-card-contract.mjs",

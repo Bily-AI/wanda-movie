@@ -15,6 +15,18 @@ import { registerWandaHttpHandlers } from './wandaHttp'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
+let mainWindow: BrowserWindow | null = null
+let autoOrderWindow: BrowserWindow | null = null
+
+function loadRenderer(window: BrowserWindow, hash?: string): void {
+  if (process.env.ELECTRON_RENDERER_URL) {
+    const url = hash ? `${process.env.ELECTRON_RENDERER_URL}#${hash}` : process.env.ELECTRON_RENDERER_URL
+    void window.loadURL(url)
+  } else {
+    void window.loadFile(join(__dirname, '../renderer/index.html'), hash ? { hash } : undefined)
+  }
+}
+
 function createWindow(): void {
   const window = new BrowserWindow({
     width: 1600,
@@ -37,11 +49,52 @@ function createWindow(): void {
     window.show()
   })
 
-  if (process.env.ELECTRON_RENDERER_URL) {
-    void window.loadURL(process.env.ELECTRON_RENDERER_URL)
-  } else {
-    void window.loadFile(join(__dirname, '../renderer/index.html'))
+  window.on('closed', () => {
+    if (mainWindow === window) {
+      mainWindow = null
+    }
+  })
+
+  mainWindow = window
+  loadRenderer(window)
+}
+
+function createAutoOrderWindow(): BrowserWindow {
+  if (autoOrderWindow && !autoOrderWindow.isDestroyed()) {
+    autoOrderWindow.focus()
+    return autoOrderWindow
   }
+
+  const window = new BrowserWindow({
+    width: 1280,
+    height: 840,
+    minWidth: 1100,
+    minHeight: 700,
+    frame: false,
+    backgroundColor: '#f4f7fb',
+    show: false,
+    title: '自动接单服务',
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.mjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false
+    }
+  })
+
+  window.on('ready-to-show', () => {
+    window.show()
+  })
+
+  window.on('closed', () => {
+    if (autoOrderWindow === window) {
+      autoOrderWindow = null
+    }
+  })
+
+  autoOrderWindow = window
+  loadRenderer(window, '/auto-order')
+  return window
 }
 
 function getWindowFromEvent(event: IpcMainInvokeEvent): BrowserWindow | null {
@@ -159,6 +212,29 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.APP_GET_LOCAL_IP, () => getLocalIp())
 
   ipcMain.handle(IPC_CHANNELS.OLD_PACKAGE_INDEX_READ, () => readOldPackageIndex())
+
+  ipcMain.handle(IPC_CHANNELS.AUTO_ORDER_OPEN_WINDOW, () => {
+    createAutoOrderWindow()
+    return { ok: true, data: true }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.AUTO_ORDER_PROCESS_TICKET, (_event, payload) => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return { ok: false, error: '主窗口未打开' }
+    }
+
+    mainWindow.webContents.send(IPC_CHANNELS.AUTO_ORDER_PROCESS_EVENT, payload)
+    return { ok: true, data: true }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.AUTO_ORDER_REPORT_RESULT, (_event, payload) => {
+    if (!autoOrderWindow || autoOrderWindow.isDestroyed()) {
+      return { ok: false, error: '自动接单窗口未打开' }
+    }
+
+    autoOrderWindow.webContents.send(IPC_CHANNELS.AUTO_ORDER_PROCESS_RESULT_EVENT, payload)
+    return { ok: true, data: true }
+  })
 }
 
 app.whenReady().then(() => {

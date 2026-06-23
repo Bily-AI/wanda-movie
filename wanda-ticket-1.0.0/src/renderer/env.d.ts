@@ -6,6 +6,11 @@ import type {
   AlipayConvertResult,
   AlipayDeviceFingerprint,
   AlipaySyncDeviceResult,
+  AutoOrderOpenWindowResult,
+  AutoOrderProcessTicketResult,
+  AutoOrderReportResult,
+  AutoOrderTicketRequest,
+  AutoOrderTicketResult,
   LocalDataResult,
   LocalDataWriteResult,
   OldPackageIndexResult,
@@ -48,6 +53,11 @@ declare global {
       alipayClearSession: () => Promise<AlipayClearSessionResult>
       captureElement: (request: ElementCaptureRequest) => Promise<ElementCaptureResult>
       copyElementToClipboard: (request: ElementCaptureRequest) => Promise<ElementCopyResult>
+      openAutoOrderWindow: () => Promise<AutoOrderOpenWindowResult>
+      sendAutoOrderTicket: (request: AutoOrderTicketRequest) => Promise<AutoOrderProcessTicketResult>
+      reportAutoOrderResult: (result: AutoOrderTicketResult) => Promise<AutoOrderReportResult>
+      onAutoOrderProcessTicket: (listener: (request: AutoOrderTicketRequest) => void) => () => void
+      onAutoOrderProcessResult: (listener: (result: AutoOrderTicketResult) => void) => () => void
     }
   }
 }

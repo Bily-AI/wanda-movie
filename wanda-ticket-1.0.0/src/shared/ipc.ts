@@ -21,6 +21,11 @@ export const IPC_CHANNELS = {
   PROXY_FETCH: 'fetch-proxy',
   PROXY_GET_USED: 'proxy-get-used',
   PROXY_CLEAR_CACHE: 'proxy-clear-cache',
+  AUTO_ORDER_OPEN_WINDOW: 'open-auto-order-window',
+  AUTO_ORDER_PROCESS_TICKET: 'auto-order-process-ticket',
+  AUTO_ORDER_REPORT_RESULT: 'auto-order-report-result',
+  AUTO_ORDER_PROCESS_EVENT: 'auto-order:process-ticket',
+  AUTO_ORDER_PROCESS_RESULT_EVENT: 'auto-order:process-result',
   ALIPAY_CLEAR_SESSION: 'alipay-clear-session',
   ALIPAY_SYNC_DEVICE: 'alipay-sync-device',
   ALIPAY_CONVERT: 'alipay-convert'
@@ -126,6 +131,27 @@ export type ProxyFetchResult = IpcResult<ProxyEndpoint>
 export type ProxyUsedResult = IpcResult<UsedProxyData>
 
 export type ProxyClearResult = IpcResult<boolean>
+
+export interface AutoOrderTicketRequest {
+  orderId: string
+  platform: string
+  ticketText: string
+  raw?: unknown
+}
+
+export interface AutoOrderTicketResult {
+  orderId: string
+  platform?: string
+  status: 'success' | 'failed'
+  remark?: string
+  ticketCode?: string
+}
+
+export type AutoOrderOpenWindowResult = IpcResult<boolean>
+
+export type AutoOrderProcessTicketResult = IpcResult<boolean>
+
+export type AutoOrderReportResult = IpcResult<boolean>
 
 export interface AlipayDeviceFingerprint {
   model?: string

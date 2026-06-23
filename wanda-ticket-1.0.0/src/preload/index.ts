@@ -9,6 +9,11 @@ import {
   type AlipaySyncDeviceResult,
   type AiOcrParseRequest,
   type AiOcrParseResult,
+  type AutoOrderOpenWindowResult,
+  type AutoOrderProcessTicketResult,
+  type AutoOrderReportResult,
+  type AutoOrderTicketRequest,
+  type AutoOrderTicketResult,
   type BaiduOcrRequest,
   type BaiduOcrResult,
   type ClipboardImageResult,
@@ -44,6 +49,11 @@ export type {
   AlipaySyncDeviceResult,
   LocalDataResult,
   LocalDataWriteResult,
+  AutoOrderOpenWindowResult,
+  AutoOrderProcessTicketResult,
+  AutoOrderReportResult,
+  AutoOrderTicketRequest,
+  AutoOrderTicketResult,
   OldPackageIndexResult,
   ProxyClearResult,
   ProxyFetchResult,
@@ -76,6 +86,11 @@ export interface WandaAppApi {
   fetchProxy: () => Promise<ProxyFetchResult>
   getUsedProxy: () => Promise<ProxyUsedResult>
   clearProxyCache: () => Promise<ProxyClearResult>
+  openAutoOrderWindow: () => Promise<AutoOrderOpenWindowResult>
+  sendAutoOrderTicket: (request: AutoOrderTicketRequest) => Promise<AutoOrderProcessTicketResult>
+  reportAutoOrderResult: (result: AutoOrderTicketResult) => Promise<AutoOrderReportResult>
+  onAutoOrderProcessTicket: (listener: (request: AutoOrderTicketRequest) => void) => () => void
+  onAutoOrderProcessResult: (listener: (result: AutoOrderTicketResult) => void) => () => void
   alipayConvert: (request: AlipayConvertRequest) => Promise<AlipayConvertResult>
   alipaySyncDevice: (request: AlipayDeviceFingerprint) => Promise<AlipaySyncDeviceResult>
   alipayClearSession: () => Promise<AlipayClearSessionResult>
@@ -101,15 +116,51 @@ const wandaApp: WandaAppApi = {
   fetchProxy: () => ipcRenderer.invoke(IPC_CHANNELS.PROXY_FETCH),
   getUsedProxy: () => ipcRenderer.invoke(IPC_CHANNELS.PROXY_GET_USED),
   clearProxyCache: () => ipcRenderer.invoke(IPC_CHANNELS.PROXY_CLEAR_CACHE),
+  openAutoOrderWindow: () => ipcRenderer.invoke(IPC_CHANNELS.AUTO_ORDER_OPEN_WINDOW),
+  sendAutoOrderTicket: (request) => ipcRenderer.invoke(IPC_CHANNELS.AUTO_ORDER_PROCESS_TICKET, request),
+  reportAutoOrderResult: (result) => ipcRenderer.invoke(IPC_CHANNELS.AUTO_ORDER_REPORT_RESULT, result),
+  onAutoOrderProcessTicket: (listener) => {
+    const wrapped = (_event: Electron.IpcRendererEvent, request: AutoOrderTicketRequest) => listener(request)
+    ipcRenderer.on(IPC_CHANNELS.AUTO_ORDER_PROCESS_EVENT, wrapped)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.AUTO_ORDER_PROCESS_EVENT, wrapped)
+  },
+  onAutoOrderProcessResult: (listener) => {
+    const wrapped = (_event: Electron.IpcRendererEvent, result: AutoOrderTicketResult) => listener(result)
+    ipcRenderer.on(IPC_CHANNELS.AUTO_ORDER_PROCESS_RESULT_EVENT, wrapped)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.AUTO_ORDER_PROCESS_RESULT_EVENT, wrapped)
+  },
   alipayConvert: (request) => ipcRenderer.invoke(IPC_CHANNELS.ALIPAY_CONVERT, request),
   alipaySyncDevice: (request) => ipcRenderer.invoke(IPC_CHANNELS.ALIPAY_SYNC_DEVICE, request),
   alipayClearSession: () => ipcRenderer.invoke(IPC_CHANNELS.ALIPAY_CLEAR_SESSION)
 }
 
 contextBridge.exposeInMainWorld('wandaApp', wandaApp)
+contextBridge.exposeInMainWorld('api', {
+  openAutoOrderWindow: async () => {
+    const result = await wandaApp.openAutoOrderWindow()
+    return { success: result.ok, error: result.ok ? undefined : result.error }
+  },
+  sendAutoOrderTicket: async (request: AutoOrderTicketRequest) => {
+    const result = await wandaApp.sendAutoOrderTicket(request)
+    return { success: result.ok, error: result.ok ? undefined : result.error }
+  },
+  reportAutoOrderResult: async (result: AutoOrderTicketResult) => {
+    const response = await wandaApp.reportAutoOrderResult(result)
+    return { success: response.ok, error: response.ok ? undefined : response.error }
+  },
+  onAutoOrderProcessTicket: wandaApp.onAutoOrderProcessTicket,
+  onAutoOrderProcessResult: wandaApp.onAutoOrderProcessResult
+})
 
 declare global {
   interface Window {
     wandaApp: WandaAppApi
+    api: {
+      openAutoOrderWindow: () => Promise<{ success: boolean; error?: string }>
+      sendAutoOrderTicket: (request: AutoOrderTicketRequest) => Promise<{ success: boolean; error?: string }>
+      reportAutoOrderResult: (result: AutoOrderTicketResult) => Promise<{ success: boolean; error?: string }>
+      onAutoOrderProcessTicket: (listener: (request: AutoOrderTicketRequest) => void) => () => void
+      onAutoOrderProcessResult: (listener: (result: AutoOrderTicketResult) => void) => () => void
+    }
   }
 }

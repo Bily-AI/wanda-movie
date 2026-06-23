@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Close,
+  Connection,
   CreditCard,
   Document,
   FullScreen,
@@ -20,6 +21,8 @@ import { useAppStore } from './stores/app'
 import { useAccountsStore } from './stores/accounts'
 import { useSettingsStore } from './stores/settings'
 import { useTicketStore } from './stores/ticket'
+import { extractAppPayParam, openAlipayPayment } from './services/alipayBridge'
+import type { AutoOrderTicketRequest, AutoOrderTicketResult } from '@shared/ipc'
 
 const appStore = useAppStore()
 const accountsStore = useAccountsStore()
@@ -31,10 +34,13 @@ const router = useRouter()
 const version = computed(() => appStore.version)
 let localDataLoaded = false
 let settingsSaveTimer: ReturnType<typeof setTimeout> | undefined
+let stopAutoOrderListener: (() => void) | undefined
+let autoOrderProcessing = false
 
 const navItems = [
   { path: '/ticket', label: '购票', icon: Ticket },
   { path: '/orders', label: '历史订单', icon: Tickets },
+  { path: '/auto-order', label: '自动接单', icon: Connection },
   { path: '/stored-card', label: '储值卡', icon: CreditCard },
   { path: '/voucher', label: '兑换券', icon: Wallet },
   { path: '/member', label: '会员', icon: User },
@@ -51,6 +57,11 @@ onMounted(async () => {
     ticketStore.loadCityData()
   ])
   localDataLoaded = true
+  registerAutoOrderListener()
+})
+
+onBeforeUnmount(() => {
+  stopAutoOrderListener?.()
 })
 
 watch(
@@ -102,6 +113,101 @@ function invokeWindowAction(action: 'minimize' | 'maximize' | 'close') {
   }
 
   void wandaApp[action]().catch(() => undefined)
+}
+
+function getAutoOrderTicketCode(): string {
+  return [
+    ...(ticketStore.currentOrderPayInfo?.ticketCodes ?? []),
+    ...(ticketStore.currentOrderPayInfo?.qrCodes ?? [])
+  ][0] ?? ''
+}
+
+async function reportAutoOrderResult(result: AutoOrderTicketResult): Promise<void> {
+  const response = await window.wandaApp?.reportAutoOrderResult(result)
+
+  if (!response?.ok) {
+    console.warn('[自动接单] 回传处理结果失败', response?.error)
+  }
+}
+
+async function processAutoOrderTicket(request: AutoOrderTicketRequest): Promise<void> {
+  if (autoOrderProcessing) {
+    await reportAutoOrderResult({
+      orderId: request.orderId,
+      platform: request.platform,
+      status: 'failed',
+      remark: '主窗口正在处理上一笔自动接单订单'
+    })
+    return
+  }
+
+  autoOrderProcessing = true
+
+  try {
+    const account = accountsStore.currentAccount
+
+    if (!account?.ck || !account.userIdentifier) {
+      throw new Error('请先在主窗口选择已登录的万达账号')
+    }
+
+    if (ticketStore.hasPendingCurrentOrder) {
+      throw new Error('主窗口已有待处理订单，请先完成或取消当前订单')
+    }
+
+    const parsed = await ticketStore.applyOcrTicketText(request.ticketText)
+
+    if (parsed.seats.length === 0 || ticketStore.selectedSeatCount === 0) {
+      throw new Error(ticketStore.showtimeError || '未匹配到可下单座位')
+    }
+
+    await ticketStore.createCurrentOrder()
+
+    if (!ticketStore.currentOrder?.orderId) {
+      throw new Error(ticketStore.currentOrderMessage || '自动接单创建订单失败')
+    }
+
+    await ticketStore.submitCurrentOrderPayment()
+
+    if (!ticketStore.paymentSubmitResult && !ticketStore.currentOrderPayInfo && !ticketStore.currentOrderFinalized) {
+      throw new Error(ticketStore.paymentDataMessage || '自动接单提交支付失败')
+    }
+
+    const appPayParam = extractAppPayParam(ticketStore.currentOrderPayInfo)
+
+    if (appPayParam) {
+      await openAlipayPayment(appPayParam, {
+        requestParams: settingsStore.requestParams,
+        autoPayment: settingsStore.autoPayment
+      })
+      await ticketStore.startTicketCodePolling()
+    } else if (!getAutoOrderTicketCode()) {
+      await ticketStore.refreshTicketCode()
+    }
+
+    await reportAutoOrderResult({
+      orderId: request.orderId,
+      platform: request.platform,
+      status: 'success',
+      remark: ticketStore.currentOrderMessage || ticketStore.paymentDataMessage || '自动购票流程已完成',
+      ticketCode: getAutoOrderTicketCode()
+    })
+  } catch (error) {
+    await reportAutoOrderResult({
+      orderId: request.orderId,
+      platform: request.platform,
+      status: 'failed',
+      remark: error instanceof Error && error.message ? error.message : '自动购票失败'
+    })
+  } finally {
+    autoOrderProcessing = false
+  }
+}
+
+function registerAutoOrderListener(): void {
+  stopAutoOrderListener?.()
+  stopAutoOrderListener = window.wandaApp?.onAutoOrderProcessTicket((request) => {
+    void processAutoOrderTicket(request)
+  })
 }
 
 </script>

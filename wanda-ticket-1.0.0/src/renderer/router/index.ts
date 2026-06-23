@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
 
 import ActivityView from '../views/ActivityView.vue'
+import AutoOrderView from '../views/AutoOrderView.vue'
 import ExchangeCouponView from '../views/ExchangeCouponView.vue'
 import LogView from '../views/LogView.vue'
 import MemberView from '../views/MemberView.vue'
@@ -25,6 +26,12 @@ const routes: RouteRecordRaw[] = [
     name: 'orders',
     component: OrderHistoryView,
     meta: { title: '历史订单' }
+  },
+  {
+    path: '/auto-order',
+    name: 'auto-order',
+    component: AutoOrderView,
+    meta: { title: '自动接单' }
   },
   {
     path: '/stored-card',
