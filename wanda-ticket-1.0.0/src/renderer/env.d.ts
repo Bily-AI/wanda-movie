@@ -48,7 +48,11 @@ declare global {
       readClipboardImage: () => Promise<ClipboardImageResult>
       ocrRecognize: (request: BaiduOcrRequest) => Promise<BaiduOcrResult>
       aiParseOcr: (request: AiOcrParseRequest) => Promise<AiOcrParseResult>
-      alipayConvert: (request: AlipayConvertRequest) => Promise<AlipayConvertResult>
+      alipayConvert: (
+        appPayParam: string,
+        phone?: string,
+        autoPayment?: AlipayConvertRequest['autoPayment']
+      ) => Promise<AlipayConvertResult>
       alipaySyncDevice: (request: AlipayDeviceFingerprint) => Promise<AlipaySyncDeviceResult>
       alipayClearSession: () => Promise<AlipayClearSessionResult>
       captureElement: (request: ElementCaptureRequest) => Promise<ElementCaptureResult>

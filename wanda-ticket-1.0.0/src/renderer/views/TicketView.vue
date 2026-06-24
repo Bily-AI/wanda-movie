@@ -25,6 +25,8 @@ const ticketStore = useTicketStore()
 const ticketCodeDialogVisible = ref(false)
 const payInfoDialogVisible = ref(false)
 const openingAlipay = ref(false)
+const autoOpenedPayInfoOrderId = ref('')
+const lastPaymentMessage = ref('')
 const ticketCodePanelSelector = '.ticket-code-panel'
 
 interface PaymentDisplayItem {
@@ -80,13 +82,14 @@ function getPayInfoValue(payInfo: OrderPayInfoResult | null): unknown {
 
   const raw = asRecord(payInfo.raw)
   const data = asRecord(raw.data)
+  const res = asRecord(data.res)
   const directTicketInfo = firstListRecord(data.subTicketOrderInfo)
   const orderInf = firstListRecord(data.orderInf)
   const ticketInfo = firstListRecord(orderInf.subTicketOrderInfo)
   const source =
     Object.keys(ticketInfo).length > 0 ? ticketInfo : Object.keys(directTicketInfo).length > 0 ? directTicketInfo : data
 
-  return source.payInfo ?? data.payInfo ?? raw.payInfo
+  return res.payInfo ?? source.payInfo ?? data.payInfo ?? raw.payInfo
 }
 
 function formatPayInfoValue(value: unknown): string {
@@ -279,6 +282,32 @@ function handleShowPaymentInfo(): void {
   payInfoDialogVisible.value = true
 }
 
+async function handleSubmitPayment(): Promise<void> {
+  const hadPayInfo = Boolean(ticketStore.currentOrderPayInfo && ticketAppPayParam.value)
+  const previousMessage = ticketStore.paymentDataMessage
+
+  await ticketStore.submitCurrentOrderPayment()
+
+  if (!hadPayInfo && ticketStore.currentOrderPayInfo && ticketAppPayParam.value) {
+    payInfoDialogVisible.value = true
+    await handleOpenTicketAlipayPayment()
+    return
+  }
+
+  const message = ticketStore.paymentDataMessage.trim()
+
+  if (!message || message === previousMessage) {
+    return
+  }
+
+  if (message.includes('完成') || message.includes('成功')) {
+    ElMessage.success(message)
+    return
+  }
+
+  ElMessage.warning(message)
+}
+
 async function handleOpenTicketAlipayPayment(): Promise<void> {
   if (!ticketAppPayParam.value) {
     ElMessage.warning('缺少支付宝支付参数')
@@ -340,6 +369,8 @@ watch(
   (currentAccountId, previousAccountId) => {
     if (currentAccountId !== previousAccountId) {
       payInfoDialogVisible.value = false
+      autoOpenedPayInfoOrderId.value = ''
+      lastPaymentMessage.value = ''
       ticketStore.handleAccountChanged()
     }
   }
@@ -347,9 +378,45 @@ watch(
 
 watch(
   () => ticketStore.currentOrderPayInfo,
-  (payInfo) => {
+  async (payInfo) => {
     if (!hasVisibleValue(getPayInfoValue(payInfo))) {
       payInfoDialogVisible.value = false
+      if (!ticketStore.currentOrder?.orderId) {
+        autoOpenedPayInfoOrderId.value = ''
+      }
+      return
+    }
+
+    const orderId = ticketStore.currentOrder?.orderId || ''
+
+    if (!orderId || autoOpenedPayInfoOrderId.value === orderId || !ticketAppPayParam.value || openingAlipay.value) {
+      return
+    }
+
+    autoOpenedPayInfoOrderId.value = orderId
+    payInfoDialogVisible.value = true
+    await handleOpenTicketAlipayPayment()
+  }
+)
+
+watch(
+  () => [ticketStore.submittingPayment, ticketStore.paymentDataMessage] as const,
+  ([submittingPayment, paymentDataMessage], [previousSubmittingPayment]) => {
+    const message = paymentDataMessage.trim()
+
+    if (!message || message === lastPaymentMessage.value) {
+      return
+    }
+
+    if (previousSubmittingPayment && !submittingPayment) {
+      lastPaymentMessage.value = message
+
+      if (message.includes('瀹屾垚') || message.includes('鎴愬姛')) {
+        ElMessage.success(message)
+        return
+      }
+
+      ElMessage.warning(message)
     }
   }
 )

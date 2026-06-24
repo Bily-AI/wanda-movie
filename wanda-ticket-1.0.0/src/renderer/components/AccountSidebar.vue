@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { Lock, Refresh, Search, UserFilled, Edit, Delete, DocumentCopy, Upload, FolderAdd, Sort } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox, ElTable } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import type { TableInstance } from 'element-plus'
 
 import { useAccountsStore } from '@renderer/stores/accounts'
 import type { WandaAccount } from '@shared/localData'
 
 const accountsStore = useAccountsStore()
 
-const accountTableRef = ref<InstanceType<typeof ElTable>>()
+const accountTableRef = ref<TableInstance>()
 
 function handleAccountSelectionChange(rows: WandaAccount[]): void {
   accountsStore.setSelectedAccountIds(rows.map((row) => row.id))

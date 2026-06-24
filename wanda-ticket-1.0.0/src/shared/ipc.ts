@@ -170,6 +170,7 @@ export interface AlipayAutoPaymentOptions {
 
 export interface AlipayConvertRequest {
   appPayParam: string
+  phone?: string
   deviceFingerprint?: AlipayDeviceFingerprint
   autoPayment?: AlipayAutoPaymentOptions
 }

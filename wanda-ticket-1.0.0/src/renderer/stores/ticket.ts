@@ -954,7 +954,8 @@ export const useTicketStore = defineStore('ticket', {
           returnUrl: 'wandafilm/pay/finished'
         },
         goodInfo: '',
-        orderId: String(currentOrder.orderId)
+        orderId: String(currentOrder.orderId),
+        verifyCode: ''
       }
 
       if (couponPaymentInfo) {
@@ -962,19 +963,26 @@ export const useTicketStore = defineStore('ticket', {
           discountPrice: Math.max(0, seatTotalPrice - payablePrice),
           voucher: couponPaymentInfo.selection.voucher
         }
-        requestInfo.couponPaymentList = couponPaymentInfo.useResult.itemList
+        requestInfo.couponPaymentList = couponPaymentInfo.useResult.itemList.map((item) => ({
+          actuallyPaidAmount: item.payPrice ?? item.actuallyPaidAmount,
+          rightsCode: '',
+          seatId: Number(item.seat ?? item.seatId),
+          ticketCode: '',
+          ticketType: 0,
+          usedCoupon: 1
+        }))
       }
 
       if (!isCouponPayment && selectedActivity && primaryCard) {
         requestInfo.activity = {
-          allotJson: selectedActivity.allotSeat || '{}',
+          allotJson: selectedActivity.allotSeatRaw || '{}',
           card: {
             cardNumber: primaryCard.cardNo,
             quantity: 0
           },
           discountPrice: Math.max(0, seatTotalPrice - payablePrice),
           integral: 0,
-          ticketType: selectedActivity.typeCode,
+          ticketType: selectedActivity.code,
           ticketTypeName: primaryCard.cardTypeName,
           type: selectedActivity.detailType
         }

@@ -282,6 +282,14 @@ function decryptPaymentSubmitPayload(
 
 function normalizePaymentActivity(item: unknown, group: Record<string, unknown>): PaymentActivityItem {
   const record = asRecord(item)
+  const allotSeatRaw = firstText(record.allotSeat, record.allotseat) || '{}'
+  let allotSeat: unknown = null
+
+  try {
+    allotSeat = JSON.parse(allotSeatRaw)
+  } catch {
+    allotSeat = allotSeatRaw
+  }
 
   return {
     code: firstText(record.code, record.activityCode, record.activityNo, record.id),
@@ -294,7 +302,8 @@ function normalizePaymentActivity(item: unknown, group: Record<string, unknown>)
     note: firstText(record.note, record.remark, record.desc),
     typeCode: firstText(record.typeCode),
     detailType: firstText(record.detailtype, record.detailType, record.type),
-    allotSeat: firstText(record.allotSeat, record.allotseat),
+    allotSeat,
+    allotSeatRaw,
     raw: item
   }
 }
@@ -499,10 +508,10 @@ function normalizeCouponUseResult(payload: Record<string, unknown>): CouponUseRe
 
       return {
         actuallyPaidAmount: toNumber(record.actuallyPaidAmount ?? record.actualPaidAmount ?? record.payPrice),
-        rightsCode: '',
+        rightsCode: firstText(record.rightsCode, record.rightscode, record.code),
         seatId: toNumber(record.seatId ?? record.seat),
-        ticketCode: '',
-        ticketType: toNumber(record.ticketType),
+        ticketCode: firstText(record.ticketCode, record.ticketcode, record.code),
+        ticketType: toNumber(record.ticketType, 0),
         usedCoupon: toNumber(record.usedCoupon, 1)
       }
     }),
@@ -542,6 +551,7 @@ function firstListRecord(value: unknown): Record<string, unknown> {
 
 function extractPayInfo(orderId: string, response: unknown): OrderPayInfoResult {
   const data = asRecord(asRecord(response).data)
+  const res = asRecord(data.res)
   const directTicketInfo = firstListRecord(data.subTicketOrderInfo)
   const orderInf = firstListRecord(data.orderInf)
   const ticketInfo = firstListRecord(orderInf.subTicketOrderInfo)
@@ -561,7 +571,7 @@ function extractPayInfo(orderId: string, response: unknown): OrderPayInfoResult 
       'electronicQR',
       'value'
     ]),
-    payInfo: data.payInfo ?? asRecord(data.res).payment ?? asRecord(data.res).payInfo ?? source.payInfo,
+    payInfo: res.payInfo ?? data.payInfo ?? res.payment ?? source.payInfo,
     raw: response
   }
 }
@@ -594,37 +604,44 @@ function normalizeTicketOrderResult(response: unknown): TicketOrderResult {
 }
 
 function escapeRequestInfoForSignature(requestInfoJson: string): string {
-  const allowed = new Set<number>()
+  const normalizedValue = requestInfoJson.replaceAll('\\\\u003d', '\\u003d')
+  const allowedCodePoints = new Set<number>()
 
-  for (let i = 0; i < 26; i++) {
-    allowed.add(0x41 + i)
-    allowed.add(0x61 + i)
+  for (let code = 0x41; code <= 0x5a; code += 1) {
+    allowedCodePoints.add(code)
   }
 
-  for (let i = 0; i < 10; i++) {
-    allowed.add(0x30 + i)
+  for (let code = 0x61; code <= 0x7a; code += 1) {
+    allowedCodePoints.add(code)
   }
 
-  const specialChars = ' ()-@*.=&'
-  for (let i = 0; i < specialChars.length; i++) {
-    allowed.add(specialChars.charCodeAt(i))
+  for (let code = 0x30; code <= 0x39; code += 1) {
+    allowedCodePoints.add(code)
   }
 
-  const text = requestInfoJson.replaceAll('\\\\u003d', '\\u003d')
-  let result = ''
+  for (const char of ' ()-@*.=&') {
+    allowedCodePoints.add(char.charCodeAt(0))
+  }
 
-  for (let i = 0; i < text.length; i++) {
-    const code = text.charCodeAt(i)
-    if (allowed.has(code)) {
-      result += text[i]
-    } else if (code < 0x100) {
-      result += '%' + code.toString(16)
-    } else {
-      result += '%u' + code.toString(16).padStart(4, '0')
+  let escapedValue = ''
+
+  for (let index = 0; index < normalizedValue.length; index += 1) {
+    const codePoint = normalizedValue.charCodeAt(index)
+
+    if (allowedCodePoints.has(codePoint)) {
+      escapedValue += normalizedValue[index]
+      continue
     }
+
+    if (codePoint < 0x100) {
+      escapedValue += `%${codePoint.toString(16)}`
+      continue
+    }
+
+    escapedValue += `%u${codePoint.toString(16).padStart(4, '0')}`
   }
 
-  return result
+  return escapedValue
 }
 
 function normalizePaymentSubmitResult(
@@ -643,7 +660,7 @@ function normalizePaymentSubmitResult(
     bizMsg: firstText(payload.bizMsg, payload.msg, res.bizMsg, res.msg, record.msg),
     tradeNo: firstText(payload.tradeNo, res.tradeNo, payment.tradeNo),
     requestInfo,
-    payInfo: payload.payInfo ?? res.payment ?? payload.res ?? payload,
+    payInfo: res.payInfo ?? payload.payInfo ?? res.payment ?? payload.res ?? payload,
     raw: response
   }
 }

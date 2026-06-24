@@ -91,7 +91,11 @@ export interface WandaAppApi {
   reportAutoOrderResult: (result: AutoOrderTicketResult) => Promise<AutoOrderReportResult>
   onAutoOrderProcessTicket: (listener: (request: AutoOrderTicketRequest) => void) => () => void
   onAutoOrderProcessResult: (listener: (result: AutoOrderTicketResult) => void) => () => void
-  alipayConvert: (request: AlipayConvertRequest) => Promise<AlipayConvertResult>
+  alipayConvert: (
+    appPayParam: string,
+    phone?: string,
+    autoPayment?: AlipayConvertRequest['autoPayment']
+  ) => Promise<AlipayConvertResult>
   alipaySyncDevice: (request: AlipayDeviceFingerprint) => Promise<AlipaySyncDeviceResult>
   alipayClearSession: () => Promise<AlipayClearSessionResult>
 }
@@ -129,7 +133,8 @@ const wandaApp: WandaAppApi = {
     ipcRenderer.on(IPC_CHANNELS.AUTO_ORDER_PROCESS_RESULT_EVENT, wrapped)
     return () => ipcRenderer.removeListener(IPC_CHANNELS.AUTO_ORDER_PROCESS_RESULT_EVENT, wrapped)
   },
-  alipayConvert: (request) => ipcRenderer.invoke(IPC_CHANNELS.ALIPAY_CONVERT, request),
+  alipayConvert: (appPayParam, phone, autoPayment) =>
+    ipcRenderer.invoke(IPC_CHANNELS.ALIPAY_CONVERT, appPayParam, phone, autoPayment),
   alipaySyncDevice: (request) => ipcRenderer.invoke(IPC_CHANNELS.ALIPAY_SYNC_DEVICE, request),
   alipayClearSession: () => ipcRenderer.invoke(IPC_CHANNELS.ALIPAY_CLEAR_SESSION)
 }

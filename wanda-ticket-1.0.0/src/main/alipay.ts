@@ -7,6 +7,7 @@ import zlib from 'node:zlib'
 import {
   IPC_CHANNELS,
   type AlipayClearSessionResult,
+  type AlipayAutoPaymentOptions,
   type AlipayConvertRequest,
   type AlipayConvertResult,
   type AlipayDeviceFingerprint,
@@ -92,6 +93,24 @@ function buildAlipayUserAgent(fingerprint?: AlipayDeviceFingerprint | null): str
   return `Mozilla/5.0 (iPhone; CPU iPhone OS ${ios} like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${data.ios} Mobile/15E148 Safari/604.1`
 }
 
+function getAlipayWindowBounds(fingerprint: ReturnType<typeof normalizeFingerprint>) {
+  const maxWidth = 360
+  const maxHeight = 760
+  const aspectRatio = fingerprint.height > 0 ? fingerprint.width / fingerprint.height : 393 / 852
+  let width = Math.min(fingerprint.width, maxWidth)
+  let height = Math.round(width / aspectRatio)
+
+  if (height > maxHeight) {
+    height = maxHeight
+    width = Math.round(height * aspectRatio)
+  }
+
+  return {
+    width: Math.max(320, width),
+    height: Math.max(640, height)
+  }
+}
+
 function buildGatewayRequest(appPayParam: string): string {
   const requestBody = JSON.stringify({
     tid: 'qwertyuiopasdfghjklzxcvbnm',
@@ -108,7 +127,7 @@ function buildGatewayRequest(appPayParam: string): string {
     },
     gzip: true
   })
-  const encryptedBody = encrypt3DES(requestBody).toString('hex')
+  const encryptedBody = encrypt3DES(requestBody).toString('base64')
   const encryptedKey = rsaEncrypt(DES3_KEY)
   const keyLength = encryptedKey.length.toString(16).padStart(8, '0').toUpperCase()
   const bodyLength = encryptedBody.length.toString(16).padStart(8, '0').toUpperCase()
@@ -199,7 +218,7 @@ async function convertAlipayToH5(appPayParam: string): Promise<string> {
     throw new Error(`支付宝转换响应缺少 res_data: ${responseText}`)
   }
 
-  const decodedText = decrypt3DES(Buffer.from(responseData, 'hex'))
+  const decodedText = decrypt3DES(Buffer.from(responseData, 'base64'))
   const decoded = JSON.parse(decodedText) as { form?: { onload?: { name?: string } } }
   const onloadName = decoded.form?.onload?.name || ''
   const match = onloadName.match(/https:\/\/[^\s']+/)
@@ -212,7 +231,7 @@ async function convertAlipayToH5(appPayParam: string): Promise<string> {
 }
 
 function buildAutoPaymentScript(request: AlipayConvertRequest): string {
-  const phone = request.autoPayment?.enabled ? readText(request.autoPayment.phone) : ''
+  const phone = request.autoPayment?.enabled ? readText(request.autoPayment.phone || request.phone) : ''
   const password = request.autoPayment?.enabled ? readText(request.autoPayment.password) : ''
 
   if (!phone && !password) {
@@ -286,13 +305,14 @@ async function runAutoPaymentScript(window: BrowserWindow, request: AlipayConver
 
 async function openAlipayWindow(url: string, request: AlipayConvertRequest): Promise<boolean> {
   const fingerprint = normalizeFingerprint(request.deviceFingerprint)
+  const bounds = getAlipayWindowBounds(fingerprint)
   const existingWindow = alipayPayWindow && !alipayPayWindow.isDestroyed() ? alipayPayWindow : null
   const reusedWindow = Boolean(existingWindow)
   const window =
     existingWindow ??
     new BrowserWindow({
-      width: fingerprint.width,
-      height: fingerprint.height,
+      width: bounds.width,
+      height: bounds.height,
       title: ALIPAY_WINDOW_TITLE,
       webPreferences: {
         session: session.fromPartition(ALIPAY_PARTITION),
@@ -305,7 +325,7 @@ async function openAlipayWindow(url: string, request: AlipayConvertRequest): Pro
   alipayPayWindow = window
   window.setMenuBarVisibility(false)
   window.webContents.setUserAgent(buildAlipayUserAgent(fingerprint))
-  window.setSize(fingerprint.width, fingerprint.height)
+  window.setSize(bounds.width, bounds.height)
   window.show()
   window.focus()
 
@@ -366,6 +386,22 @@ async function convertAndOpenAlipay(request: AlipayConvertRequest): Promise<Alip
   }
 }
 
+function normalizeConvertRequest(
+  requestOrParam: AlipayConvertRequest | string,
+  phone?: string,
+  autoPayment?: AlipayAutoPaymentOptions
+): AlipayConvertRequest {
+  if (typeof requestOrParam === 'string') {
+    return {
+      appPayParam: requestOrParam,
+      phone: readText(phone),
+      autoPayment: autoPayment && isRecord(autoPayment) ? autoPayment : undefined
+    }
+  }
+
+  return requestOrParam
+}
+
 function syncAlipayDevice(fingerprint: AlipayDeviceFingerprint): AlipaySyncDeviceResult {
   cachedFingerprint = normalizeFingerprint(fingerprint)
 
@@ -405,5 +441,9 @@ export function registerAlipayHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.ALIPAY_SYNC_DEVICE, (_event, fingerprint: AlipayDeviceFingerprint) =>
     syncAlipayDevice(fingerprint)
   )
-  ipcMain.handle(IPC_CHANNELS.ALIPAY_CONVERT, (_event, request: AlipayConvertRequest) => convertAndOpenAlipay(request))
+  ipcMain.handle(
+    IPC_CHANNELS.ALIPAY_CONVERT,
+    (_event, requestOrParam: AlipayConvertRequest | string, phone?: string, autoPayment?: AlipayAutoPaymentOptions) =>
+      convertAndOpenAlipay(normalizeConvertRequest(requestOrParam, phone, autoPayment))
+  )
 }

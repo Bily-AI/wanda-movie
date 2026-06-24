@@ -1,3 +1,5 @@
+import { toRaw } from 'vue'
+
 import type { AlipayAutoPaymentOptions, AlipayDeviceFingerprint } from '@shared/ipc'
 import type { RequestParamsLocalData } from '@shared/localData'
 
@@ -75,6 +77,14 @@ export function buildAlipayDeviceFingerprint(requestParams: RequestParamsLocalDa
   }
 }
 
+function toPlainRequestParamsData(data: RequestParamsLocalData): RequestParamsLocalData {
+  return structuredClone({ ...toRaw(data) })
+}
+
+function toPlainAutoPaymentOptions(data: AlipayAutoPaymentOptions): AlipayAutoPaymentOptions {
+  return structuredClone({ ...toRaw(data) })
+}
+
 export async function openAlipayPayment(appPayParam: string, options: AlipayOpenOptions) {
   const wandaApp = window.wandaApp
 
@@ -82,11 +92,16 @@ export async function openAlipayPayment(appPayParam: string, options: AlipayOpen
     throw new Error('Electron 桥接未就绪，无法打开支付宝支付')
   }
 
-  const result = await wandaApp.alipayConvert({
-    appPayParam,
-    deviceFingerprint: buildAlipayDeviceFingerprint(options.requestParams),
-    autoPayment: options.autoPayment
-  })
+  const requestParams = toPlainRequestParamsData(options.requestParams)
+  const autoPayment = toPlainAutoPaymentOptions(options.autoPayment)
+  const syncResult = await wandaApp.alipaySyncDevice(buildAlipayDeviceFingerprint(requestParams))
+
+  if (!syncResult.ok) {
+    throw new Error(syncResult.error || '同步支付宝设备指纹失败')
+  }
+
+  const phone = autoPayment.enabled ? readText(autoPayment.phone) : ''
+  const result = await wandaApp.alipayConvert(appPayParam, phone, autoPayment)
 
   if (!result.ok) {
     throw new Error(result.error || '打开支付宝支付失败')

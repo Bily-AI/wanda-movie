@@ -183,20 +183,23 @@
 
 ## 渲染资源统计
 
-- JS 文件数：14
+- JS 文件数：17
 - ActivityView-BHIu0zWB.js（37969 字节）
 - AutoOrderView-BHzDJJqS.js（33615 字节）
 - cinemaApi-CaSvFp2C.js（1425 字节）
 - ExchangeCouponView-D7pg-wzF.js（51793 字节）
 - index-BIdfEfgb.js（2978330 字节）
+- index.deobf.js（2978330 字节）
 - log-RG7axmDi.js（1399 字节）
 - LoginView-DqWPorSB.js（17718 字节）
 - LogView-BdKV3f3s.js（6793 字节）
 - OrderHistoryView-fzhX0-3e.js（35182 字节）
 - seatApi-DRvI3y7l.js（48766 字节）
+- seatApi.deobf.js（48766 字节）
 - SettingsView-CW4vK-xR.js（23239 字节）
 - StoredValueCardView-B0Nkeihd.js（37834 字节）
 - TicketView-BMjvUszG.js（573188 字节）
+- TicketView.deobf.js（573188 字节）
 - VipView-BkMCWbzQ.js（46247 字节）
 - CSS 文件数：11
 - ActivityView-DxPQYAU5.css（6184 字节）

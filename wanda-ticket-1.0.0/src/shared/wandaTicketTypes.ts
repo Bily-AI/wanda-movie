@@ -164,7 +164,8 @@ export interface PaymentActivityItem {
   note: string
   typeCode: string
   detailType: string
-  allotSeat: string
+  allotSeat: unknown
+  allotSeatRaw: string
   raw: unknown
 }
 
@@ -206,7 +207,9 @@ export interface CouponSelectionResult {
 
 export interface CouponPaymentListItem {
   actuallyPaidAmount: number
+  payPrice?: number
   rightsCode: string
+  seat?: string | number
   seatId: number
   ticketCode: string
   ticketType: number
