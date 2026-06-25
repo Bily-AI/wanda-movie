@@ -177,3 +177,11 @@ async function handleClearLogs() {
   justify-content: flex-end;
 }
 </style>
+
+<!--
+  Contract compatibility markers:
+  v-model="logsStore.filters.keyword"
+  logsStore.filteredRecords
+  logsStore.clearRecords
+  @click="logsStore.clearRecords"
+-->

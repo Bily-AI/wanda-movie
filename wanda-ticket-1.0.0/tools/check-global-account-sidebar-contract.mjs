@@ -17,7 +17,8 @@ function assertNotIncludes(file, source, text) {
 }
 
 const app = read('src/renderer/App.vue')
-const ticketView = read('src/renderer/views/TicketView.vue')
+const ticketViewFull = read('src/renderer/views/TicketView.vue')
+const ticketView = ticketViewFull.replace(/<!--[\s\S]*?-->/g, '')
 const accountSidebar = read('src/renderer/components/AccountSidebar.vue')
 
 assertIncludes('src/renderer/App.vue', app, "import AccountSidebar from './components/AccountSidebar.vue'")

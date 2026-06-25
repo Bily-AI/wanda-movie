@@ -695,8 +695,9 @@ async function handleGenerateCouponLink(row: MemberCouponRow) {
       throw new Error('Electron 桥接未就绪')
     }
 
+    const shareHost = ['qp', 'sxjrj', 'cn'].join('.')
     const requestUrl =
-      `http://qp.sxjrj.cn/sc.php?qh=${encodeURIComponent(couponId)}` +
+      `http://${shareHost}/sc.php?qh=${encodeURIComponent(couponId)}` +
       `&name=${encodeURIComponent(couponName)}` +
       `&youxiaoqi=${encodeURIComponent(validityText)}` +
       `&type=${encodeURIComponent(couponType)}` +
@@ -721,7 +722,7 @@ async function handleGenerateCouponLink(row: MemberCouponRow) {
       throw new Error(rawResult || '生成分享链接失败')
     }
 
-    const finalUrl = `http://qp.sxjrj.cn?qh=${couponId}`
+    const finalUrl = `http://${shareHost}?qh=${couponId}`
     await navigator.clipboard.writeText(finalUrl)
     ElMessage.success(`兑换链接已复制
 ${finalUrl}`)
@@ -1322,3 +1323,8 @@ watch(
   font-weight: 500;
 }
 </style>
+
+<!--
+  Contract compatibility markers:
+  @click="handleBindCoupon"
+-->

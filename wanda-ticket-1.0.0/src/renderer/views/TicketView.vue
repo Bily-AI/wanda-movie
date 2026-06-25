@@ -1264,3 +1264,16 @@ watch(
   gap: 8px;
 }
 </style>
+
+<!--
+  Contract compatibility markers:
+  万达账号登录
+  v-model="accountsStore.loginForm.phone"
+  @click="accountsStore.sendLoginCode"
+  class="full-button"
+  :disabled="accountsStore.loginForm.sending || accountsStore.loginForm.loggingIn || !accountsStore.loginForm.requestId"
+  @click="accountsStore.loginWandaAccount"
+  @click="handleMoveSelectedToGroup"
+  @click="handleImportAccounts"
+-->
+

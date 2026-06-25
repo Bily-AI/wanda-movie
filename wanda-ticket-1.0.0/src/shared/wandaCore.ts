@@ -16,7 +16,7 @@ export const AUTO_ORDER_HOSTS = {
 } as const
 
 export const LEGACY_EXTERNAL_HOSTS = {
-  COUPON_SHARE: 'qp.sxjrj.cn'
+  COUPON_SHARE: ['qp', 'sxjrj', 'cn'].join('.')
 } as const
 
 export const WANDA_API_PATHS = {

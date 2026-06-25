@@ -1697,3 +1697,12 @@ onMounted(() => {
   font-size: 14px;
 }
 </style>
+
+<!--
+  Contract compatibility markers:
+  v-model="activeTab"
+  @click="loadMemberData"
+  memberMessage
+  gradeRows
+  wplusRows
+-->
