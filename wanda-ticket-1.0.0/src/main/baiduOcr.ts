@@ -263,6 +263,8 @@ async function getBaiduAccessToken(): Promise<string> {
   return accessTokenCache.token
 }
 
+let forceGeneralBasic = false
+
 async function requestBaiduOcr(imageBase64: string, accurate = true): Promise<BaiduOcrResponse> {
   const accessToken = await getBaiduAccessToken()
   const body = new URLSearchParams({
@@ -272,7 +274,11 @@ async function requestBaiduOcr(imageBase64: string, accurate = true): Promise<Ba
     paragraph: 'false',
     probability: 'false'
   })
-  const url = `${accurate ? BAIDU_ACCURATE_URL : BAIDU_ACCURATE_BASIC_URL}?access_token=${encodeURIComponent(accessToken)}`
+  let targetUrl = accurate ? BAIDU_ACCURATE_URL : BAIDU_ACCURATE_BASIC_URL
+  if (forceGeneralBasic) {
+    targetUrl = 'https://aip.baidubce.com/rest/2.0/ocr/v1/general_basic'
+  }
+  const url = `${targetUrl}?access_token=${encodeURIComponent(accessToken)}`
   const response = await axios.post<BaiduOcrResponse>(url, body.toString(), {
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded'
@@ -476,12 +482,25 @@ export async function recognizeBaiduOcr(request: BaiduOcrRequest): Promise<Baidu
   }
 
   try {
-    const data = await requestBaiduOcr(request.imageBase64, request.accurate)
+    forceGeneralBasic = false
+    let data = await requestBaiduOcr(request.imageBase64, request.accurate)
+
+    if (data.error_code === 6) {
+      data = await requestBaiduOcr(request.imageBase64, false)
+
+      if (data.error_code === 6) {
+        forceGeneralBasic = true
+        data = await requestBaiduOcr(request.imageBase64, false)
+      }
+    }
 
     if (data.error_code) {
+      const detailedError = data.error_code === 6
+        ? '百度 OCR 提示：无数据访问权限。这通常是因为您的百度智能云应用在后台没有勾选/开通对应的文字识别服务接口（建议开通通用文字识别高精度版/标准版），或者应用凭证(API Key/Secret Key)配置有误。'
+        : (data.error_msg || `百度 OCR 返回错误：${data.error_code}`)
       return {
         ok: false,
-        error: data.error_msg || `百度 OCR 返回错误：${data.error_code}`
+        error: detailedError
       }
     }
 
@@ -500,6 +519,8 @@ export async function recognizeBaiduOcr(request: BaiduOcrRequest): Promise<Baidu
       ok: false,
       error: error instanceof Error && error.message ? error.message : '百度 OCR 请求失败'
     }
+  } finally {
+    forceGeneralBasic = false
   }
 }
 
