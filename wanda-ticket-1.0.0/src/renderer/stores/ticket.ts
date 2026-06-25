@@ -15,7 +15,12 @@ import {
   selectCouponsForPayment,
   submitTicketPayment
 } from '@renderer/services/seatApi'
-import { parseOcrTicketText, type ParsedOcrTicket } from '@shared/ocrParser'
+import {
+  isLikelySeatSelectionOcrText,
+  isLikelyToolUiOcrText,
+  parseOcrTicketText,
+  type ParsedOcrTicket
+} from '@shared/ocrParser'
 import type { AiOcrParsedTicket } from '@shared/ipc'
 import type {
   CinemaRecord,
@@ -384,6 +389,32 @@ function needsAiOcrFallback(parsed: ParsedOcrTicket): boolean {
   )
 }
 
+function getLocalOcrMissingFields(parsed: ParsedOcrTicket): string[] {
+  const missing: string[] = []
+
+  if (!parsed.cinemaName) {
+    missing.push('影院')
+  }
+
+  if (!parsed.movieName) {
+    missing.push('影片')
+  }
+
+  if (!parsed.date) {
+    missing.push('日期')
+  }
+
+  if (!parsed.time) {
+    missing.push('场次')
+  }
+
+  if (parsed.seats.length === 0) {
+    missing.push('座位')
+  }
+
+  return missing
+}
+
 function mergeAiOcrParsedTicket(parsed: ParsedOcrTicket, aiParsed: AiOcrParsedTicket): ParsedOcrTicket {
   return {
     ...parsed,
@@ -398,12 +429,138 @@ function mergeAiOcrParsedTicket(parsed: ParsedOcrTicket, aiParsed: AiOcrParsedTi
   }
 }
 
+function mergePreferredAiOcrParsedTicket(parsed: ParsedOcrTicket, aiParsed: AiOcrParsedTicket): ParsedOcrTicket {
+  return {
+    ...parsed,
+    cinemaName: aiParsed.cinemaName || parsed.cinemaName || '',
+    movieName: aiParsed.movieName || parsed.movieName || '',
+    date: aiParsed.date || parsed.date || '',
+    time: aiParsed.time || parsed.time || '',
+    hallName: aiParsed.hallName || parsed.hallName || '',
+    language: aiParsed.language || parsed.language || '',
+    price: aiParsed.price || parsed.price || '',
+    seats: aiParsed.seats?.length ? aiParsed.seats : parsed.seats
+  }
+}
+
+function getReadableLocalOcrMissingFields(parsed: ParsedOcrTicket): string[] {
+  const missing: string[] = []
+
+  if (!parsed.cinemaName) {
+    missing.push('影院')
+  }
+
+  if (!parsed.movieName) {
+    missing.push('影片')
+  }
+
+  if (!parsed.date) {
+    missing.push('日期')
+  }
+
+  if (!parsed.time) {
+    missing.push('场次')
+  }
+
+  if (parsed.seats.length === 0) {
+    missing.push('座位')
+  }
+
+  return missing
+}
+
+function formatOcrParsedSummary(prefix: string, parsed: Pick<ParsedOcrTicket, 'cinemaName' | 'movieName' | 'date' | 'time' | 'hallName' | 'language' | 'seats'>): string {
+  return `${prefix}：影院=${parsed.cinemaName || '-'}，影片=${parsed.movieName || '-'}，日期=${parsed.date || '-'}，时间=${parsed.time || '-'}，影厅=${parsed.hallName || '-'}，版本=${parsed.language || '-'}，座位=${parsed.seats.map((seat) => `${seat.rowName}-${seat.columnName}`).join(',') || '-'}`
+}
+
+function compactDateToken(value: string): string {
+  return value.replace(/\D+/g, '')
+}
+
+function buildIsoDate(year: number, month: string, day: string): string {
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+}
+
+function extractRawDateCandidates(text: string): string[] {
+  const normalized = text.replace(/\s+/g, ' ')
+  const year = new Date().getFullYear()
+  const results: string[] = []
+  const seen = new Set<string>()
+
+  for (const match of normalized.matchAll(/(20\d{2})[-/.年](\d{1,2})[-/.月](\d{1,2})/g)) {
+    const candidate = buildIsoDate(Number(match[1]), match[2], match[3])
+
+    if (!seen.has(candidate)) {
+      seen.add(candidate)
+      results.push(candidate)
+    }
+  }
+
+  for (const match of normalized.matchAll(/(\d{1,2})\s*月\s*(\d{1,2})\s*日/g)) {
+    const candidate = buildIsoDate(year, match[1], match[2])
+
+    if (!seen.has(candidate)) {
+      seen.add(candidate)
+      results.push(candidate)
+    }
+  }
+
+  return results
+}
+
+function findDateOptionFromRawText(options: TicketOption[], text: string, parsedDate = ''): TicketOption | undefined {
+  const candidates = [...new Set([parsedDate, ...extractRawDateCandidates(text)].filter(Boolean))]
+
+  for (const candidate of candidates) {
+    const matched = findUnique(options, (item) => optionMatchesDate(item, candidate))
+
+    if (matched) {
+      return matched
+    }
+  }
+
+  return undefined
+}
+
 function optionMatchesDate(option: TicketOption, date: string): boolean {
-  return option.value === date || option.label === date || option.value.includes(date) || option.label.includes(date)
+  const optionValue = String(option.value || '')
+  const optionLabel = String(option.label || '')
+  const compactOptionValue = compactDateToken(optionValue)
+  const compactOptionLabel = compactDateToken(optionLabel)
+  const compactDate = compactDateToken(date)
+
+  return Boolean(
+    optionValue === date ||
+      optionLabel === date ||
+      optionValue.includes(date) ||
+      optionLabel.includes(date) ||
+      (compactDate &&
+        (compactOptionValue === compactDate ||
+          compactOptionLabel === compactDate ||
+          compactOptionValue.includes(compactDate) ||
+          compactOptionLabel.includes(compactDate)))
+  )
 }
 
 function optionMatchesTime(option: TicketOption, time: string): boolean {
   return option.value.includes(time) || option.label.includes(time)
+}
+
+function extractPrimaryShowtimeTime(text: string, parsedTime = ''): string {
+  const normalized = text.replace(/\s+/g, ' ')
+  const rangeMatch = normalized.match(/([01]?\d|2[0-3])[:：](\d{2})\s*-\s*([01]?\d|2[0-3])[:：](\d{2})/)
+
+  if (rangeMatch) {
+    return `${rangeMatch[1].padStart(2, '0')}:${rangeMatch[2]}`
+  }
+
+  if (parsedTime) {
+    return parsedTime
+  }
+
+  const match = normalized.match(/([01]?\d|2[0-3])[:：](\d{2})/)
+
+  return match ? `${match[1].padStart(2, '0')}:${match[2]}` : ''
 }
 
 function parseTimeToMinutes(timeStr: string): number {
@@ -429,6 +586,57 @@ function findClosestShowtime(showtimes: TicketOption[], targetTime: string): Tic
     }
   }
   return bestOption
+}
+
+function hasShowtimeHints(parsed: Pick<ParsedOcrTicket, 'time' | 'hallName' | 'language'>): boolean {
+  return Boolean(parsed.time || parsed.hallName || parsed.language)
+}
+
+function normalizeHallKeyword(value: string): string {
+  return value.replace(/银幕|影厅|厅|号|\s|-/g, '').trim().toLowerCase()
+}
+
+function normalizeVersionKeyword(value: string): string {
+  return value.replace(/\s+/g, '').replace(/\dD$/i, '').trim().toLowerCase()
+}
+
+function findShowtimeByHallAndLanguage(
+  showtimeItems: Array<{ dId: string; label: string; hallName?: string; raw?: unknown }>,
+  parsed: Pick<ParsedOcrTicket, 'hallName' | 'language'>
+): TicketOption | undefined {
+  const hallKeyword = parsed.hallName ? normalizeHallKeyword(parsed.hallName) : ''
+  const languageKeyword = parsed.language ? normalizeVersionKeyword(parsed.language) : ''
+
+  if (!hallKeyword && !languageKeyword) {
+    return undefined
+  }
+
+  const matchedItem = showtimeItems.find((item) => {
+    const labelText = item.label.replace(/\s+/g, '').toLowerCase()
+    const hallText = normalizeHallKeyword(item.hallName || '')
+    const rawRecord = asRecord(item.raw)
+    const versionText = normalizeVersionKeyword(firstText(rawRecord.version, rawRecord.language, rawRecord.movieVersion))
+    let matched = true
+
+    if (hallKeyword) {
+      matched = matched && (hallText.includes(hallKeyword) || labelText.includes(hallKeyword))
+    }
+
+    if (languageKeyword) {
+      matched = matched && (versionText.includes(languageKeyword) || labelText.includes(languageKeyword))
+    }
+
+    return matched
+  })
+
+  if (!matchedItem) {
+    return undefined
+  }
+
+  return {
+    value: matchedItem.dId,
+    label: matchedItem.label
+  }
 }
 
 function wait(ms: number): Promise<void> {
@@ -1830,7 +2038,7 @@ export const useTicketStore = defineStore('ticket', {
 
       return matchedSeats.length
     },
-    async applyParsedOcrTicket(parsed: ParsedOcrTicket) {
+    async applyParsedOcrTicketLegacy(parsed: ParsedOcrTicket) {
       const account = useAccountsStore().currentAccount
       const applied: string[] = []
 
@@ -1908,21 +2116,252 @@ export const useTicketStore = defineStore('ticket', {
         applied.length > 0 ? `OCR 匹配成功：${applied.join('、')}` : 'OCR 已识别但未匹配到当前真实数据'
       )
     },
+    async applyParsedOcrTicket(parsed: ParsedOcrTicket) {
+      const account = useAccountsStore().currentAccount
+      const applied: string[] = []
+
+      const stopMatching = (message: string, logMessage = message) => {
+        this.showtimeError = applied.length > 0 ? `OCR \u5df2\u5339\u914d\uff1a${applied.join('\u3001')}\uff0c${message}` : message
+        useLogsStore().addLog('OCR\u8bc6\u522b', account?.phone || '-', logMessage)
+      }
+
+      if (parsed.cinemaName || parsed.movieName) {
+        this.query.keyword = parsed.cinemaName || parsed.movieName
+      }
+
+      if (parsed.cinemaName) {
+        const cinema = findUniqueCinemaByText(this.cinemaRecords, parsed.cinemaName)
+
+        if (!cinema) {
+          const cinemaKeyword = parsed.cinemaName.replace(/\s+/g, '').slice(0, 8)
+
+          if (cinemaKeyword.length >= 2) {
+            this.query.keyword = cinemaKeyword
+          }
+
+          stopMatching(
+            'OCR \u672a\u7cbe\u786e\u5339\u914d\u5230\u5f71\u9662\uff0c\u5df2\u6309\u5173\u952e\u8bcd\u7b5b\u51fa\u7ed3\u679c\uff0c\u8bf7\u624b\u52a8\u9009\u62e9',
+            'OCR \u672a\u7cbe\u786e\u5339\u914d\u5230\u5f71\u9662'
+          )
+          return
+        }
+
+        if (this.query.city !== cinema.cityId) {
+          this.query.city = cinema.cityId
+          this.selectCity()
+        }
+
+        this.query.cinema = cinema.id
+        applied.push('\u5f71\u9662')
+        await this.loadCinemaShowtimes()
+
+        const moviesReady = await waitForCondition(() => this.movies.length > 0, 7500)
+        if (!moviesReady) {
+          stopMatching(
+            '\u7535\u5f71\u5217\u8868\u52a0\u8f7d\u8d85\u65f6',
+            'OCR \u5339\u914d\u4e2d\u65ad\uff1a\u7535\u5f71\u5217\u8868\u52a0\u8f7d\u8d85\u65f6'
+          )
+          return
+        }
+      }
+
+      if (this.movies.length > 0) {
+        let movie: TicketOption | undefined
+
+        if (parsed.movieName) {
+          movie = findUniqueOptionByText(this.movies, parsed.movieName)
+        }
+
+        if (!movie && parsed.movieName) {
+          stopMatching(
+            'OCR \u672a\u5339\u914d\u5230\u5f71\u7247\uff0c\u8bf7\u624b\u52a8\u9009\u62e9',
+            'OCR \u672a\u5339\u914d\u5230\u5f71\u7247'
+          )
+          return
+        }
+
+        if (movie) {
+          this.query.movie = movie.value
+          this.selectMovie()
+          applied.push('\u5f71\u7247')
+
+          if (this.dates.length === 0) {
+            stopMatching(
+              '\u5f53\u524d\u5f71\u7247\u6682\u65e0\u53ef\u9009\u65e5\u671f',
+              'OCR \u5339\u914d\u4e2d\u65ad\uff1a\u5f53\u524d\u5f71\u7247\u6682\u65e0\u53ef\u9009\u65e5\u671f'
+            )
+            return
+          }
+        }
+      }
+
+      if (this.dates.length > 0) {
+        let date: TicketOption | undefined
+
+        if (parsed.date) {
+          date = findUnique(this.dates, (item) => optionMatchesDate(item, parsed.date))
+        }
+
+        if (!date) {
+          date = findDateOptionFromRawText(this.dates, parsed.rawText, parsed.date)
+        }
+
+        if (!date && !parsed.date && this.dates.length === 1) {
+          date = this.dates[0]
+        }
+
+        if (!date) {
+          stopMatching(
+            'OCR \u672a\u5339\u914d\u5230\u65e5\u671f\uff0c\u8bf7\u624b\u52a8\u9009\u62e9',
+            `OCR \u672a\u5339\u914d\u5230\u65e5\u671f\uff1a\u8bc6\u522b=${parsed.date || '-'}\uff0c\u53ef\u9009=${this.dates.map((item) => item.label || item.value).join(',') || '-'}`
+          )
+          return
+        }
+
+        if (date) {
+          this.query.date = date.value
+          this.selectDate()
+          applied.push('\u65e5\u671f')
+
+          if (this.showtimes.length === 0) {
+            stopMatching(
+              '\u5f53\u524d\u65e5\u671f\u6682\u65e0\u53ef\u9009\u573a\u6b21',
+              'OCR \u5339\u914d\u4e2d\u65ad\uff1a\u5f53\u524d\u65e5\u671f\u6682\u65e0\u53ef\u9009\u573a\u6b21'
+            )
+            return
+          }
+        }
+      }
+
+      const targetShowtime = extractPrimaryShowtimeTime(parsed.rawText, parsed.time)
+
+      if ((hasShowtimeHints(parsed) || targetShowtime) && this.showtimes.length > 0) {
+        let showtime = targetShowtime ? findUnique(this.showtimes, (item) => optionMatchesTime(item, targetShowtime)) : undefined
+
+        if (!showtime) {
+          showtime = findShowtimeByHallAndLanguage(this.showtimeItems, {
+            ...parsed,
+            time: targetShowtime || parsed.time
+          })
+        }
+
+        if (!showtime && targetShowtime) {
+          showtime = findClosestShowtime(this.showtimes, targetShowtime)
+        }
+
+        if (!showtime) {
+          stopMatching(
+            'OCR \u672a\u5339\u914d\u5230\u573a\u6b21\uff0c\u8bf7\u624b\u52a8\u9009\u62e9',
+            `OCR \u672a\u5339\u914d\u5230\u573a\u6b21\uff1a\u65f6\u95f4=${targetShowtime || parsed.time || '-'}\uff0c\u5f71\u5385=${parsed.hallName || '-'}\uff0c\u7248\u672c=${parsed.language || '-'}` 
+          )
+          return
+        }
+
+        this.query.showtime = showtime.value
+        this.setShowtime()
+        applied.push('\u573a\u6b21')
+
+        if (this.canRefreshSeats) {
+          await this.loadRealTimeSeats()
+          const seatsReady = await waitForCondition(() => this.seatNodes.length > 0, 15000)
+
+          if (!seatsReady) {
+            stopMatching(
+              '\u5ea7\u4f4d\u52a0\u8f7d\u8d85\u65f6',
+              'OCR \u5339\u914d\u4e2d\u65ad\uff1a\u5ea7\u4f4d\u52a0\u8f7d\u8d85\u65f6'
+            )
+            return
+          }
+        }
+      }
+
+      if (parsed.seats.length > 0) {
+        if (this.seatNodes.length === 0 && this.canRefreshSeats) {
+          await this.loadRealTimeSeats()
+          const seatsReady = await waitForCondition(() => this.seatNodes.length > 0, 15000)
+
+          if (!seatsReady) {
+            stopMatching(
+              '\u5ea7\u4f4d\u52a0\u8f7d\u8d85\u65f6',
+              'OCR \u5339\u914d\u4e2d\u65ad\uff1a\u5ea7\u4f4d\u52a0\u8f7d\u8d85\u65f6'
+            )
+            return
+          }
+        }
+
+        const selectedCount = this.selectSeatsByParsedOcr(parsed)
+
+        if (selectedCount > 0) {
+          applied.push(`\u5ea7\u4f4d ${selectedCount} \u4e2a`)
+        }
+      }
+
+      this.showtimeError =
+        applied.length > 0
+          ? `OCR \u5df2\u5339\u914d\uff1a${applied.join('\u3001')}`
+          : 'OCR \u5df2\u8bc6\u522b\uff0c\u8bf7\u5148\u52a0\u8f7d\u771f\u5b9e\u57ce\u5e02\u3001\u5f71\u9662\u3001\u5f71\u7247\u548c\u573a\u6b21\u540e\u518d\u5339\u914d'
+
+      useLogsStore().addLog(
+        'OCR\u8bc6\u522b',
+        account?.phone || '-',
+        applied.length > 0
+          ? `OCR \u5339\u914d\u6210\u529f\uff1a${applied.join('\u3001')}`
+          : 'OCR \u5df2\u8bc6\u522b\u4f46\u672a\u5339\u914d\u5230\u5f53\u524d\u771f\u5b9e\u6570\u636e'
+      )
+    },
     async applyOcrTicketText(text: string): Promise<ParsedOcrTicket> {
+      if (isLikelyToolUiOcrText(text)) {
+        throw new Error('检测到当前识别的是本工具界面截图，请复制万达票面或选座截图后再试')
+      }
+
       const parsed = parseOcrTicketText(text)
       let finalParsed = parsed
+      const account = useAccountsStore().currentAccount
+      const seatSelectionContext = isLikelySeatSelectionOcrText(parsed.rawText)
 
-      if (needsAiOcrFallback(parsed)) {
-        const account = useAccountsStore().currentAccount
+      useLogsStore().addLog(
+        'OCR识别',
+        account?.phone || '-',
+        `本地解析：影院=${parsed.cinemaName || '-'}，影片=${parsed.movieName || '-'}，日期=${parsed.date || '-'}，时间=${parsed.time || '-'}，影厅=${parsed.hallName || '-'}，版本=${parsed.language || '-'}，座位=${parsed.seats.map((seat) => `${seat.rowName}-${seat.columnName}`).join(',') || '-'}`
+      )
+
+      useLogsStore().addLog('OCR识别', account?.phone || '-', formatOcrParsedSummary('本地解析', parsed))
+
+      const localMissingFields = getReadableLocalOcrMissingFields(parsed)
+
+      if (seatSelectionContext || needsAiOcrFallback(parsed)) {
+        if (seatSelectionContext || localMissingFields.length >= 2) {
+          this.showtimeError = `本地匹配缺失[${localMissingFields.join('、') || '关键信息'}]，AI 智能分析中...`
+          useLogsStore().addLog(
+            'AI OCR',
+            account?.phone || '-',
+            `本地匹配缺失[${localMissingFields.join('、') || '关键信息'}]，开始 AI 兜底分析`
+          )
+        }
+
         const result = await window.wandaApp?.aiParseOcr({ text: parsed.rawText, words: parsed.words })
 
         if (result?.ok) {
-          finalParsed = mergeAiOcrParsedTicket(parsed, result.data)
-          useLogsStore().addLog('AI OCR', account?.phone || '-', 'AI 兜底解析完成')
+          finalParsed = seatSelectionContext
+            ? mergePreferredAiOcrParsedTicket(parsed, result.data)
+            : mergeAiOcrParsedTicket(parsed, result.data)
+          useLogsStore().addLog(
+            'AI OCR',
+            account?.phone || '-',
+            `AI兜底解析：影院=${result.data.cinemaName || '-'}，影片=${result.data.movieName || '-'}，日期=${result.data.date || '-'}，时间=${result.data.time || '-'}，影厅=${result.data.hallName || '-'}，版本=${result.data.language || '-'}，座位=${result.data.seats?.map((seat) => `${seat.rowName}-${seat.columnName}`).join(',') || '-'}`
+          )
         } else if (result?.error) {
           useLogsStore().addLog('AI OCR', account?.phone || '-', `AI 兜底跳过：${result.error}`)
         }
       }
+
+      useLogsStore().addLog(
+        'OCR识别',
+        account?.phone || '-',
+        `最终解析：影院=${finalParsed.cinemaName || '-'}，影片=${finalParsed.movieName || '-'}，日期=${finalParsed.date || '-'}，时间=${finalParsed.time || '-'}，影厅=${finalParsed.hallName || '-'}，版本=${finalParsed.language || '-'}，座位=${finalParsed.seats.map((seat) => `${seat.rowName}-${seat.columnName}`).join(',') || '-'}`
+      )
+
+      useLogsStore().addLog('OCR识别', account?.phone || '-', formatOcrParsedSummary('最终解析', finalParsed))
 
       await this.applyParsedOcrTicket(finalParsed)
       return finalParsed

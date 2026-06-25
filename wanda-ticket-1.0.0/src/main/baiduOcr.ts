@@ -1,4 +1,4 @@
-import { clipboard, ipcMain } from 'electron'
+﻿import { clipboard, ipcMain } from 'electron'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import axios from 'axios'
@@ -134,7 +134,7 @@ async function getBaiduOcrConfig(): Promise<BaiduOcrConfig> {
   const secretKey = settings.baiduOcr.secretKey.trim() || getConfigValue('BAIDU_OCR_SECRET_KEY')
 
   if (!apiKey || !secretKey) {
-    throw new Error('缺少百度 OCR 配置 BAIDU_OCR_API_KEY / BAIDU_OCR_SECRET_KEY')
+    throw new Error('缂哄皯鐧惧害 OCR 閰嶇疆 BAIDU_OCR_API_KEY / BAIDU_OCR_SECRET_KEY')
   }
 
   return {
@@ -155,11 +155,11 @@ async function getAiOcrConfig(): Promise<AiOcrConfig> {
     settings.aiOcr.model.trim() || getConfigValue('AI_OCR_MODEL', 'DEEPSEEK_MODEL') || DEFAULT_AI_OCR_MODEL
 
   if (!settings.aiOcr.enabled) {
-    throw new Error('AI OCR 兜底未启用')
+    throw new Error('AI OCR 鍏滃簳鏈惎鐢?)
   }
 
   if (!apiKey) {
-    throw new Error('缺少 AI OCR API Key，请先在设置里配置')
+    throw new Error('缂哄皯 AI OCR API Key锛岃鍏堝湪璁剧疆閲岄厤缃?)
   }
 
   return {
@@ -176,15 +176,15 @@ function stripDataUrlPrefix(imageBase64: string): string {
 
 function validateBaiduOcrRequest(request: BaiduOcrRequest): string | null {
   if (typeof request !== 'object' || request === null || Array.isArray(request)) {
-    return 'OCR 请求参数必须是对象'
+    return 'OCR 璇锋眰鍙傛暟蹇呴』鏄璞?
   }
 
   if (typeof request.imageBase64 !== 'string' || !request.imageBase64.trim()) {
-    return '缺少待识别图片'
+    return '缂哄皯寰呰瘑鍒浘鐗?
   }
 
   if (request.accurate !== undefined && typeof request.accurate !== 'boolean') {
-    return 'OCR 识别精度参数必须是布尔值'
+    return 'OCR 璇嗗埆绮惧害鍙傛暟蹇呴』鏄竷灏斿€?
   }
 
   const imageBase64 = request.imageBase64.trim()
@@ -192,15 +192,15 @@ function validateBaiduOcrRequest(request: BaiduOcrRequest): string | null {
   const imageBody = stripDataUrlPrefix(imageBase64).replace(/\s+/g, '')
 
   if (imageBase64.startsWith('data:image/') && !hasSupportedDataUrl) {
-    return 'OCR 图片只支持 PNG/JPG/WebP 格式'
+    return 'OCR 鍥剧墖鍙敮鎸?PNG/JPG/WebP 鏍煎紡'
   }
 
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(imageBody)) {
-    return 'OCR 图片必须是 PNG/JPG/WebP 的 base64 内容'
+    return 'OCR 鍥剧墖蹇呴』鏄?PNG/JPG/WebP 鐨?base64 鍐呭'
   }
 
   if (imageBody.length > MAX_OCR_IMAGE_BASE64_LENGTH) {
-    return 'OCR 图片过大，请使用 10MB 以内的图片'
+    return 'OCR 鍥剧墖杩囧ぇ锛岃浣跨敤 10MB 浠ュ唴鐨勫浘鐗?
   }
 
   return null
@@ -208,22 +208,22 @@ function validateBaiduOcrRequest(request: BaiduOcrRequest): string | null {
 
 function validateAiOcrParseRequest(request: AiOcrParseRequest): string | null {
   if (typeof request !== 'object' || request === null || Array.isArray(request)) {
-    return 'AI OCR 请求参数必须是对象'
+    return 'AI OCR 璇锋眰鍙傛暟蹇呴』鏄璞?
   }
 
   if (typeof request.text !== 'string' || !request.text.trim()) {
-    return '缺少待解析 OCR 文本'
+    return '缂哄皯寰呰В鏋?OCR 鏂囨湰'
   }
 
   if (request.text.length > MAX_AI_OCR_TEXT_LENGTH) {
-    return 'OCR 文本过长，请缩短后再解析'
+    return 'OCR 鏂囨湰杩囬暱锛岃缂╃煭鍚庡啀瑙ｆ瀽'
   }
 
   if (
     request.words !== undefined &&
     (!Array.isArray(request.words) || request.words.some((word) => typeof word !== 'string'))
   ) {
-    return 'OCR words 必须是字符串数组'
+    return 'OCR words 蹇呴』鏄瓧绗︿覆鏁扮粍'
   }
 
   return null
@@ -251,7 +251,7 @@ async function getBaiduAccessToken(): Promise<string> {
   })
 
   if (response.status < 200 || response.status >= 300 || !response.data.access_token) {
-    throw new Error(response.data.error_description || response.data.error || '获取百度 access_token 失败')
+    throw new Error(response.data.error_description || response.data.error || '鑾峰彇鐧惧害 access_token 澶辫触')
   }
 
   accessTokenCache = {
@@ -288,7 +288,7 @@ async function requestBaiduOcr(imageBase64: string, accurate = true): Promise<Ba
   })
 
   if (response.status < 200 || response.status >= 300) {
-    throw new Error(`百度 OCR 请求失败：HTTP ${response.status}`)
+    throw new Error(`鐧惧害 OCR 璇锋眰澶辫触锛欻TTP ${response.status}`)
   }
 
   return response.data
@@ -316,24 +316,89 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
 
 function normalizeAiDate(value: unknown): string {
   const text = cleanAiText(value)
-  const match = text.match(/(20\d{2})[-/.年](\d{1,2})[-/.月](\d{1,2})/)
+  const isoMatch = text.match(/(20\d{2})[-/.年](\d{1,2})[-/.月](\d{1,2})/)
 
-  if (match) {
-    return `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2].padStart(2, '0')}-${isoMatch[3].padStart(2, '0')}`
   }
 
-  return text
+  const relativeMatch = text.match(/(?:今天|明天|后天|今日|翌日)\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日?/)
+
+  if (relativeMatch) {
+    return `${new Date().getFullYear()}-${relativeMatch[1].padStart(2, '0')}-${relativeMatch[2].padStart(2, '0')}`
+  }
+
+  const monthDayMatch = text.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*日?/)
+
+  if (monthDayMatch) {
+    return `${new Date().getFullYear()}-${monthDayMatch[1].padStart(2, '0')}-${monthDayMatch[2].padStart(2, '0')}`
+  }
+
+  return ''
 }
 
 function normalizeAiTime(value: unknown): string {
   const text = cleanAiText(value)
-  const match = text.match(/([01]?\d|2[0-3])[:：点时](\d{2})/)
+  const match = text.match(/([01]?\d|2[0-3])[:锛氱偣鏃禲(\d{2})/)
 
   if (match) {
     return `${match[1].padStart(2, '0')}:${match[2]}`
   }
 
-  return text
+  return ''
+}
+
+function extractAiLanguage(value: unknown): string {
+  const text = cleanAiText(value)
+  const match = text.match(/(IMAX|2D|3D|杜比|国语(?:2D|3D)?|英语(?:2D|3D)?|原版|粤语(?:2D|3D)?)/i)
+
+  return match?.[1] ?? ''
+}
+
+function collectAiFallbackTexts(data: Record<string, unknown>, request: AiOcrParseRequest): string[] {
+  const candidates = [
+    data.date,
+    data.showDate,
+    data.showtimeDate,
+    data.time,
+    data.showTime,
+    data.startTime,
+    data.language,
+    data.version,
+    data.movieVersion,
+    data.schedule,
+    data.session,
+    data.showInfo,
+    data.showTimeInfo,
+    data.showtime,
+    data.playTime,
+    data.dateTime,
+    data.datetime,
+    data.remark,
+    data.text,
+    request.text,
+    Array.isArray(request.words) ? request.words.join(' ') : ''
+  ]
+
+  const texts = candidates.map((item) => cleanAiText(item)).filter(Boolean)
+  const mergedTexts: string[] = []
+
+  for (let index = 0; index < texts.length - 1; index += 1) {
+    mergedTexts.push(`${texts[index]} ${texts[index + 1]}`.trim())
+  }
+
+  if (Array.isArray(request.words) && request.words.length > 1) {
+    for (let index = 0; index < request.words.length - 1; index += 1) {
+      const current = cleanAiText(request.words[index])
+      const next = cleanAiText(request.words[index + 1])
+
+      if (current && next) {
+        mergedTexts.push(`${current} ${next}`)
+      }
+    }
+  }
+
+  return [...texts, ...mergedTexts]
 }
 
 function normalizeAiOcrSeats(value: unknown): AiOcrParsedTicket['seats'] {
@@ -375,16 +440,20 @@ function normalizeAiOcrTicket(raw: unknown, request: AiOcrParseRequest): AiOcrPa
   const source = isPlainRecord(raw) ? raw : {}
   const data = isPlainRecord(source.data) ? source.data : source
   const words = Array.isArray(request.words) ? request.words.map((word) => word.trim()).filter(Boolean) : []
+  const fallbackTexts = collectAiFallbackTexts(data, request)
+  const fallbackDate = fallbackTexts.map((item) => normalizeAiDate(item)).find(Boolean) ?? ''
+  const fallbackTime = fallbackTexts.map((item) => normalizeAiTime(item)).find(Boolean) ?? ''
+  const fallbackLanguage = fallbackTexts.map((item) => extractAiLanguage(item)).find(Boolean) ?? ''
 
   return {
     rawText: request.text.trim(),
     words,
     cinemaName: firstAiText(data.cinemaName, data.cinema, data.theater, data.cinema_name),
     movieName: firstAiText(data.movieName, data.movie, data.filmName, data.film, data.movie_name),
-    date: normalizeAiDate(firstAiText(data.date, data.showDate, data.showtimeDate)),
-    time: normalizeAiTime(firstAiText(data.time, data.showTime, data.startTime)),
+    date: normalizeAiDate(firstAiText(data.date, data.showDate, data.showtimeDate)) || fallbackDate,
+    time: normalizeAiTime(firstAiText(data.time, data.showTime, data.startTime)) || fallbackTime,
     hallName: firstAiText(data.hallName, data.hall, data.cinemaHallName),
-    language: firstAiText(data.language, data.version, data.movieVersion),
+    language: firstAiText(data.language, data.version, data.movieVersion) || fallbackLanguage,
     price: firstAiText(data.price, data.totalPrice, data.amount),
     seats: normalizeAiOcrSeats(data.seats)
   }
@@ -403,7 +472,7 @@ function extractJsonObject(content: string): unknown {
     const match = cleanContent.match(/\{[\s\S]*\}/)
 
     if (!match) {
-      throw new Error('AI OCR 返回内容不是有效 JSON')
+      throw new Error('AI OCR 杩斿洖鍐呭涓嶆槸鏈夋晥 JSON')
     }
 
     return JSON.parse(match[0])
@@ -412,12 +481,17 @@ function extractJsonObject(content: string): unknown {
 
 function buildAiOcrPrompt(request: AiOcrParseRequest): string {
   return [
-    '你是一个电影票 OCR 信息整理助手。',
-    '请只返回 JSON，不要返回 markdown。',
+    '你是一个万达电影票 OCR 信息整理助手。',
+    '请只返回 JSON，不要返回 markdown，不要解释。',
     '字段固定为 cinemaName、movieName、date、time、hallName、language、price、seats。',
-    'date 使用 YYYY-MM-DD，time 使用 HH:mm。',
+    'date 必须使用 YYYY-MM-DD，time 必须使用 HH:mm。',
     'seats 是数组，每项包含 rowName、columnName、rawText。',
-    '不要编造城市、影院、影片、场次、座位或价格；不确定的字段返回空字符串或空数组。',
+    '如果是手机选座页截图：影片名通常在“切换场次”左侧或上一行；日期时间以场次信息为准，不要取状态栏时间。',
+    '遇到“后天 6月27日 15:00-16:42 国语2D”这类文本时，date 输出 2026-06-27，time 输出 15:00，language 输出 国语2D。',
+    '不要编造城市、影院、影片、场次、座位或价格，不确定的字段返回空字符串或空数组。',
+    '',
+    'OCR 分行结果：',
+    ...(request.words?.length ? request.words.map((word, index) => `${index + 1}. ${word}`) : ['(空)']),
     '',
     'OCR 文本：',
     request.text.trim()
@@ -456,13 +530,13 @@ async function requestAiOcrParse(request: AiOcrParseRequest): Promise<AiOcrParse
   if (response.status < 200 || response.status >= 300) {
     const error = response.data?.error
     const message = typeof error === 'string' ? error : error?.message
-    throw new Error(message || `AI OCR 请求失败：HTTP ${response.status}`)
+    throw new Error(message || `AI OCR 璇锋眰澶辫触锛欻TTP ${response.status}`)
   }
 
   const content = response.data.choices?.[0]?.message?.content?.trim()
 
   if (!content) {
-    throw new Error('AI OCR 返回内容为空')
+    throw new Error('AI OCR 杩斿洖鍐呭涓虹┖')
   }
 
   return normalizeAiOcrTicket(extractJsonObject(content), {
@@ -496,8 +570,8 @@ export async function recognizeBaiduOcr(request: BaiduOcrRequest): Promise<Baidu
 
     if (data.error_code) {
       const detailedError = data.error_code === 6
-        ? '百度 OCR 提示：无数据访问权限。这通常是因为您的百度智能云应用在后台没有勾选/开通对应的文字识别服务接口（建议开通通用文字识别高精度版/标准版），或者应用凭证(API Key/Secret Key)配置有误。'
-        : (data.error_msg || `百度 OCR 返回错误：${data.error_code}`)
+        ? '鐧惧害 OCR 鎻愮ず锛氭棤鏁版嵁璁块棶鏉冮檺銆傝繖閫氬父鏄洜涓烘偍鐨勭櫨搴︽櫤鑳戒簯搴旂敤鍦ㄥ悗鍙版病鏈夊嬀閫?寮€閫氬搴旂殑鏂囧瓧璇嗗埆鏈嶅姟鎺ュ彛锛堝缓璁紑閫氶€氱敤鏂囧瓧璇嗗埆楂樼簿搴︾増/鏍囧噯鐗堬級锛屾垨鑰呭簲鐢ㄥ嚟璇?API Key/Secret Key)閰嶇疆鏈夎銆?
+        : (data.error_msg || `鐧惧害 OCR 杩斿洖閿欒锛?{data.error_code}`)
       return {
         ok: false,
         error: detailedError
@@ -517,7 +591,7 @@ export async function recognizeBaiduOcr(request: BaiduOcrRequest): Promise<Baidu
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error && error.message ? error.message : '百度 OCR 请求失败'
+      error: error instanceof Error && error.message ? error.message : '鐧惧害 OCR 璇锋眰澶辫触'
     }
   } finally {
     forceGeneralBasic = false
@@ -542,7 +616,7 @@ export async function parseAiOcrTicketText(request: AiOcrParseRequest): Promise<
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error && error.message ? error.message : 'AI OCR 解析失败'
+      error: error instanceof Error && error.message ? error.message : 'AI OCR 瑙ｆ瀽澶辫触'
     }
   }
 }
@@ -553,7 +627,7 @@ function readClipboardImage(): ClipboardImageResult {
   if (image.isEmpty()) {
     return {
       ok: false,
-      error: '剪贴板中没有图片'
+      error: '鍓创鏉夸腑娌℃湁鍥剧墖'
     }
   }
 
@@ -575,7 +649,7 @@ export function registerBaiduOcrHandlers(): void {
     if (!text) {
       return {
         ok: false,
-        error: '剪贴板中没有文本内容'
+        error: '鍓创鏉夸腑娌℃湁鏂囨湰鍐呭'
       }
     }
 
@@ -591,3 +665,4 @@ export function registerBaiduOcrHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.AI_OCR_PARSE, (_event, request: AiOcrParseRequest) => parseAiOcrTicketText(request))
 }
+
