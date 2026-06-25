@@ -40,6 +40,7 @@ export interface CinemaRecord {
   address?: string
   pinyin?: string
   firstLetter?: string
+  maoyanName?: string
   raw: unknown
 }
 

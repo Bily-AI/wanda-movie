@@ -283,11 +283,95 @@ function findUnique<T>(items: T[], predicate: (item: T) => boolean): T | undefin
 }
 
 function findUniqueOptionByText(options: TicketOption[], text: string): TicketOption | undefined {
-  return findUnique(options, (option) => fuzzyIncludes(option.label, text) || fuzzyIncludes(option.value, text))
+  if (!text || options.length === 0) return undefined
+
+  const cleanedText = text.replace(/\s+/g, '').toLowerCase()
+
+  const candidates = options.map((option) => {
+    const name = (option.label || '').replace(/\s+/g, '').toLowerCase()
+    if (cleanedText.includes(name) || name.includes(cleanedText)) {
+      return { option, score: name.length * 100 + 1000 }
+    }
+
+    const nameChars = [...new Set(name.split(''))]
+    let matchedChars = 0
+    for (const char of nameChars) {
+      if (cleanedText.includes(char)) matchedChars++
+    }
+
+    const charCoverage = nameChars.length > 0 ? matchedChars / nameChars.length : 0
+    const score = charCoverage * 500
+    return { option, score }
+  })
+
+  candidates.sort((a, b) => b.score - a.score)
+  const best = candidates[0]
+  if (best && best.score > 100) {
+    return best.option
+  }
+  return undefined
 }
 
 function findUniqueCinemaByText(cinemas: CinemaRecord[], text: string): CinemaRecord | undefined {
-  return findUnique(cinemas, (cinema) => fuzzyIncludes(cinema.name, text))
+  if (!text || cinemas.length === 0) return undefined
+
+  const trimmed = text.trim()
+  const spaceRemoved = trimmed.replace(/\s+/g, '')
+  const parensRemoved = trimmed.replace(/[（(].*?[）)]/g, '')
+  const parensReplaced = trimmed.replace(/[（(）)]/g, '')
+  const prefixRemoved = parensRemoved.replace(/^万达影城/, '')
+
+  interface WeightedVariant {
+    text: string
+    weight: number
+  }
+
+  const variants: WeightedVariant[] = [
+    { text: trimmed, weight: 1.5 },
+    { text: spaceRemoved, weight: 1.3 },
+    { text: parensReplaced, weight: 1.2 },
+    { text: prefixRemoved, weight: 1.0 },
+    { text: parensRemoved, weight: 0.6 }
+  ]
+
+  const getMatchScore = (cinema: CinemaRecord): number => {
+    const name = (cinema.name || '').trim().toLowerCase()
+    const maoyanName = (cinema.maoyanName || '').trim().toLowerCase()
+
+    let maxScore = 0
+    for (const variant of variants) {
+      const vText = variant.text.toLowerCase()
+      const lcsName = computeLcsLength(vText, name)
+      const lcsMaoyan = computeLcsLength(vText, maoyanName)
+      const consecutiveName = computeLcsConsecutive(vText, name)
+      const consecutiveMaoyan = computeLcsConsecutive(vText, maoyanName)
+
+      const matchVal = Math.max(lcsName, lcsMaoyan)
+      const consecutiveVal = Math.max(consecutiveName, consecutiveMaoyan)
+
+      const variantScore = matchVal * 20 + consecutiveVal * 10
+      const weightedScore = variantScore * variant.weight
+      if (weightedScore > maxScore) {
+        maxScore = weightedScore
+      }
+    }
+    return maxScore
+  }
+
+  const candidates = cinemas.map((cinema) => ({
+    cinema,
+    score: getMatchScore(cinema)
+  }))
+
+  candidates.sort((a, b) => b.score - a.score)
+  const best = candidates[0]
+  const maxLen = Math.max(...variants.map((v) => v.text.length))
+  const threshold = Math.max(30, maxLen * 15)
+
+  if (best && best.score >= threshold) {
+    return best.cinema
+  }
+  return undefined
 }
 
 function needsAiOcrFallback(parsed: ParsedOcrTicket): boolean {
@@ -1413,6 +1497,7 @@ export const useTicketStore = defineStore('ticket', {
         address: firstText(record.address, record.CmAdd),
         pinyin: firstText(record.pinyin),
         firstLetter: firstText(record.firstLetter),
+        maoyanName: firstText(record.maoyanName, record.MyCmName),
         raw: item
       })
     },
