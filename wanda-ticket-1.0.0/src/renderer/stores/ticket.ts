@@ -326,6 +326,57 @@ function wait(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms))
 }
 
+function waitForCondition(predicate: () => boolean, timeoutMs = 15000, intervalMs = 200): Promise<boolean> {
+  const startTime = Date.now()
+  return new Promise((resolve) => {
+    const interval = setInterval(() => {
+      if (predicate()) {
+        clearInterval(interval)
+        resolve(true)
+      } else if (Date.now() - startTime >= timeoutMs) {
+        clearInterval(interval)
+        resolve(false)
+      }
+    }, intervalMs)
+  })
+}
+
+function computeLcsLength(str1: string, str2: string): number {
+  const len1 = str1.length
+  const len2 = str2.length
+  const dp = Array.from({ length: len1 + 1 }, () => new Array(len2 + 1).fill(0))
+
+  for (let i = 1; i <= len1; i++) {
+    for (let j = 1; j <= len2; j++) {
+      if (str1[i - 1] === str2[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1] + 1
+      } else {
+        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1])
+      }
+    }
+  }
+  return dp[len1][len2]
+}
+
+function computeLcsConsecutive(str1: string, str2: string): number {
+  const len1 = str1.length
+  const len2 = str2.length
+  const dp = Array.from({ length: len1 + 1 }, () => new Array(len2 + 1).fill(0))
+  let maxLen = 0
+
+  for (let i = 1; i <= len1; i++) {
+    for (let j = 1; j <= len2; j++) {
+      if (str1[i - 1] === str2[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1] + 1
+        maxLen = Math.max(maxLen, dp[i][j])
+      } else {
+        dp[i][j] = 0
+      }
+    }
+  }
+  return maxLen
+}
+
 function matchesSearchKeyword(
   record: Pick<CityRecord | CinemaRecord, 'name' | 'pinyin' | 'firstLetter'> & { address?: string },
   keyword: string
