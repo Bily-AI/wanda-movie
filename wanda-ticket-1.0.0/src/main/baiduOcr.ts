@@ -274,7 +274,7 @@ async function requestBaiduOcr(imageBase64: string, accurate = true): Promise<Ba
     paragraph: 'false',
     probability: 'false'
   })
-  let targetUrl = accurate ? BAIDU_ACCURATE_URL : BAIDU_ACCURATE_BASIC_URL
+  let targetUrl = accurate ? BAIDU_ACCURATE_BASIC_URL : BAIDU_ACCURATE_URL
   if (forceGeneralBasic) {
     targetUrl = 'https://aip.baidubce.com/rest/2.0/ocr/v1/general_basic'
   }
