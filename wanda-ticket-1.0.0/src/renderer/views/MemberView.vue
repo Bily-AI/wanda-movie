@@ -1,16 +1,24 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Check, Medal, Refresh, Trophy } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { Check, CloseBold, CollectionTag, Medal, Refresh, Star, SuccessFilled, Trophy } from '@element-plus/icons-vue'
 
 import {
+  activateWPlus,
   fetchMemberGradeEquityList,
   fetchMemberSignInCalendar,
-  fetchWPlusDetail,
+  fetchWPlusProfile,
+  fetchWPlusRightGroups,
   gainMemberEquity,
-  type MemberGradeGroup,
+  receiveWPlusRight,
   type MemberEquityRow,
-  type MemberSignInCalendar
+  type MemberGradeGroup,
+  type MemberSignInCalendar,
+  type MemberSignInDay,
+  type MemberWPlusExchangeResult,
+  type MemberWPlusProfile,
+  type MemberWPlusRight,
+  type MemberWPlusRightGroup
 } from '@renderer/services/featureApi'
 import { useAccountsStore } from '@renderer/stores/accounts'
 import { useLogsStore } from '@renderer/stores/logs'
@@ -19,157 +27,375 @@ const DEFAULT_WANDA_USER_IDENTIFIER = 'YYDDJDKYHA'
 
 const accountsStore = useAccountsStore()
 const logsStore = useLogsStore()
-const activeTab = ref('rtime')
+
+const activeTab = ref<'rtime' | 'wplus'>('rtime')
+
+const rtimeLoading = ref(false)
+const wplusProfileLoading = ref(false)
+const wplusRightsLoading = ref(false)
+const equityLoading = ref(false)
+const batchLoading = ref(false)
+const activateLoading = ref(false)
+
 const gradeGroups = ref<MemberGradeGroup[]>([])
-const wplusRows = ref<MemberEquityRow[]>([])
 const signInCalendar = ref<MemberSignInCalendar | null>(null)
-const loading = ref(false)
-const memberMessage = ref('')
 const signInMessage = ref('')
+const wplusProfile = ref<MemberWPlusProfile | null>(null)
+const wplusRightGroups = ref<MemberWPlusRightGroup[]>([])
+const exchangeCode = ref('')
+const exchangePassword = ref('')
+const exchangeResult = ref<MemberWPlusExchangeResult | null>(null)
+const rtimeError = ref('')
+const wplusError = ref('')
 
-const currentAccountText = computed(() => accountsStore.currentAccount?.phone || '未选择账号')
+const currentAccount = computed(() => accountsStore.currentAccount)
+const hasCurrentAccount = computed(() => Boolean(currentAccount.value?.ck))
 
-const currentGradeRecord = computed(() => {
-  return gradeGroups.value.find((g) => g.isCurrent) || gradeGroups.value[0] || null
+const currentGrowthValue = computed(() => gradeGroups.value[0]?.memberGrowthVal || 0)
+
+const currentGrade = computed(() => {
+  if (gradeGroups.value.length === 0) {
+    return null
+  }
+
+  const growthValue = currentGrowthValue.value
+  const groups = [...gradeGroups.value].sort((a, b) => b.gradeId.localeCompare(a.gradeId))
+
+  for (const group of groups) {
+    if (growthValue >= group.growthMinVal) {
+      return group
+    }
+  }
+
+  return groups[groups.length - 1] || null
 })
 
-const currentGrade = computed(() => currentGradeRecord.value?.gradeName || '-')
-const currentGrowthValue = computed(() => currentGradeRecord.value?.growthValue || 0)
+const nextGrade = computed(() => {
+  const record = currentGrade.value
 
-const nextGradeRecord = computed(() => {
-  const index = gradeGroups.value.findIndex((g) => g.isCurrent)
-  if (index >= 0 && index < gradeGroups.value.length - 1) {
-    return gradeGroups.value[index + 1]
+  if (!record) {
+    return null
   }
-  return null
+
+  const groups = [...gradeGroups.value].sort((a, b) => a.gradeId.localeCompare(b.gradeId))
+  const index = groups.findIndex((item) => item.gradeId === record.gradeId)
+
+  if (index < 0 || index >= groups.length - 1) {
+    return null
+  }
+
+  return groups[index + 1]
+})
+
+const isMaxGrade = computed(() => !nextGrade.value)
+
+const orderedGradeGroups = computed(() => {
+  if (gradeGroups.value.length === 0) {
+    return []
+  }
+
+  const record = currentGrade.value
+
+  if (!record) {
+    return gradeGroups.value
+  }
+
+  const groups = [...gradeGroups.value]
+  const index = groups.findIndex((item) => item.gradeId === record.gradeId)
+
+  if (index > 0) {
+    const [group] = groups.splice(index, 1)
+    groups.unshift(group)
+  }
+
+  return groups
+})
+
+const monthExpiredGrowth = computed(() => currentGrade.value?.monthExpiredGrowth || 0)
+
+const monthExpireDowngradeName = computed(() => {
+  const record = currentGrade.value
+
+  if (!record || !monthExpiredGrowth.value) {
+    return ''
+  }
+
+  const afterExpireGrowth = record.memberGrowthVal - monthExpiredGrowth.value
+  const groups = [...gradeGroups.value].sort((a, b) => b.growthMinVal - a.growthMinVal)
+
+  for (const item of groups) {
+    if (afterExpireGrowth >= item.growthMinVal) {
+      return item.gradeName
+    }
+  }
+
+  return groups.length > 0 ? groups[groups.length - 1].gradeName : ''
+})
+
+const maxGrowthValue = computed(() => {
+  if (gradeGroups.value.length === 0) {
+    return 100000
+  }
+
+  const lastGroup = gradeGroups.value[gradeGroups.value.length - 1]
+
+  return lastGroup.growthMaxVal ?? lastGroup.growthMinVal * 2
 })
 
 const progressPercentage = computed(() => {
-  if (!nextGradeRecord.value) return 100
-  const need = currentGradeRecord.value?.needGrowthValue || 0
-  if (need === 0) return 100
-  const current = currentGrowthValue.value
-  const total = current + need
-  return Math.min(100, (current / total) * 100)
+  const record = currentGrade.value
+
+  if (!record) {
+    return 0
+  }
+
+  const next = nextGrade.value
+
+  if (next) {
+    const denominator = next.growthMinVal - record.growthMinVal
+
+    if (denominator <= 0) {
+      return 100
+    }
+
+    const numerator = record.memberGrowthVal - record.growthMinVal
+    return Math.min(100, Math.max(0, Math.round((numerator / denominator) * 100)))
+  }
+
+  const target = record.growthMaxVal ?? record.growthMinVal * 2
+
+  if (target <= record.growthMinVal) {
+    return 100
+  }
+
+  const numerator = record.memberGrowthVal - record.growthMinVal
+  return Math.min(100, Math.max(0, Math.round((numerator / (target - record.growthMinVal)) * 100)))
 })
 
+const needGrowthToNext = computed(() => {
+  const record = currentGrade.value
+  const next = nextGrade.value
+
+  if (!record || !next) {
+    return 0
+  }
+
+  return Math.max(0, next.growthMinVal - record.memberGrowthVal)
+})
+
+const claimableRtimeRows = computed(() =>
+  gradeGroups.value.flatMap((group) => group.equities).filter((row) => !row.auto && row.equityGainStatus === 2)
+)
+
+const hasClaimableRtime = computed(() => claimableRtimeRows.value.length > 0)
+
+const totalWPlusRights = computed(() =>
+  wplusRightGroups.value.reduce((sum, group) => sum + group.rightList.length, 0)
+)
+
+const claimableWPlusRights = computed(() =>
+  wplusRightGroups.value.flatMap((group) => group.rightList).filter((item) => item.receiveStatus === 1)
+)
+
+const hasClaimableWPlus = computed(() => claimableWPlusRights.value.length > 0)
+
 const signInDays = computed(() => signInCalendar.value?.dataList ?? [])
+
 const signInTitle = computed(() => {
   if (!signInCalendar.value) {
     return signInMessage.value || '暂无签到数据'
   }
 
-  const streakText =
-    signInCalendar.value.signInStreak > 0 ? `（累计 ${signInCalendar.value.signInStreak} 天）` : ''
-
-  return `连续签到 ${signInCalendar.value.consecutiveDays} 天${streakText}`
+  return `连续签到 ${signInCalendar.value.consecutiveDays} 天`
 })
 
-function getCurrentAccount() {
-  const account = accountsStore.currentAccount
+const signInStreakText = computed(() => {
+  if (!signInCalendar.value?.signInStreak) {
+    return ''
+  }
 
+  return `（累计 ${signInCalendar.value.signInStreak} 天）`
+})
+
+function withUserIdentifier(account: typeof currentAccount.value) {
   if (!account?.ck) {
-    gradeGroups.value = []
-    wplusRows.value = []
-    signInCalendar.value = null
-    signInMessage.value = ''
-    memberMessage.value = '请选择已登录的万达账号'
     return null
   }
 
+  // 兼容旧系统默认标识：account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
   return {
     ...account,
     userIdentifier: account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
   }
 }
 
-async function loadMemberData() {
-  const account = getCurrentAccount()
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback
+}
+
+function isCurrentGrade(group: MemberGradeGroup) {
+  return Boolean(currentGrade.value && group.gradeId === currentGrade.value.gradeId)
+}
+
+function isPassedGrade(group: MemberGradeGroup) {
+  return Boolean(currentGrade.value && group.gradeId < currentGrade.value.gradeId)
+}
+
+function isClaimedEquity(row: MemberEquityRow) {
+  return row.equityGainStatus === 5
+}
+
+function isClaimableEquity(row: MemberEquityRow) {
+  return row.equityGainStatus === 2
+}
+
+function getEquityCategory(row: MemberEquityRow) {
+  const text = `${row.name} ${row.desc}`.trim()
+
+  if (text.includes('影票') || text.includes('兑换券')) {
+    return '影票权益'
+  }
+
+  if (text.includes('套餐') || text.includes('卖品')) {
+    return '卖品权益'
+  }
+
+  if (text.includes('生日') || row.status.includes('生日')) {
+    return '生日特权'
+  }
+
+  if (text.includes('折扣') || text.includes('折')) {
+    return '折扣权益'
+  }
+
+  return ''
+}
+
+function getWPlusStatusText(status: number) {
+  const map: Record<number, string> = {
+    1: '待领取',
+    2: '已领取',
+    3: '已生效',
+    4: '已过期',
+    5: '去使用',
+    8: '需实名',
+    10: '生日专享'
+  }
+
+  return map[status] || `状态${status}`
+}
+
+async function loadRtimeData() {
+  const account = withUserIdentifier(currentAccount.value)
 
   if (!account) {
+    gradeGroups.value = []
+    signInCalendar.value = null
+    rtimeError.value = '请先选择一个已登录的账号'
     return
   }
 
-  loading.value = true
-  memberMessage.value = ''
+  rtimeLoading.value = true
+  rtimeError.value = ''
 
   try {
-    const [gradeResult, wplusResult, signInResult] = await Promise.allSettled([
+    const [gradeResult, signResult] = await Promise.allSettled([
       fetchMemberGradeEquityList(account.ck, account.userIdentifier),
-      fetchWPlusDetail(account.ck, account.userIdentifier),
       fetchMemberSignInCalendar(account.ck, account.userIdentifier)
     ])
 
     if (gradeResult.status === 'fulfilled') {
       gradeGroups.value = gradeResult.value
+      logsStore.addLog('会员', account.phone, `Rtime 会员数据加载完成，共 ${gradeResult.value.length} 个等级`)
     } else {
       gradeGroups.value = []
-      memberMessage.value = String(gradeResult.reason)
-      logsStore.addLog('会员', account.phone, `Rtime会员加载失败：${gradeResult.reason}`)
+      rtimeError.value = getErrorMessage(gradeResult.reason, '获取等级权益失败')
+      logsStore.addLog('会员', account.phone, `获取等级权益失败：${rtimeError.value}`)
     }
 
-    if (wplusResult.status === 'fulfilled') {
-      wplusRows.value = wplusResult.value
-    } else {
-      wplusRows.value = []
-      logsStore.addLog('会员', account.phone, `W+会员加载失败：${wplusResult.reason}`)
-    }
-
-    if (signInResult.status === 'fulfilled') {
-      signInCalendar.value = signInResult.value
-      signInMessage.value = signInResult.value.dataList.length > 0 ? '' : '暂无签到数据'
+    if (signResult.status === 'fulfilled') {
+      signInCalendar.value = signResult.value
+      signInMessage.value = signResult.value.dataList.length > 0 ? '' : '暂无签到数据'
     } else {
       signInCalendar.value = null
-      signInMessage.value = signInResult.reason instanceof Error ? signInResult.reason.message : '会员签到加载失败'
-      logsStore.addLog('会员', account.phone, `会员签到加载失败：${signInMessage.value}`)
+      signInMessage.value = '暂无签到数据'
+      logsStore.addLog('会员', account.phone, `会员签到加载失败：${getErrorMessage(signResult.reason, '获取失败')}`)
     }
-
-    if (!memberMessage.value) {
-      memberMessage.value =
-        gradeGroups.value.length || wplusRows.value.length
-          ? ''
-          : '暂无会员权益数据'
-    }
-    logsStore.addLog('会员', account.phone, `会员数据加载完成：Rtime ${gradeGroups.value.length} 个等级，W+ ${wplusRows.value.length} 条权益`)
-  } catch (error) {
-    const message = error instanceof Error && error.message ? error.message : '会员数据加载失败'
-    gradeGroups.value = []
-    wplusRows.value = []
-    memberMessage.value = message
-    logsStore.addLog('会员', account.phone, `会员数据加载失败：${message}`)
   } finally {
-    loading.value = false
+    rtimeLoading.value = false
   }
 }
 
 async function loadSignInCalendar() {
-  const account = getCurrentAccount()
+  await loadRtimeData()
+}
+
+async function loadWPlusProfileData() {
+  const account = withUserIdentifier(currentAccount.value)
 
   if (!account) {
+    wplusProfile.value = null
+    wplusError.value = '请先选择一个已登录的账号'
     return
   }
 
-  loading.value = true
-  signInMessage.value = ''
+  wplusProfileLoading.value = true
+  wplusError.value = ''
 
   try {
-    signInCalendar.value = await fetchMemberSignInCalendar(account.ck, account.userIdentifier)
-    signInMessage.value = signInCalendar.value.dataList.length > 0 ? '' : '暂无签到数据'
-    logsStore.addLog('会员', account.phone, `会员签到加载成功：${signInCalendar.value.dataList.length} 天`)
+    const profile = await fetchWPlusProfile(account.ck, account.userIdentifier)
+    wplusProfile.value = profile
+
+    if (currentAccount.value) {
+      currentAccount.value.isPayMember = profile.isPayMember
+    }
+
+    logsStore.addLog('会员', account.phone, profile.isPayMember ? '当前账号是 W+ 会员' : '当前账号不是 W+ 会员')
   } catch (error) {
-    const message = error instanceof Error && error.message ? error.message : '会员签到加载失败'
-    signInCalendar.value = null
-    signInMessage.value = message
-    logsStore.addLog('会员', account.phone, `会员签到加载失败：${message}`)
+    wplusProfile.value = null
+    wplusError.value = getErrorMessage(error, '检测 W+ 会员状态失败')
+    logsStore.addLog('会员', account.phone, `检测 W+ 会员状态失败：${wplusError.value}`)
   } finally {
-    loading.value = false
+    wplusProfileLoading.value = false
+  }
+}
+
+async function loadWPlusRightsData() {
+  const account = withUserIdentifier(currentAccount.value)
+
+  if (!account?.ck) {
+    wplusRightGroups.value = []
+    return
+  }
+
+  wplusRightsLoading.value = true
+
+  try {
+    wplusRightGroups.value = await fetchWPlusRightGroups(account.ck, account.userIdentifier)
+    logsStore.addLog('会员', account.phone, `W+ 权益加载完成，共 ${wplusRightGroups.value.length} 个权益组`)
+  } catch (error) {
+    wplusRightGroups.value = []
+    logsStore.addLog('会员', account.phone, `W+ 权益加载失败：${getErrorMessage(error, '获取失败')}`)
+  } finally {
+    wplusRightsLoading.value = false
+  }
+}
+
+async function loadWPlusData() {
+  await loadWPlusProfileData()
+
+  if (wplusProfile.value?.isPayMember) {
+    await loadWPlusRightsData()
+  } else {
+    wplusRightGroups.value = []
   }
 }
 
 async function handleGainEquity(row: MemberEquityRow) {
-  const account = getCurrentAccount()
+  const account = withUserIdentifier(currentAccount.value)
 
   if (!account) {
+    ElMessage.warning('请先选择一个已登录的账号')
     return
   }
 
@@ -178,347 +404,1296 @@ async function handleGainEquity(row: MemberEquityRow) {
     return
   }
 
-  const confirmed = await ElMessageBox.confirm(`确认领取 ${row.name}？`, '领取会员权益', {
-    type: 'warning',
-    confirmButtonText: '领取',
-    cancelButtonText: '取消'
-  }).catch(() => false)
-
-  if (!confirmed) {
-    return
-  }
-
-  loading.value = true
+  equityLoading.value = true
 
   try {
     await gainMemberEquity(row.gradeId, row.equityId, account.ck, account.userIdentifier)
-    ElMessage.success('领取成功')
+    ElMessage.success(`领取【${row.name}】成功！`)
     logsStore.addLog('会员', account.phone, `领取权益成功：${row.name}`)
-    await loadMemberData()
+    await loadRtimeData()
   } catch (error) {
-    const message = error instanceof Error && error.message ? error.message : '领取权益失败'
+    const message = getErrorMessage(error, '领取权益失败')
     ElMessage.error(message)
     logsStore.addLog('会员', account.phone, `领取权益失败：${message}`)
   } finally {
-    loading.value = false
+    equityLoading.value = false
   }
 }
 
-function handleGainFirstEquity() {
-  const row = gradeGroups.value.flatMap((g) => g.equities).find((item) => item.gradeId && item.equityId)
+async function handleGainAllRtimeEquities() {
+  const account = withUserIdentifier(currentAccount.value)
 
-  if (!row) {
-    ElMessage.warning('暂无可领取的 Rtime 权益')
+  if (!account) {
+    ElMessage.warning('请先选择一个已登录的账号')
     return
   }
 
-  void handleGainEquity(row)
+  if (!claimableRtimeRows.value.length) {
+    ElMessage.info('没有可领取的权益')
+    return
+  }
+
+  batchLoading.value = true
+
+  let successCount = 0
+  let failCount = 0
+
+  for (const row of claimableRtimeRows.value) {
+    try {
+      await gainMemberEquity(row.gradeId, row.equityId, account.ck, account.userIdentifier)
+      successCount += 1
+    } catch {
+      failCount += 1
+    }
+  }
+
+  batchLoading.value = false
+
+  if (successCount > 0 && failCount === 0) {
+    ElMessage.success(`一键领取完成，成功 ${successCount} 项`)
+  } else if (successCount > 0) {
+    ElMessage.warning(`领取完成：成功 ${successCount} 项，失败 ${failCount} 项`)
+  } else {
+    ElMessage.error(`领取失败：${failCount} 项均未成功`)
+  }
+
+  logsStore.addLog('会员', account.phone, `Rtime 一键领取完成：成功 ${successCount} 项，失败 ${failCount} 项`)
+  await loadRtimeData()
 }
 
-onMounted(() => {
-  void loadMemberData()
-})
+async function handleReceiveWPlusRight(right: MemberWPlusRight) {
+  const account = withUserIdentifier(currentAccount.value)
+
+  if (!account) {
+    ElMessage.warning('请先选择一个已登录的账号')
+    return
+  }
+
+  equityLoading.value = true
+
+  try {
+    await receiveWPlusRight(account.ck, account.userIdentifier, right.orderCode, right.code, right.rightType)
+    ElMessage.success(`领取【${right.name}】成功！`)
+    logsStore.addLog('会员', account.phone, `W+ 权益领取成功：${right.name}`)
+    await loadWPlusRightsData()
+  } catch (error) {
+    const message = getErrorMessage(error, '领取失败')
+    ElMessage.error(message)
+    logsStore.addLog('会员', account.phone, `W+ 权益领取失败：${message}`)
+  } finally {
+    equityLoading.value = false
+  }
+}
+
+async function handleReceiveAllWPlusRights() {
+  const account = withUserIdentifier(currentAccount.value)
+
+  if (!account) {
+    ElMessage.warning('请先选择一个已登录的账号')
+    return
+  }
+
+  if (!claimableWPlusRights.value.length) {
+    ElMessage.info('没有可领取的权益')
+    return
+  }
+
+  batchLoading.value = true
+
+  let successCount = 0
+  let failCount = 0
+
+  for (const right of claimableWPlusRights.value) {
+    try {
+      await receiveWPlusRight(account.ck, account.userIdentifier, right.orderCode, right.code, right.rightType)
+      successCount += 1
+    } catch {
+      failCount += 1
+    }
+  }
+
+  batchLoading.value = false
+
+  if (successCount > 0 && failCount === 0) {
+    ElMessage.success(`一键领取完成，成功领取 ${successCount} 项`)
+  } else if (successCount > 0) {
+    ElMessage.warning(`领取完成：成功 ${successCount} 项，失败 ${failCount} 项`)
+  } else {
+    ElMessage.error(`领取失败：${failCount} 项均未成功`)
+  }
+
+  logsStore.addLog('会员', account.phone, `W+ 一键领取完成：成功 ${successCount} 项，失败 ${failCount} 项`)
+  await loadWPlusRightsData()
+}
+
+async function handleReceiveAllAccountsWPlusRights() {
+  const accounts = accountsStore.accounts.filter((account) => account.ck && account.isPayMember)
+
+  if (!accounts.length) {
+    ElMessage.warning('没有已登录的 W+ 账号')
+    return
+  }
+
+  batchLoading.value = true
+
+  let successAccountCount = 0
+  let failAccountCount = 0
+  let totalSuccessCount = 0
+
+  for (const account of accounts) {
+    const userIdentifier = account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
+
+    try {
+      const groups = await fetchWPlusRightGroups(account.ck, userIdentifier)
+      const rights = groups.flatMap((group) => group.rightList).filter((item) => item.receiveStatus === 1)
+
+      if (!rights.length) {
+        continue
+      }
+
+      let accountSuccess = 0
+
+      for (const right of rights) {
+        try {
+          await receiveWPlusRight(account.ck, userIdentifier, right.orderCode, right.code, right.rightType)
+          accountSuccess += 1
+          totalSuccessCount += 1
+        } catch {
+          continue
+        }
+      }
+
+      if (accountSuccess > 0) {
+        successAccountCount += 1
+      }
+    } catch {
+      failAccountCount += 1
+    }
+  }
+
+  batchLoading.value = false
+
+  const message = `所有账号处理完成：成功 ${successAccountCount} 个账号，失败 ${failAccountCount} 个账号，共领取 ${totalSuccessCount} 项权益`
+
+  if (totalSuccessCount > 0) {
+    ElMessage.success(message)
+  } else {
+    ElMessage.warning(message)
+  }
+
+  logsStore.addLog('会员', currentAccount.value?.phone || '', message)
+
+  if (currentAccount.value?.ck) {
+    await loadWPlusRightsData()
+  }
+}
+
+function handleUseWPlusRight(right: MemberWPlusRight) {
+  const redirectTo = Number(right.redirect?.to ?? 0)
+
+  if (redirectTo === 2) {
+    ElMessage.info(`去使用【${right.name}】 - 跳转购票页面`)
+    return
+  }
+
+  if (redirectTo === 3) {
+    ElMessage.info(`去使用【${right.name}】 - 跳转卖品页面`)
+    return
+  }
+
+  if (right.redirect?.url) {
+    ElMessage.info(`去使用【${right.name}】 - 跳转外部链接`)
+    return
+  }
+
+  ElMessage.info(`去使用【${right.name}】`)
+}
+
+async function handleActivateWPlus() {
+  const account = withUserIdentifier(currentAccount.value)
+
+  if (!account) {
+    ElMessage.warning('请先选择一个已登录的账号')
+    return
+  }
+
+  if (!exchangeCode.value.trim() || !exchangePassword.value.trim()) {
+    ElMessage.warning('请输入卡号和密码')
+    return
+  }
+
+  activateLoading.value = true
+  exchangeResult.value = null
+
+  try {
+    const result = await activateWPlus(
+      account.ck,
+      account.userIdentifier,
+      exchangeCode.value.trim(),
+      exchangePassword.value.trim()
+    )
+
+    exchangeResult.value = result
+
+    if (result.canOpen) {
+      ElMessage.success('激活成功！')
+      logsStore.addLog('会员', account.phone, 'W+ 激活成功')
+      await loadWPlusData()
+    } else {
+      ElMessage.warning(result.bizMsg || '激活失败')
+      logsStore.addLog('会员', account.phone, `W+ 激活失败：${result.bizMsg || '激活失败'}`)
+    }
+  } catch (error) {
+    const message = getErrorMessage(error, '激活请求失败')
+    ElMessage.error(message)
+    logsStore.addLog('会员', account.phone, `W+ 激活失败：${message}`)
+  } finally {
+    activateLoading.value = false
+  }
+}
+
+function refreshCurrentTab() {
+  if (activeTab.value === 'rtime') {
+    void loadRtimeData()
+    return
+  }
+
+  void loadWPlusData()
+}
 
 watch(
   () => accountsStore.currentAccountId,
   () => {
-    void loadMemberData()
+    exchangeResult.value = null
+    if (activeTab.value === 'rtime') {
+      void loadRtimeData()
+    } else {
+      void loadWPlusData()
+    }
   }
 )
+
+watch(activeTab, (tab) => {
+  if (!hasCurrentAccount.value) {
+    return
+  }
+
+  if (tab === 'rtime') {
+    void loadRtimeData()
+  } else {
+    void loadWPlusData()
+  }
+})
+
+onMounted(() => {
+  if (hasCurrentAccount.value) {
+    void loadRtimeData()
+    void loadWPlusData()
+  }
+})
 </script>
 
 <template>
-  <section class="member-page">
-    <el-tabs v-model="activeTab" class="member-tabs">
-      <el-tab-pane label="Rtime会员" name="rtime" />
-      <el-tab-pane label="W+会员" name="wplus" />
-    </el-tabs>
+  <section class="page-container">
+    <section v-if="!hasCurrentAccount" class="no-account-hint">
+      <el-empty description="请先选择一个已登录的账号" :image-size="88" />
+    </section>
 
-    <section class="member-panel">
-      <header class="section-header">
-        <span>
+    <template v-else>
+      <div class="vip-subtabs">
+        <div
+          :class="['vip-subtab', { 'vip-subtab--active': activeTab === 'rtime' }]"
+          @click="activeTab = 'rtime'"
+        >
           <el-icon><Medal /></el-icon>
-          {{ activeTab === 'rtime' ? 'Rtime 会员信息' : 'W+ 会员信息' }}
-        </span>
-        <el-button type="warning" :icon="Refresh" :loading="loading" @click="handleGainFirstEquity">一键领取</el-button>
-      </header>
-
-      <el-descriptions class="member-desc" border :column="2">
-        <el-descriptions-item label="用户名">{{ currentAccountText }}</el-descriptions-item>
-        <el-descriptions-item label="当前等级">{{ currentGrade }}</el-descriptions-item>
-      </el-descriptions>
-
-      <section class="sign-panel">
-        <div class="sign-title">
-          <span>每日签到</span>
-          <strong>{{ signInTitle }}</strong>
-          <el-button size="small" link :icon="Refresh" :loading="loading" @click="loadSignInCalendar">刷新签到</el-button>
+          <span>Rtime会员</span>
         </div>
-        <div v-if="signInDays.length" class="sign-track">
-          <el-tooltip
-            v-for="day in signInDays"
-            :key="day.sortOrder || day.date || day.day"
-            :content="day.content || day.date || day.day"
-            placement="top"
-          >
+        <div
+          :class="['vip-subtab', { 'vip-subtab--active': activeTab === 'wplus' }]"
+          @click="activeTab = 'wplus'"
+        >
+          <el-icon><Trophy /></el-icon>
+          <span>W+会员</span>
+        </div>
+      </div>
+
+      <section v-if="activeTab === 'rtime'" class="vip-panel vip-panel--rtime">
+        <div v-if="rtimeLoading" class="loading-wrapper">
+          <el-skeleton :rows="5" animated />
+        </div>
+
+        <template v-else>
+          <div class="vip-info-card">
+            <div class="vip-info-header">
+              <el-icon size="28"><Medal /></el-icon>
+              <span class="vip-title">Rtime 会员信息</span>
+              <el-button
+                type="warning"
+                size="small"
+                class="gain-all-btn"
+                :disabled="!hasClaimableRtime"
+                :loading="batchLoading"
+                @click="handleGainAllRtimeEquities"
+              >
+                一键领取
+              </el-button>
+            </div>
+
+            <div class="base-desc">
+              <el-descriptions :column="2" border>
+                <el-descriptions-item label="当前账号">
+                  {{ currentAccount?.phone || '-' }}
+                </el-descriptions-item>
+                <el-descriptions-item label="当前等级">
+                  <span class="growth-val">{{ currentGrade?.gradeName || '-' }}</span>
+                  <el-tag
+                    v-if="monthExpiredGrowth > 0 && monthExpireDowngradeName"
+                    size="small"
+                    type="danger"
+                    class="month-expire-tag"
+                  >
+                    本月将失效 {{ monthExpiredGrowth }} 成长值，届时降至 {{ monthExpireDowngradeName }}
+                  </el-tag>
+                </el-descriptions-item>
+                <el-descriptions-item label="成长值">
+                  <span class="growth-val">{{ currentGrowthValue }}</span>
+                </el-descriptions-item>
+                <el-descriptions-item label="下一级">
+                  {{ nextGrade?.gradeName || '满级' }}
+                </el-descriptions-item>
+              </el-descriptions>
+            </div>
+
+            <div class="signin-section">
+              <div class="signin-header">
+                <el-icon><Check /></el-icon>
+                <span>每日签到</span>
+                <span class="signin-streak">
+                  {{ signInTitle }}
+                  <span v-if="signInStreakText" class="signin-streak-total">{{ signInStreakText }}</span>
+                </span>
+                <el-button
+                  type="warning"
+                  size="small"
+                  class="refresh-btn-inline"
+                  :icon="Refresh"
+                  @click="loadSignInCalendar"
+                >
+                  刷新签到
+                </el-button>
+              </div>
+
+              <div v-if="signInDays.length" class="signin-days">
+                <div
+                  v-for="day in signInDays"
+                  :key="`${day.sortOrder}-${day.date}`"
+                  class="signin-day"
+                >
+                  <div
+                    :class="[
+                      'signin-day-inner',
+                      {
+                        'signin-day--done': day.state === 1,
+                        'signin-day--today': day.todayFlag,
+                        'sign-day--done': day.state === 1,
+                        'sign-day--today': day.todayFlag
+                      }
+                    ]"
+                  >
+                    <img v-if="day.iconUrl" :src="day.iconUrl" class="signin-icon" alt="">
+                    <div v-else class="signin-icon signin-icon--placeholder">{{ day.day || '-' }}</div>
+                    <span class="signin-day-label">{{ day.content || day.date || day.day }}</span>
+                    <el-icon v-if="day.state === 1" class="signin-check"><SuccessFilled /></el-icon>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="currentGrade" class="growth-stage-progress">
+              <div class="stage-labels">
+                <span
+                  v-for="group in [...gradeGroups].sort((a, b) => a.growthMinVal - b.growthMinVal)"
+                  :key="group.gradeId"
+                  :class="[
+                    'stage-label',
+                    {
+                      'stage-label--current': isCurrentGrade(group),
+                      'stage-label--passed': isPassedGrade(group)
+                    }
+                  ]"
+                >
+                  {{ group.gradeName }}
+                </span>
+              </div>
+
+              <div class="stage-bar-wrap">
+                <el-progress
+                  :percentage="progressPercentage"
+                  color="var(--wanda-primary)"
+                  :stroke-width="16"
+                  :show-text="false"
+                />
+                <div class="stage-pointer-dot" :style="{ left: `${progressPercentage}%` }"></div>
+              </div>
+
+              <div class="stage-footer">
+                <div class="growth-value-row">
+                  <span class="growth-value-num">{{ currentGrade.memberGrowthVal ?? '--' }}</span>
+                  <span class="growth-sep">/</span>
+                  <span class="growth-target">{{ isMaxGrade ? '满级' : nextGrade?.growthMinVal ?? maxGrowthValue }}</span>
+                  <el-button
+                    type="primary"
+                    size="small"
+                    class="refresh-btn-inline"
+                    :icon="Refresh"
+                    :loading="rtimeLoading"
+                    @click="loadRtimeData"
+                  >
+                    刷新等级权益
+                  </el-button>
+                </div>
+                <span v-if="currentGrade && !isMaxGrade" class="stage-hint">
+                  还差 <strong>{{ needGrowthToNext }}</strong> 成长值升级到
+                  <strong style="color: var(--wanda-primary)">{{ nextGrade?.gradeName }}</strong>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="orderedGradeGroups.length" class="grade-cards">
             <div
+              v-for="group in orderedGradeGroups"
+              :key="group.gradeId"
               :class="[
-                'sign-day',
+                'grade-card',
                 {
-                  'sign-day--done': day.state === 1,
-                  'sign-day--today': day.todayFlag
+                  'grade-card--current': isCurrentGrade(group),
+                  'grade-card--passed': isPassedGrade(group)
                 }
               ]"
             >
-              <img v-if="day.iconUrl" :src="day.iconUrl" alt="" class="sign-icon">
-              <span>{{ day.day || day.date || '-' }}</span>
-              <el-icon v-if="day.state === 1" class="sign-check"><Check /></el-icon>
-            </div>
-          </el-tooltip>
-        </div>
-        <el-empty v-else description="暂无签到数据" :image-size="72" />
-      </section>
-
-      <section v-if="activeTab === 'rtime' && gradeGroups.length" class="progress-panel">
-        <div class="progress-info">
-          <span>当前成长值：<strong>{{ currentGrowthValue }}</strong></span>
-          <span v-if="nextGradeRecord">还差 <strong>{{ currentGradeRecord?.needGrowthValue || 0 }}</strong> 成长值升级到 {{ nextGradeRecord.gradeName }}</span>
-          <span v-else>已达到最高等级</span>
-        </div>
-        <el-progress :percentage="progressPercentage" :show-text="false" status="warning" :stroke-width="10" />
-        <div class="progress-marks">
-          <span v-for="grade in gradeGroups" :key="grade.gradeId" :class="{ 'mark-active': grade.isCurrent }">{{ grade.gradeName }}</span>
-        </div>
-      </section>
-
-      <section class="level-panel">
-        <header>
-          <span>
-            <el-icon><Trophy /></el-icon>
-            {{ activeTab === 'rtime' ? `全部等级 (${gradeGroups.length})` : `W+权益 (${wplusRows.length})` }}
-          </span>
-          <el-button size="small" :icon="Refresh" :loading="loading" @click="loadMemberData">刷新等级权益</el-button>
-        </header>
-
-        <div v-if="activeTab === 'rtime'" v-loading="loading" class="grade-cards">
-          <el-empty v-if="!gradeGroups.length" :description="memberMessage || '暂无会员权益数据'" />
-          <el-card v-for="grade in gradeGroups" :key="grade.gradeId" class="grade-card" shadow="never">
-            <template #header>
               <div class="grade-header">
-                <span class="grade-name">{{ grade.gradeName }} <el-tag v-if="grade.isCurrent" size="small" type="danger" effect="dark">当前等级</el-tag></span>
-                <span class="grade-desc">{{ grade.gradeDesc }}</span>
+                <div class="grade-info">
+                  <span class="grade-name" :style="{ color: group.gradeNameColor || 'var(--wanda-primary)' }">
+                    {{ group.gradeName }}
+                  </span>
+                  <span class="grade-range">
+                    {{ group.growthMinVal }}{{ group.growthMaxVal != null ? ` - ${group.growthMaxVal}` : '+' }}
+                  </span>
+                </div>
+
+                <div class="grade-badge">
+                  <el-tag v-if="isCurrentGrade(group)" type="warning" effect="dark">当前等级</el-tag>
+                  <el-tag v-else-if="isPassedGrade(group)" type="info">已超越</el-tag>
+                  <el-tag v-else type="success">未达到</el-tag>
+                </div>
               </div>
-            </template>
-            <el-table :data="grade.equities" :show-header="true">
-              <el-table-column prop="name" label="权益名称" min-width="180" />
-              <el-table-column prop="amount" label="面额" width="90" />
-              <el-table-column prop="count" label="数量" width="90" />
-              <el-table-column prop="category" label="分类" width="100" />
-              <el-table-column prop="status" label="状态" width="100" />
-              <el-table-column label="操作" width="90">
-                <template #default="{ row }">
-                  <el-button link type="primary" @click="handleGainEquity(row)">去使用</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </el-card>
+
+              <div v-if="group.guidingText" class="grade-guiding">{{ group.guidingText }}</div>
+
+              <div v-if="group.equities.length" class="equity-table-wrap">
+                <div class="section-subtitle">
+                  <el-icon><CollectionTag /></el-icon>
+                  <span>权益列表 ({{ group.equities.length }})</span>
+                </div>
+
+                <el-table :data="group.equities" size="small" stripe>
+                  <el-table-column label="权益名称" prop="name" min-width="140">
+                    <template #default="{ row }">
+                      <el-tooltip :content="row.desc" placement="top" show-after="200" effect="light">
+                        <span>{{ row.name }}</span>
+                      </el-tooltip>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="面额" width="80" align="center">
+                    <template #default="{ row }">
+                      <span>{{ row.amount || '-' }}</span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="数量" width="60" align="center">
+                    <template #default="{ row }">
+                      <span>{{ row.count && row.count !== '-' ? `x${row.count}` : '-' }}</span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="分类" width="100" align="center">
+                    <template #default="{ row }">
+                      <el-tag v-if="getEquityCategory(row)" size="small" type="info">
+                        {{ getEquityCategory(row) }}
+                      </el-tag>
+                      <span v-else>-</span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="状态" width="90" align="center">
+                    <template #default="{ row }">
+                      <el-tag v-if="row.auto" size="small" type="success">自动生效</el-tag>
+                      <el-tag v-else-if="isClaimedEquity(row)" size="small" type="warning">已领</el-tag>
+                      <el-tag v-else-if="isClaimableEquity(row)" size="small" type="primary">待领</el-tag>
+                      <span v-else>{{ row.status || '不可领' }}</span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="操作" width="120" align="center">
+                    <template #default="{ row }">
+                      <span v-if="row.auto">-</span>
+                      <el-image
+                        v-else-if="isClaimedEquity(row) && row.useEquityIconUrl"
+                        :src="row.useEquityIconUrl"
+                        fit="contain"
+                        style="width: 80px; height: 28px; cursor: pointer"
+                      />
+                      <el-button v-else-if="isClaimedEquity(row)" type="warning" size="small" round>去使用</el-button>
+                      <el-image
+                        v-else-if="isClaimableEquity(row) && row.getEquityIconUrl"
+                        :src="row.getEquityIconUrl"
+                        fit="contain"
+                        style="width: 80px; height: 28px; cursor: pointer"
+                        @click="handleGainEquity(row)"
+                      />
+                      <el-button
+                        v-else-if="isClaimableEquity(row)"
+                        type="primary"
+                        size="small"
+                        round
+                        :loading="equityLoading"
+                        @click="handleGainEquity(row)"
+                      >
+                        领取
+                      </el-button>
+                      <span v-else>-</span>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </div>
+
+              <div v-if="group.highEquities.length" class="high-equity-table-wrap">
+                <div class="section-subtitle" style="margin-top: 12px">
+                  <el-icon><Star /></el-icon>
+                  <span>升级解锁 ({{ group.highEquities.length }})</span>
+                </div>
+
+                <el-table :data="group.highEquities" size="small" stripe>
+                  <el-table-column label="权益名称" prop="name" min-width="140" />
+                  <el-table-column label="面额" width="80" align="center">
+                    <template #default="{ row }">
+                      <span>{{ row.amount || '-' }}</span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="数量" width="60" align="center">
+                    <template #default="{ row }">
+                      <span>{{ row.count && row.count !== '-' ? `x${row.count}` : '-' }}</span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="状态" width="80" align="center">
+                    <template #default>
+                      <el-tag size="small" type="info">未解锁</el-tag>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </div>
+            </div>
+          </div>
+
+          <el-empty v-else description="暂无Rtime会员信息" :image-size="60" />
+
+          <div v-if="rtimeError" class="error-card">
+            <el-alert :title="rtimeError" type="error" show-icon :closable="false" />
+            <el-button type="primary" :icon="Refresh" style="margin-top: 12px" @click="loadRtimeData">重试</el-button>
+          </div>
+        </template>
+      </section>
+
+      <section v-else class="vip-panel vip-panel--wplus">
+        <div class="vip-exchange-card">
+          <div class="vip-info-header">
+            <el-icon><Trophy /></el-icon>
+            <span class="vip-title">W+ 激活兑换</span>
+          </div>
+
+          <div class="exchange-form">
+            <el-input v-model="exchangeCode" placeholder="请输入卡号" clearable size="large" class="exchange-input" />
+            <el-input
+              v-model="exchangePassword"
+              placeholder="请输入密码"
+              clearable
+              show-password
+              size="large"
+              class="exchange-input"
+            />
+            <el-button
+              type="primary"
+              :loading="activateLoading"
+              :disabled="!exchangeCode || !exchangePassword"
+              @click="handleActivateWPlus"
+            >
+              激活
+            </el-button>
+          </div>
+
+          <div
+            v-if="exchangeResult"
+            :class="[
+              'exchange-result',
+              {
+                'exchange-success': exchangeResult.canOpen,
+                'exchange-fail': !exchangeResult.canOpen
+              }
+            ]"
+          >
+            <el-icon v-if="exchangeResult.canOpen"><SuccessFilled /></el-icon>
+            <el-icon v-else><CloseBold /></el-icon>
+            <span>{{ exchangeResult.bizMsg }}</span>
+          </div>
         </div>
 
-        <el-table
-          v-else
-          v-loading="loading"
-          :data="wplusRows"
-          height="100%"
-          :empty-text="memberMessage || '暂无 W+ 权益数据'"
-        >
-          <el-table-column prop="name" label="权益名称" min-width="220" />
-          <el-table-column prop="amount" label="面额" width="100" />
-          <el-table-column prop="count" label="数量" width="100" />
-          <el-table-column prop="category" label="分类" width="120" />
-          <el-table-column prop="status" label="状态" width="120" />
-        </el-table>
+        <div class="vip-info-card">
+          <div class="vip-info-header">
+            <el-icon size="28"><Trophy /></el-icon>
+            <span class="vip-title">W+ 会员信息</span>
+            <el-button
+              type="warning"
+              size="small"
+              :icon="Check"
+              :loading="batchLoading"
+              :disabled="!hasClaimableWPlus"
+              style="margin-left: auto"
+              @click="handleReceiveAllWPlusRights"
+            >
+              一键领取
+            </el-button>
+            <el-button
+              type="primary"
+              size="small"
+              plain
+              :icon="Check"
+              :loading="batchLoading"
+              @click="handleReceiveAllAccountsWPlusRights"
+            >
+              领取所有账号
+            </el-button>
+          </div>
+
+          <div v-if="wplusProfile || wplusProfileLoading" class="wplus-section">
+            <div v-if="wplusProfileLoading" class="loading-wrapper">
+              <el-skeleton :rows="5" animated />
+            </div>
+
+            <template v-else-if="wplusProfile">
+              <div v-if="wplusRightGroups.length" class="wplus-activity-section">
+                <div class="section-subtitle" style="margin-top: 16px">
+                  <el-icon><CollectionTag /></el-icon>
+                  <span>光影活动 ({{ totalWPlusRights }})</span>
+                </div>
+
+                <div
+                  v-for="group in wplusRightGroups"
+                  :key="group.groupId"
+                  class="right-group-card"
+                >
+                  <div class="right-group-header">
+                    <img v-if="group.iconUrl" :src="group.iconUrl" class="right-group-icon" alt="">
+                    <span class="right-group-name">{{ group.name }}</span>
+                    <el-tag v-if="group.verifyStatus === 1" type="warning" size="small" style="margin-left: 8px">
+                      需实名认证
+                    </el-tag>
+                  </div>
+
+                  <div class="right-list">
+                    <div
+                      v-for="right in group.rightList"
+                      :key="right.code"
+                      class="right-item"
+                    >
+                      <img v-if="right.icon" :src="right.icon" class="right-item-icon" alt="">
+                      <div class="right-item-info">
+                        <div class="right-item-top">
+                          <span class="right-item-name">{{ right.name }}</span>
+                          <el-tag v-if="right.tag" size="small" type="primary" effect="dark" class="right-item-tag">
+                            {{ right.tag }}
+                          </el-tag>
+                        </div>
+                        <span class="right-item-subtitle">{{ right.subtitle }}</span>
+                        <span v-if="right.deadline" class="right-item-deadline">有效期至 {{ right.deadline }}</span>
+                      </div>
+                      <div class="right-item-action">
+                        <el-button
+                          v-if="right.receiveStatus === 5"
+                          type="warning"
+                          size="small"
+                          round
+                          @click="handleUseWPlusRight(right)"
+                        >
+                          去使用
+                        </el-button>
+                        <el-button
+                          v-else-if="right.receiveStatus === 1"
+                          type="primary"
+                          size="small"
+                          round
+                          @click="handleReceiveWPlusRight(right)"
+                        >
+                          领取
+                        </el-button>
+                        <el-tag v-else-if="right.receiveStatus === 4" type="info" size="small">已过期</el-tag>
+                        <el-tag v-else-if="right.receiveStatus === 8" type="success" size="small">需实名</el-tag>
+                        <el-tag v-else-if="right.receiveStatus === 10" type="warning" size="small">生日专享</el-tag>
+                        <el-tag v-else-if="right.receiveStatus === 3" type="info" size="small">已生效</el-tag>
+                        <el-tag v-else type="info" size="small">{{ getWPlusStatusText(right.receiveStatus) }}</el-tag>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="wplusRightsLoading" class="loading-wrapper">
+                <el-skeleton :rows="3" animated />
+              </div>
+
+              <el-empty
+                v-else-if="!wplusRightGroups.length"
+                description="获取W+会员信息失败"
+                :image-size="60"
+              />
+            </template>
+
+            <el-empty v-else description="获取W+会员信息失败" :image-size="60" />
+          </div>
+
+          <div class="wplus-actions">
+            <el-button type="primary" :icon="Refresh" :loading="wplusProfileLoading" @click="refreshCurrentTab">
+              刷新
+            </el-button>
+          </div>
+        </div>
+
+        <div v-if="wplusError" class="error-card">
+          <el-alert :title="wplusError" type="error" show-icon :closable="false" />
+        </div>
       </section>
-    </section>
+    </template>
   </section>
 </template>
 
 <style scoped>
-.member-page {
-  min-width: 980px;
-  min-height: 100%;
+.page-container {
+  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  overflow-y: auto;
 }
 
-.member-tabs {
-  padding: 0 16px;
-  border-bottom: 1px solid var(--app-border);
+.no-account-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
 }
 
-.member-panel {
+.vip-subtabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--border-light);
+  margin: var(--spacing-md) var(--spacing-md) 0;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 11;
+  background: var(--bg-primary);
+}
+
+.vip-subtab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 24px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.2s, border-color 0.2s;
+  user-select: none;
+}
+
+.vip-subtab:hover {
+  color: var(--wanda-primary);
+}
+
+.vip-subtab--active {
+  color: var(--wanda-primary);
+  border-bottom-color: var(--wanda-primary);
+}
+
+.vip-panel {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 28px;
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: var(--app-surface);
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  padding: var(--spacing-md);
 }
 
-.section-header,
-.level-panel header,
-.sign-title {
+.vip-panel--rtime,
+.vip-panel--wplus {
+  overflow-y: auto;
+}
+
+.vip-exchange-card {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg-primary);
+  border-radius: var(--radius-base);
+  border: 1px solid var(--border-light);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+  flex-shrink: 0;
+}
+
+.vip-info-card {
+  background: var(--bg-primary);
+  border-radius: var(--radius-base);
+  border: 1px solid var(--border-light);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+}
+
+.vip-panel--rtime .vip-info-card {
+  position: sticky;
+  top: 0;
+  z-index: 9;
+}
+
+.vip-info-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  color: var(--app-text);
-  font-weight: 700;
+  gap: 10px;
+  margin-bottom: var(--spacing-lg);
+  color: var(--wanda-primary);
 }
 
-.section-header span,
-.level-panel header span {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.section-header :deep(.el-icon),
-.level-panel :deep(.el-icon) {
-  color: var(--app-accent);
-}
-
-.member-desc {
-  width: 100%;
-}
-
-.sign-panel {
-  padding: 18px 22px;
-  border: 1px solid #f0d8a3;
-  border-radius: 8px;
-  background: #fff8ec;
-}
-
-.sign-title strong {
-  color: #f56c6c;
+.gain-all-btn {
   margin-left: auto;
 }
 
-.sign-track {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 12px;
-  margin-top: 20px;
-  color: var(--app-muted);
-  text-align: center;
-}
-
-.sign-day {
-  min-height: 66px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border-radius: 18px;
-  background: #fff;
-  color: #e6a23c;
+.vip-title {
+  font-size: var(--font-size-lg);
   font-weight: 600;
-  border: 1px solid transparent;
 }
 
-.sign-day--done {
-  color: #67c23a;
-  border-color: #c8ebb4;
-  background: #f0f9eb;
+.base-desc {
+  margin-bottom: var(--spacing-lg);
 }
 
-.sign-day--today {
-  border-color: #e6a23c;
-  box-shadow: inset 0 0 0 2px rgb(230 162 60 / 18%);
-}
-
-.sign-icon {
-  width: 24px;
-  height: 24px;
-  object-fit: contain;
-}
-
-.sign-check {
-  font-size: 16px;
-}
-
-.level-panel {
-  flex: 1;
-  min-height: 260px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  overflow: hidden;
-}
-
-.progress-panel {
-  padding: 16px 20px;
-  border-radius: 8px;
-  background: var(--app-bg);
-  border: 1px solid var(--app-border);
-}
-
-.progress-info {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  font-size: 14px;
-}
-
-.progress-info strong {
-  color: #e6a23c;
-}
-
-.progress-marks {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 8px;
-  font-size: 13px;
-  color: var(--app-muted);
-}
-
-.mark-active {
-  color: #e6a23c;
+.growth-val {
+  color: var(--wanda-primary);
   font-weight: 600;
+  font-size: var(--font-size-base);
+}
+
+.month-expire-tag {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.refresh-btn-inline {
+  margin-left: auto;
+  background-color: #e6a23c !important;
+  border-color: #e6a23c !important;
+  color: #fff !important;
 }
 
 .grade-cards {
-  flex: 1;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding-right: 6px;
+  gap: var(--spacing-md);
 }
 
 .grade-card {
-  border-radius: 8px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-base);
+  border: 1px solid var(--border-light);
+  padding: var(--spacing-lg);
+}
+
+.grade-card--current {
+  border-color: var(--wanda-primary);
+  box-shadow: 0 0 0 1px var(--wanda-primary);
+}
+
+.grade-card--passed {
+  opacity: 0.7;
 }
 
 .grade-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.grade-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .grade-name {
+  font-size: var(--font-size-lg);
   font-weight: 700;
+}
+
+.grade-range {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  padding: 2px 10px;
+  border-radius: 12px;
+}
+
+.grade-guiding {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-md);
+  padding: 4px 0;
+}
+
+.equity-table-wrap,
+.high-equity-table-wrap {
+  margin-top: 8px;
+}
+
+.section-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-md);
+}
+
+.wplus-actions {
+  margin-top: var(--spacing-lg);
+  display: flex;
+  justify-content: center;
+}
+
+.exchange-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.exchange-input {
+  flex: 1;
+}
+
+.exchange-result {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.exchange-success {
+  background: #f0f9eb;
+  color: #67c23a;
+  border: 1px solid #e1f3d8;
+}
+
+.exchange-fail {
+  background: #fef0f0;
+  color: #f56c6c;
+  border: 1px solid #fde2e2;
+}
+
+.wplus-section {
+  margin-top: var(--spacing-md);
+}
+
+.wplus-activity-section {
+  margin-top: var(--spacing-md);
+}
+
+.right-group-card {
+  background: linear-gradient(135deg, #fdf6ec 0%, #fef9f0 100%);
+  border: 1px solid #f0d9a0;
+  border-radius: var(--radius-base);
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+
+.right-group-header {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #e8d5a0;
 }
 
-.grade-desc {
-  font-size: 13px;
-  color: var(--app-muted);
+.right-group-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.right-group-name {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: #c0882c;
+}
+
+.right-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.right-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #f5e6c8;
+}
+
+.right-item-icon {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.right-item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.right-item-name {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.right-item-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.right-item-tag {
+  flex-shrink: 0;
+}
+
+.right-item-subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.right-item-deadline {
+  font-size: var(--font-size-xs);
+  color: var(--el-color-warning);
+}
+
+.right-item-action {
+  flex-shrink: 0;
+}
+
+.loading-wrapper {
+  padding: var(--spacing-md);
+}
+
+.error-card {
+  text-align: center;
+  padding: var(--spacing-xl);
+}
+
+.growth-stage-progress {
+  padding: 0 4px;
+}
+
+.stage-labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+.stage-label {
+  font-size: var(--font-size-base);
+  color: var(--text-secondary);
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color 0.2s, transform 0.2s;
+}
+
+.stage-label--current {
+  font-weight: 800;
+  font-size: 15px;
+  transform: scale(1.05);
+  color: var(--wanda-primary) !important;
+}
+
+.stage-label--passed {
+  opacity: 0.65;
+}
+
+.stage-bar-wrap {
+  position: relative;
+  margin: 10px 0 6px;
+}
+
+.stage-pointer-dot {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  background: #fff;
+  border: 2px solid var(--wanda-primary);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 4px rgb(0 0 0 / 15%);
+  z-index: 1;
+}
+
+.growth-value-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.growth-value-num {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--wanda-primary);
+  line-height: 1;
+}
+
+.growth-sep {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.growth-target {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.stage-footer {
+  text-align: center;
+}
+
+.stage-hint {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.signin-section {
+  background: linear-gradient(135deg, #fff9f0 0%, #fff5e6 100%);
+  border: 1px solid #f0d9a0;
+  border-radius: var(--radius-base);
+  padding: 14px 16px;
+  margin-bottom: var(--spacing-lg);
+}
+
+.signin-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: #e6a23c;
+  margin-bottom: 12px;
+}
+
+.signin-streak {
+  margin-left: auto;
+  font-size: var(--font-size-sm);
+  color: #f56c6c;
+  font-weight: 700;
+}
+
+.signin-streak-total {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.signin-days {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.signin-day {
+  flex: 1;
+  text-align: center;
+}
+
+.signin-day-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+}
+
+.signin-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: contain;
+}
+
+.signin-icon--placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: #e6a23c;
+  border: 1px dashed #f0d9a0;
+}
+
+.signin-day--done .signin-icon {
+  opacity: 0.6;
+}
+
+.signin-day--today .signin-icon {
+  opacity: 1;
+  box-shadow: 0 0 0 2px #e6a23c;
+}
+
+.signin-day-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.signin-day--today .signin-day-label {
+  color: #e6a23c;
+  font-weight: 700;
+}
+
+.signin-check {
+  position: absolute;
+  top: -4px;
+  right: 2px;
+  font-size: 14px;
 }
 </style>

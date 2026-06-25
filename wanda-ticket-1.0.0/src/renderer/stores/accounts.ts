@@ -108,7 +108,8 @@ export const useAccountsStore = defineStore('accounts', {
       requestPhone: '',
       sending: false,
       loggingIn: false,
-      message: ''
+      message: '',
+      countdown: 0
     }
   }),
   getters: {
@@ -287,6 +288,16 @@ export const useAccountsStore = defineStore('accounts', {
       useLogsStore().addLog('账号导入', importedAccounts[0].phone, this.loginForm.message)
       return importedAccounts.length
     },
+    startCountdown() {
+      this.loginForm.countdown = 60
+      const timer = setInterval(() => {
+        if (this.loginForm.countdown > 0) {
+          this.loginForm.countdown--
+        } else {
+          clearInterval(timer)
+        }
+      }, 1000)
+    },
     async sendLoginCode() {
       const phone = this.loginForm.phone.trim()
 
@@ -306,6 +317,7 @@ export const useAccountsStore = defineStore('accounts', {
         this.loginForm.requestId = result.requestID
         this.loginForm.requestPhone = phone
         this.loginForm.message = '验证码已发送'
+        this.startCountdown()
         useLogsStore().addLog('万达登录', phone, '验证码发送成功')
       } catch (error) {
         const message = getErrorMessage(error, '验证码发送失败')
@@ -321,8 +333,16 @@ export const useAccountsStore = defineStore('accounts', {
       const phone = this.loginForm.phone.trim()
       const code = this.loginForm.code.trim()
 
-      if (!phone || !code || !this.loginForm.requestId) {
-        this.loginForm.message = '请输入手机号、验证码并先获取验证码'
+      if (!phone) {
+        this.loginForm.message = '请输入手机号'
+        return
+      }
+      if (!code) {
+        this.loginForm.message = '请输入验证码'
+        return
+      }
+      if (!this.loginForm.requestId) {
+        this.loginForm.message = '请先获取验证码'
         return
       }
 
@@ -365,6 +385,7 @@ export const useAccountsStore = defineStore('accounts', {
         this.loginForm.code = ''
         this.loginForm.requestId = ''
         this.loginForm.requestPhone = ''
+        this.loginForm.countdown = 0
         await this.saveAccounts()
         this.loginForm.message = '登录成功，账号已保存'
         useLogsStore().addLog('万达登录', phone, '登录成功，账号已保存')

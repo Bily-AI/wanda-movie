@@ -53,12 +53,18 @@ export interface StoredCardPaymentResult {
 }
 
 export interface MemberCouponRow {
+  couponId: string
   voucherNo: string
   couponNo: string
   name: string
+  couponTypeName: string
   type: string
   status: string
+  giftStatus: number
   validity: string
+  validityDateShowMsg: string
+  couponCategoryName: string
+  endTime: number
   raw: unknown
 }
 
@@ -67,10 +73,16 @@ export interface MemberEquityRow {
   equityId: string
   gradeName: string
   name: string
+  desc: string
   amount: string
   count: string
   category: string
   status: string
+  auto: boolean
+  equityGainStatus: number
+  canGainMonth: boolean
+  useEquityIconUrl: string
+  getEquityIconUrl: string
   raw: unknown
 }
 
@@ -78,10 +90,54 @@ export interface MemberGradeGroup {
   gradeId: string
   gradeName: string
   gradeDesc: string
+  gradeNameColor: string
   growthValue: number
+  growthMinVal: number
+  growthMaxVal: number | null
+  memberGrowthVal: number
+  monthExpiredGrowth: number
   needGrowthValue: number
+  guidingText: string
   isCurrent: boolean
   equities: MemberEquityRow[]
+  highEquities: MemberEquityRow[]
+  raw: unknown
+}
+
+export interface MemberWPlusProfile {
+  isPayMember: boolean
+  raw: unknown
+}
+
+export interface MemberWPlusRight {
+  groupId: string
+  name: string
+  subtitle: string
+  tag: string
+  icon: string
+  deadline: string
+  receiveStatus: number
+  verifyStatus: number
+  orderCode: string
+  code: string
+  rightType: string
+  redirect: Record<string, unknown> | null
+  raw: unknown
+}
+
+export interface MemberWPlusRightGroup {
+  groupId: string
+  name: string
+  iconUrl: string
+  verifyStatus: number
+  rightList: MemberWPlusRight[]
+  raw: unknown
+}
+
+export interface MemberWPlusExchangeResult {
+  bizCode: number
+  bizMsg: string
+  canOpen: boolean
   raw: unknown
 }
 
@@ -330,12 +386,18 @@ function normalizeCoupon(item: unknown): MemberCouponRow {
   const record = asRecord(item)
 
   return {
+    couponId: firstText(record.couponId, record.voucherNo, record.voucher_number, record.code),
     voucherNo: firstText(record.voucherNo, record.voucher_number, record.code),
     couponNo: firstText(record.couponNo, record.no),
     name: firstText(record.couponTypeName, record.couponName, record.name),
+    couponTypeName: firstText(record.couponTypeName, record.couponName, record.name),
     type: firstText(record.detailtypename, record.detailTypeName, record.typeName, record.typeCode),
     status: firstText(record.couponStatus, record.status, record.giftStatus),
+    giftStatus: toNumber(record.giftStatus, 0),
     validity: firstText(record.validityDateShowMsg, record.validity, record.expireTime),
+    validityDateShowMsg: firstText(record.validityDateShowMsg, record.validity, record.expireTime),
+    couponCategoryName: firstText(record.couponCategoryName, record.typeName, record.detailTypeName, record.detailtypename),
+    endTime: toNumber(record.endTime ?? record.expireTime),
     raw: item
   }
 }
@@ -369,10 +431,16 @@ function normalizeEquity(item: unknown, group: Record<string, unknown> = {}): Me
     equityId: firstText(record.equityId, record.id, record.rightCode, record.code),
     gradeName: firstText(group.gradeName, group.name, record.gradeName),
     name: firstText(record.equityName, record.name, record.title),
+    desc: firstText(record.equityDesc, record.desc, record.content, record.subtitle),
     amount: firstText(record.prizeName, record.amount, record.faceValue, record.price, '-'),
     count: firstText(record.prizeNum != null ? String(record.prizeNum) : '', record.count, record.num, record.quantity, '-'),
     category: firstText(equityTypeStr, record.categoryName, record.typeName, record.type, '-'),
     status: firstText(statusStr, record.statusName, record.status, record.receiveStatus, '-'),
+    auto: toBoolean(record.auto),
+    equityGainStatus: toNumber(record.equityGainStatus),
+    canGainMonth: toBoolean(record.canGainMonth),
+    useEquityIconUrl: firstText(record.useEquityIconUrl, record.useIconUrl),
+    getEquityIconUrl: firstText(record.getEquityIconUrl, record.receiveIconUrl),
     raw: item
   }
 }
@@ -381,18 +449,19 @@ function normalizeGradeGroup(item: unknown): MemberGradeGroup {
   const record = asRecord(item)
   const equitiesRaw = collectList(record, ['equityList', 'rights', 'items', 'couponList', 'gradeEquityList'])
   const equities = equitiesRaw.map((eq) => normalizeEquity(eq, record))
+  const highEquities = collectList(record, ['highEquityList']).map((eq) => normalizeEquity(eq, record))
 
   const growthValue = Number(record.growthValue ?? record.memberGrowthVal ?? record.currentGrowth) || 0
   const minVal = Number(record.growthMinVal ?? 0)
-  const maxVal = record.growthMaxVal != null ? Number(record.growthMaxVal) : Infinity
-  
+  const maxVal = record.growthMaxVal != null ? Number(record.growthMaxVal) : null
+  const maxCompareValue = maxVal ?? Infinity
+
   const isCurrent = Boolean(
-    record.isCurrent ?? record.current ?? record.isCurrentGrade ?? 
-    (growthValue >= minVal && growthValue <= maxVal)
+    record.isCurrent ?? record.current ?? record.isCurrentGrade ?? (growthValue >= minVal && growthValue <= maxCompareValue)
   )
 
   let needGrowthValue = Number(record.needGrowthValue ?? record.nextGrowthVal) || 0
-  if (!needGrowthValue && isCurrent && maxVal !== Infinity) {
+  if (!needGrowthValue && isCurrent && maxVal !== null) {
     needGrowthValue = maxVal + 1 - growthValue
   }
 
@@ -400,10 +469,17 @@ function normalizeGradeGroup(item: unknown): MemberGradeGroup {
     gradeId: firstText(record.gradeId, record.id, record.code),
     gradeName: firstText(record.gradeName, record.name, record.title),
     gradeDesc: firstText(record.gradeDesc, record.desc, record.description, record.guidingText),
+    gradeNameColor: firstText(record.gradeNameColor, record.color),
     growthValue,
+    growthMinVal: minVal,
+    growthMaxVal: maxVal,
+    memberGrowthVal: Number(record.memberGrowthVal ?? record.growthValue ?? record.currentGrowth) || 0,
+    monthExpiredGrowth: Number(record.monthExpiredGrowth) || 0,
     needGrowthValue,
+    guidingText: firstText(record.guidingText),
     isCurrent,
     equities,
+    highEquities,
     raw: item
   }
 }
@@ -419,6 +495,47 @@ function normalizeSignInDay(item: unknown): MemberSignInDay {
     iconUrl: firstText(record.iconUrl, record.url, record.src),
     state: toNumber(record.state ?? record.status ?? record.signInState),
     todayFlag: toBoolean(record.todayFlag ?? record.isToday),
+    raw: item
+  }
+}
+
+function normalizeWPlusProfile(data: Record<string, unknown>, raw: unknown): MemberWPlusProfile {
+  return {
+    isPayMember: toBoolean(data.isPayMember),
+    raw
+  }
+}
+
+function normalizeWPlusRight(item: unknown, group: Record<string, unknown> = {}): MemberWPlusRight {
+  const record = asRecord(item)
+  const redirect = isRecord(record.redirect) ? record.redirect : null
+
+  return {
+    groupId: firstText(group.groupId, group.id, record.groupId),
+    name: firstText(record.name, record.title),
+    subtitle: firstText(record.subtitle, record.content, record.desc, record.description),
+    tag: firstText(record.tag, record.tagName),
+    icon: firstText(record.icon, record.iconUrl, record.url),
+    deadline: firstText(record.deadline, record.validityDateShowMsg, record.expireTime, record.endTime),
+    receiveStatus: toNumber(record.receiveStatus),
+    verifyStatus: toNumber(record.verifyStatus ?? group.verifyStatus),
+    orderCode: firstText(record.orderCode),
+    code: firstText(record.code, record.rightCode),
+    rightType: firstText(record.rightType, record.type),
+    redirect,
+    raw: item
+  }
+}
+
+function normalizeWPlusRightGroup(item: unknown): MemberWPlusRightGroup {
+  const record = asRecord(item)
+
+  return {
+    groupId: firstText(record.groupId, record.id, record.code),
+    name: firstText(record.groupName, record.name, record.title),
+    iconUrl: firstText(record.iconUrl, record.icon),
+    verifyStatus: toNumber(record.verifyStatus),
+    rightList: collectList(record, ['rightList', 'rights', 'items']).map((right) => normalizeWPlusRight(right, record)),
     raw: item
   }
 }
@@ -884,6 +1001,105 @@ export async function fetchWPlusDetail(ck: string, userIdentifier: string): Prom
   return collectList(data, ['rights', 'rightList', 'equityList', 'list', 'items'])
     .map((item) => normalizeEquity(item))
     .filter((item) => item.name)
+}
+
+async function fetchWPlusDetailPayload(ck: string, userIdentifier: string): Promise<{ raw: unknown; data: Record<string, unknown> }> {
+  assertNotBlank(ck, 'W+会员 CK 不能为空')
+  assertNotBlank(userIdentifier, 'W+会员用户标识不能为空')
+
+  const response = await wandaGet<unknown>(
+    WANDA_HOSTS.GATEWAY,
+    WANDA_API_PATHS.WPLUS_MEMBER_PLUS_DETAIL,
+    { json: true },
+    ck,
+    userIdentifier
+  )
+
+  return {
+    raw: response,
+    data: ensureSuccess(response, 'W+会员数据加载失败')
+  }
+}
+
+export async function fetchWPlusProfile(ck: string, userIdentifier: string): Promise<MemberWPlusProfile> {
+  const { raw, data } = await fetchWPlusDetailPayload(ck, userIdentifier)
+
+  return normalizeWPlusProfile(data, raw)
+}
+
+export async function fetchWPlusRightGroups(ck: string, userIdentifier: string): Promise<MemberWPlusRightGroup[]> {
+  const { data } = await fetchWPlusDetailPayload(ck, userIdentifier)
+
+  return collectList(data, ['rightGroupList', 'groups', 'list', 'items'])
+    .map(normalizeWPlusRightGroup)
+    .filter((group) => group.name)
+}
+
+export async function receiveWPlusRight(
+  ck: string,
+  userIdentifier: string,
+  orderCode: string,
+  rightCode: string,
+  rightType: string
+): Promise<void> {
+  // 旧系统接口：/right/plus/order/receive
+  assertNotBlank(ck, 'W+会员 CK 不能为空')
+  assertNotBlank(userIdentifier, 'W+会员用户标识不能为空')
+  assertNotBlank(orderCode, 'W+ orderCode 不能为空')
+  assertNotBlank(rightCode, 'W+ rightCode 不能为空')
+  assertNotBlank(rightType, 'W+ rightType 不能为空')
+
+  const jsonBody = JSON.stringify({
+    orderCode,
+    rightCode,
+    rightType
+  })
+  const signatureBody = encodeURIComponent(jsonBody).replace(/%[0-9A-F]{2}/g, (match) => match.toLowerCase())
+  const response = await wandaPostForm<unknown>(
+    WANDA_HOSTS.GATEWAY,
+    WANDA_API_PATHS.WPLUS_RIGHT_RECEIVE,
+    jsonBody,
+    ck,
+    userIdentifier,
+    { signatureBody, contentType: 'application/json' }
+  )
+
+  ensureSuccess(response, 'W+权益领取失败')
+}
+
+export async function activateWPlus(
+  ck: string,
+  userIdentifier: string,
+  exchangeCode: string,
+  password: string
+): Promise<MemberWPlusExchangeResult> {
+  // 旧系统接口：/right/plus/order/sale/get_exchange_info_2023
+  assertNotBlank(ck, 'W+会员 CK 不能为空')
+  assertNotBlank(userIdentifier, 'W+会员用户标识不能为空')
+  assertNotBlank(exchangeCode, 'W+卡号不能为空')
+  assertNotBlank(password, 'W+卡密不能为空')
+
+  const jsonBody = JSON.stringify({
+    exchangeCode,
+    password
+  })
+  const signatureBody = encodeURIComponent(jsonBody).replace(/%[0-9A-F]{2}/g, (match) => match.toLowerCase())
+  const response = await wandaPostForm<unknown>(
+    WANDA_HOSTS.GATEWAY,
+    WANDA_API_PATHS.WPLUS_EXCHANGE_INFO,
+    jsonBody,
+    ck,
+    userIdentifier,
+    { signatureBody, contentType: 'application/json' }
+  )
+  const data = ensureSuccess(response, 'W+激活兑换失败')
+
+  return {
+    bizCode: toNumber(data.bizCode),
+    bizMsg: firstText(data.bizMsg, data.msg),
+    canOpen: toBoolean(data.canOpen),
+    raw: response
+  }
 }
 
 export async function fetchActivityList(

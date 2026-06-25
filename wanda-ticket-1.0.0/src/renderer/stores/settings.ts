@@ -2,7 +2,12 @@ import { defineStore } from 'pinia'
 import { toRaw } from 'vue'
 
 import { setWandaRequestParams } from '@renderer/services/wandaRequest'
-import { DEFAULT_LOCAL_DATA, type ProxyLocalData, type RequestParamsLocalData, type SettingsLocalData } from '@shared/localData'
+import {
+  DEFAULT_LOCAL_DATA,
+  type ProxyLocalData,
+  type RequestParamsLocalData,
+  type SettingsLocalData
+} from '@shared/localData'
 
 function getWandaApp() {
   if (typeof window === 'undefined') {
@@ -25,6 +30,28 @@ function generateDeviceUserId(): string {
   }
 
   return value
+}
+
+function pickRandom<T>(list: readonly T[]): T {
+  return list[Math.floor(Math.random() * list.length)]
+}
+
+function randomDeviceProfile() {
+  const models = ['iPhone13,3', 'iPhone14,5', 'iPhone14,7', 'iPhone15,3', 'iPhone15,4', 'iPhone16,1', 'iPhone16,2']
+  const versions = ['17.4', '17.5.1', '17.6.1', '18.0', '18.1', '18.2']
+  const screens = ['375x812', '390x844', '393x852', '414x896', '430x932']
+  const builds = ['619.1.19.11.8', '619.2.5.10.1', '620.1.16.10.11', '620.2.4.10.7']
+  const screen = pickRandom(screens)
+  const [width, height] = screen.split('x')
+
+  return {
+    model: pickRandom(models),
+    ios: pickRandom(versions),
+    screen,
+    width,
+    height,
+    build: pickRandom(builds)
+  }
 }
 
 function toPlainSettingsData(data: SettingsLocalData): SettingsLocalData {
@@ -94,12 +121,17 @@ export const useSettingsStore = defineStore('settings', {
       setWandaRequestParams(toPlainRequestParamsData(this.requestParams))
     },
     refreshRequestParams() {
+      const deviceProfile = randomDeviceProfile()
+
       this.requestParams = {
         ...this.requestParams,
         userId: generateDeviceUserId(),
-        model: this.requestParams.model || 'M2102J2SC',
-        width: this.requestParams.width || '1080',
-        height: this.requestParams.height || '2206'
+        model: deviceProfile.model,
+        ios: deviceProfile.ios,
+        screen: deviceProfile.screen,
+        width: deviceProfile.width,
+        height: deviceProfile.height,
+        build: deviceProfile.build
       }
       this.syncRequestParams()
     },

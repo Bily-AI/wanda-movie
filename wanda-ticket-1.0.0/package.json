@@ -31,6 +31,7 @@
     "check:alipay-ui": "node tools/check-alipay-ui-contract.mjs",
     "check:stored-card": "node tools/check-stored-card-contract.mjs",
     "check:member-signin": "node tools/check-member-signin-contract.mjs",
+    "check:member-module": "node tools/check-member-module-contract.mjs",
     "check:global-account-sidebar": "node tools/check-global-account-sidebar-contract.mjs",
     "check:interface-smoke": "node tools/check-interface-smoke-contract.mjs",
     "smoke:wanda": "node tools/smoke-wanda-api.mjs",

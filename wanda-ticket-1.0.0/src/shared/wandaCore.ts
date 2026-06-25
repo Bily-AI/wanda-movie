@@ -15,6 +15,10 @@ export const AUTO_ORDER_HOSTS = {
   HAHA: 'hahapiao.cn'
 } as const
 
+export const LEGACY_EXTERNAL_HOSTS = {
+  COUPON_SHARE: 'qp.sxjrj.cn'
+} as const
+
 export const WANDA_API_PATHS = {
   USER_LOGIN_VERIFY_CODE: '/user/login_verify_code.api',
   USER_LOGIN: '/user/login.api',
@@ -25,6 +29,7 @@ export const WANDA_API_PATHS = {
   ORDER_CREATE_TICKET: '/order/create_order.api',
   ORDER_CREATE: '/order/create.api',
   ORDER_CANCEL: '/order/cancel.api',
+  ORDER_REFUND: '/order/refund_order.api',
   ORDER_PREPAY: '/order/prepay.api',
   ORDER_MERGE_PAYMENT: '/order/merge_payment.api',
   ORDER_STATUS: '/order/order_status.api',
@@ -40,6 +45,8 @@ export const WANDA_API_PATHS = {
   COUPON_PRESENT: '/coupon/present/',
   MEMBER_GRADE: '/member/grade/',
   WPLUS_MEMBER_PLUS_DETAIL: '/wplus/member/plusDetail.api',
+  WPLUS_RIGHT_RECEIVE: '/right/plus/order/receive',
+  WPLUS_EXCHANGE_INFO: '/right/plus/order/sale/get_exchange_info_2023',
   MKT_ACTIVITY_SECRET: '/mkt/activity/secret/',
   PACK_ACTIVITY: '/pack_activity/activity/',
   PACK_ACTIVITY_CREATE_ORDER: '/pack_activity/activity/create_order.api',
@@ -58,11 +65,17 @@ export const AUTO_ORDER_API_PATHS = {
   HAHA_ORDER_CONFIRM: '/api/Synchro/orderConfirm'
 } as const
 
+export const LEGACY_EXTERNAL_API_PATHS = {
+  COUPON_SHARE_CREATE: '/sc.php'
+} as const
+
 const wandaHostValues: ReadonlySet<string> = new Set(Object.values(WANDA_HOSTS))
 const autoOrderHostValues: ReadonlySet<string> = new Set(Object.values(AUTO_ORDER_HOSTS))
+const legacyExternalHostValues: ReadonlySet<string> = new Set(Object.values(LEGACY_EXTERNAL_HOSTS))
 const exactPathValues: readonly string[] = Object.values(WANDA_API_PATHS).filter((value) => !value.endsWith('/'))
 const prefixPathValues: readonly string[] = Object.values(WANDA_API_PATHS).filter((value) => value.endsWith('/'))
 const autoOrderExactPathValues: readonly string[] = Object.values(AUTO_ORDER_API_PATHS)
+const legacyExternalExactPathValues: readonly string[] = Object.values(LEGACY_EXTERNAL_API_PATHS)
 const blockedWandaPaymentKeywords: readonly string[] = ['alipay']
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -120,8 +133,9 @@ export function validateWandaRequest(request: WandaHttpRequest): string | null {
 
   const isWandaHost = wandaHostValues.has(parsedUrl.hostname)
   const isAutoOrderHost = autoOrderHostValues.has(parsedUrl.hostname)
+  const isLegacyExternalHost = legacyExternalHostValues.has(parsedUrl.hostname)
 
-  if (!isWandaHost && !isAutoOrderHost) {
+  if (!isWandaHost && !isAutoOrderHost && !isLegacyExternalHost) {
     return '万达请求 host 不在旧版接口白名单内'
   }
 

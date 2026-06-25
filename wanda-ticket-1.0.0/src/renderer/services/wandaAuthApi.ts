@@ -17,7 +17,8 @@ export async function sendVerifyCode(phone: string): Promise<WandaLoginRequestId
   const data = response.data
 
   if (!data?.requestID) {
-    throw new Error(response.msg || '验证码发送失败')
+    const errorMsg = response.msg && response.msg.trim() !== 'API Success.' ? response.msg : '验证码发送失败'
+    throw new Error(errorMsg)
   }
 
   return data
@@ -38,7 +39,8 @@ export async function loginWithCode(phone: string, code: string, requestId: stri
   const data = response.data
 
   if (response.code !== 0 || !data?.userToken) {
-    throw new Error(response.msg || '万达账号登录失败')
+    const errorMsg = response.msg && response.msg.trim() !== 'API Success.' ? response.msg : '登录失败，请确认验证码是否正确'
+    throw new Error(errorMsg)
   }
 
   return data

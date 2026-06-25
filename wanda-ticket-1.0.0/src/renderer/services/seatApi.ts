@@ -756,6 +756,33 @@ export async function cancelTicketOrder(
   return data
 }
 
+export async function refundTicketOrder(
+  orderId: string,
+  refundFee: number,
+  refundOrderType: number,
+  ck: string,
+  userIdentifier: string
+): Promise<TicketOrderResult> {
+  assertNotBlank(orderId, '订单 ID 不能为空')
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const response = await wandaPost<TicketOrderResult>(
+    WANDA_HOSTS.GATEWAY,
+    WANDA_API_PATHS.ORDER_REFUND,
+    { orderId, refundFee, refundOrderType },
+    ck,
+    userIdentifier
+  )
+  const data = response.data
+
+  if (response.code !== 0 || !data || data.bizCode !== 0) {
+    throw new Error(data?.bizMsg || response.msg || '退款订单失败')
+  }
+
+  return data
+}
+
 export async function fetchPaymentActivity(
   seats: TicketOrderSeatRef[],
   orderId: string,

@@ -172,6 +172,17 @@ async function handleImportAccounts(): Promise<void> {
         />
       </div>
 
+      <div v-if="accountsStore.currentAccount" class="current-account-info">
+        当前使用：{{ accountsStore.currentAccount.phone }}
+        <span
+          v-if="accountsStore.currentAccount.statusText"
+          class="status-badge status-badge--active"
+        >
+          {{ accountsStore.currentAccount.statusText }}
+        </span>
+        ({{ accountsStore.currentAccount.remark }})
+      </div>
+
       <el-table
         ref="accountTableRef"
         class="account-table"
@@ -219,10 +230,15 @@ async function handleImportAccounts(): Promise<void> {
           <el-button
             type="primary"
             :loading="accountsStore.loginForm.sending"
-            :disabled="accountsStore.loginForm.sending || accountsStore.loginForm.loggingIn || !accountsStore.loginForm.phone"
+            :disabled="
+              accountsStore.loginForm.sending ||
+              accountsStore.loginForm.loggingIn ||
+              accountsStore.loginForm.countdown > 0 ||
+              !accountsStore.loginForm.phone
+            "
             @click="accountsStore.sendLoginCode"
           >
-            获取验证码
+            {{ accountsStore.loginForm.countdown > 0 ? `${accountsStore.loginForm.countdown}秒后获取` : '获取验证码' }}
           </el-button>
         </div>
         <el-button
@@ -233,8 +249,7 @@ async function handleImportAccounts(): Promise<void> {
             accountsStore.loginForm.sending ||
             accountsStore.loginForm.loggingIn ||
             !accountsStore.loginForm.phone ||
-            !accountsStore.loginForm.code ||
-            !accountsStore.loginForm.requestId
+            !accountsStore.loginForm.code
           "
           @click="accountsStore.loginWandaAccount"
         >
@@ -463,5 +478,37 @@ async function handleImportAccounts(): Promise<void> {
   height: 10px;
   border-radius: 50%;
   background: #c7d0dd;
+}
+
+.current-account-info {
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border: 1px solid #d9ecff;
+  border-radius: 4px;
+  background-color: #ecf5ff;
+  color: #409eff;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  height: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 3px;
+  background-color: #e4e7ed;
+  color: #909399;
+  line-height: 1;
+}
+.status-badge--active {
+  background-color: #f0f9eb;
+  color: #67c23a;
+  border: 1px solid #e1f3d8;
 }
 </style>
