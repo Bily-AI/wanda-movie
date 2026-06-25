@@ -263,6 +263,14 @@ async function handleTextOcr(): Promise<void> {
   }
 }
 
+function handleRemoveSelectedSeat(seat: Parameters<typeof ticketStore.toggleSeat>[0]): void {
+  ticketStore.toggleSeat(seat)
+}
+
+function handleSelectedSeatDiscountRateChange(value: string): void {
+  ticketStore.setSelectedSeatDiscountRate(value)
+}
+
 async function handleRefreshTicketCode(): Promise<void> {
   await ticketStore.refreshTicketCode()
 
@@ -722,7 +730,16 @@ watch(
           <span>已选座位</span>
           <span>{{ ticketStore.selectedSeatCount }} / {{ ticketStore.maxSeatCount }}</span>
         </header>
-        <SelectedSeatList :selected-seats="ticketStore.selectedSeatNodes" />
+        <SelectedSeatList
+          :selected-seats="ticketStore.selectedSeatNodes"
+          :total-price-cent="ticketStore.selectedSeatTotalPriceCent"
+          :payable-price-cent="ticketStore.selectedSeatPreviewPayablePriceCent"
+          :discount-price-cent="ticketStore.selectedSeatPreviewDiscountPriceCent"
+          :discount-rate="ticketStore.selectedSeatDiscountRate"
+          :discounted-payable-price-cent="ticketStore.selectedSeatDiscountedPayablePriceCent"
+          @remove-seat="handleRemoveSelectedSeat"
+          @update:discount-rate="handleSelectedSeatDiscountRateChange"
+        />
       </section>
     </aside>
 

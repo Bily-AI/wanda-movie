@@ -155,11 +155,11 @@ async function getAiOcrConfig(): Promise<AiOcrConfig> {
     settings.aiOcr.model.trim() || getConfigValue('AI_OCR_MODEL', 'DEEPSEEK_MODEL') || DEFAULT_AI_OCR_MODEL
 
   if (!settings.aiOcr.enabled) {
-    throw new Error('AI OCR 鍏滃簳鏈惎鐢?)
+    throw new Error('AI OCR 兜底未启用')
   }
 
   if (!apiKey) {
-    throw new Error('缂哄皯 AI OCR API Key锛岃鍏堝湪璁剧疆閲岄厤缃?)
+    throw new Error('缺少 AI OCR API Key，请先在设置里配置')
   }
 
   return {
@@ -176,15 +176,15 @@ function stripDataUrlPrefix(imageBase64: string): string {
 
 function validateBaiduOcrRequest(request: BaiduOcrRequest): string | null {
   if (typeof request !== 'object' || request === null || Array.isArray(request)) {
-    return 'OCR 璇锋眰鍙傛暟蹇呴』鏄璞?
+    return 'OCR 请求参数必须是对象'
   }
 
   if (typeof request.imageBase64 !== 'string' || !request.imageBase64.trim()) {
-    return '缂哄皯寰呰瘑鍒浘鐗?
+    return '缺少待识别图片'
   }
 
   if (request.accurate !== undefined && typeof request.accurate !== 'boolean') {
-    return 'OCR 璇嗗埆绮惧害鍙傛暟蹇呴』鏄竷灏斿€?
+    return 'OCR 精度参数必须是布尔值'
   }
 
   const imageBase64 = request.imageBase64.trim()
@@ -192,15 +192,15 @@ function validateBaiduOcrRequest(request: BaiduOcrRequest): string | null {
   const imageBody = stripDataUrlPrefix(imageBase64).replace(/\s+/g, '')
 
   if (imageBase64.startsWith('data:image/') && !hasSupportedDataUrl) {
-    return 'OCR 鍥剧墖鍙敮鎸?PNG/JPG/WebP 鏍煎紡'
+    return 'OCR 图片只支持 PNG/JPG/WebP 格式'
   }
 
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(imageBody)) {
-    return 'OCR 鍥剧墖蹇呴』鏄?PNG/JPG/WebP 鐨?base64 鍐呭'
+    return 'OCR 图片必须是 PNG/JPG/WebP 的 base64 内容'
   }
 
   if (imageBody.length > MAX_OCR_IMAGE_BASE64_LENGTH) {
-    return 'OCR 鍥剧墖杩囧ぇ锛岃浣跨敤 10MB 浠ュ唴鐨勫浘鐗?
+    return 'OCR 图片过大，请使用 10MB 以内的图片'
   }
 
   return null
@@ -208,11 +208,11 @@ function validateBaiduOcrRequest(request: BaiduOcrRequest): string | null {
 
 function validateAiOcrParseRequest(request: AiOcrParseRequest): string | null {
   if (typeof request !== 'object' || request === null || Array.isArray(request)) {
-    return 'AI OCR 璇锋眰鍙傛暟蹇呴』鏄璞?
+    return 'AI OCR 请求参数必须是对象'
   }
 
   if (typeof request.text !== 'string' || !request.text.trim()) {
-    return '缂哄皯寰呰В鏋?OCR 鏂囨湰'
+    return '缺少待解析 OCR 文本'
   }
 
   if (request.text.length > MAX_AI_OCR_TEXT_LENGTH) {
@@ -339,7 +339,7 @@ function normalizeAiDate(value: unknown): string {
 
 function normalizeAiTime(value: unknown): string {
   const text = cleanAiText(value)
-  const match = text.match(/([01]?\d|2[0-3])[:锛氱偣鏃禲(\d{2})/)
+  const match = text.match(/([01]?\d|2[0-3])[:：点时](\d{2})/)
 
   if (match) {
     return `${match[1].padStart(2, '0')}:${match[2]}`
@@ -570,8 +570,8 @@ export async function recognizeBaiduOcr(request: BaiduOcrRequest): Promise<Baidu
 
     if (data.error_code) {
       const detailedError = data.error_code === 6
-        ? '鐧惧害 OCR 鎻愮ず锛氭棤鏁版嵁璁块棶鏉冮檺銆傝繖閫氬父鏄洜涓烘偍鐨勭櫨搴︽櫤鑳戒簯搴旂敤鍦ㄥ悗鍙版病鏈夊嬀閫?寮€閫氬搴旂殑鏂囧瓧璇嗗埆鏈嶅姟鎺ュ彛锛堝缓璁紑閫氶€氱敤鏂囧瓧璇嗗埆楂樼簿搴︾増/鏍囧噯鐗堬級锛屾垨鑰呭簲鐢ㄥ嚟璇?API Key/Secret Key)閰嶇疆鏈夎銆?
-        : (data.error_msg || `鐧惧害 OCR 杩斿洖閿欒锛?{data.error_code}`)
+        ? '百度 OCR 提示：无数据访问权限。通常是百度智能云应用未开通对应文字识别接口，或 API Key / Secret Key 配置错误。'
+        : (data.error_msg || `百度 OCR 返回错误：${data.error_code}`)
       return {
         ok: false,
         error: detailedError

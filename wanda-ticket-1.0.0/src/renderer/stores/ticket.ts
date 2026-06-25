@@ -602,7 +602,7 @@ function normalizeVersionKeyword(value: string): string {
 
 function findShowtimeByHallAndLanguage(
   showtimeItems: Array<{ dId: string; label: string; hallName?: string; raw?: unknown }>,
-  parsed: Pick<ParsedOcrTicket, 'hallName' | 'language'>
+  parsed: Pick<ParsedOcrTicket, 'hallName' | 'language' | 'time'>
 ): TicketOption | undefined {
   const hallKeyword = parsed.hallName ? normalizeHallKeyword(parsed.hallName) : ''
   const languageKeyword = parsed.language ? normalizeVersionKeyword(parsed.language) : ''
@@ -766,6 +766,7 @@ export const useTicketStore = defineStore('ticket', {
     paymentDataMessage: '',
     paymentPrerequisiteError: '',
     paymentSubmissionLocked: false,
+    selectedSeatDiscountRate: '0.87',
     selectedSeats: [] as SelectedSeat[],
     maxSeatCount: 8
   }),
@@ -809,6 +810,66 @@ export const useTicketStore = defineStore('ticket', {
     selectedSeatTotalPrice(state) {
       return state.selectedSeatNodes.reduce((sum, seat) => sum + seat.price, 0)
     },
+    selectedSeatTotalPriceCent(): number {
+      return yuanToCents(this.selectedSeatTotalPrice)
+    },
+    selectedSeatSelectedCouponAmountCent(state): number {
+      const total = state.selectedCoupons.reduce((sum, couponCode) => {
+        const coupon = state.coupons.find((item) => item.code === couponCode || item.couponNo === couponCode)
+        return sum + yuanToCents(coupon?.amount)
+      }, 0)
+
+      return Math.max(0, total)
+    },
+    selectedSeatPreviewPayablePriceCent(state): number {
+      const seatTotal = this.selectedSeatTotalPriceCent
+
+      if (seatTotal <= 0) {
+        return 0
+      }
+
+      if (state.selectedCoupons.length > 0) {
+        return Math.max(0, seatTotal - this.selectedSeatSelectedCouponAmountCent)
+      }
+
+      const selectedActivity = state.paymentActivity
+        ? state.paymentActivities.find((activity) => activity.code === state.paymentActivity)
+        : undefined
+
+      let payablePrice = selectedActivity ? yuanToCents(selectedActivity.price) : seatTotal
+
+      if (state.selectedPaymentCards.length > 0) {
+        let remainingPrice = payablePrice
+
+        for (const cardNo of state.selectedPaymentCards) {
+          if (remainingPrice <= 0) {
+            break
+          }
+
+          const card = state.paymentCards.find((item) => item.cardNo === cardNo)
+          const paymentPrice = Math.min(yuanToCents(card?.balance), remainingPrice)
+          remainingPrice -= Math.max(0, paymentPrice)
+        }
+
+        payablePrice = remainingPrice
+      }
+
+      return Math.max(0, payablePrice)
+    },
+    selectedSeatPreviewDiscountPriceCent(): number {
+      return Math.max(0, this.selectedSeatTotalPriceCent - this.selectedSeatPreviewPayablePriceCent)
+    },
+    selectedSeatDiscountRateNumber(state): number {
+      const rate = Number(state.selectedSeatDiscountRate)
+      if (!Number.isFinite(rate)) {
+        return 1
+      }
+
+      return Math.min(Math.max(rate, 0), 1)
+    },
+    selectedSeatDiscountedPayablePriceCent(): number {
+      return Math.round(this.selectedSeatPreviewPayablePriceCent * this.selectedSeatDiscountRateNumber)
+    },
     canSubmitCurrentOrderPayment(state) {
       return Boolean(
         state.currentOrder &&
@@ -832,6 +893,9 @@ export const useTicketStore = defineStore('ticket', {
 
       this.selectedSeatNodes = []
       this.selectedSeats = []
+    },
+    setSelectedSeatDiscountRate(value: string) {
+      this.selectedSeatDiscountRate = value.trim()
     },
     resetQueryAfterCityChange() {
       ++this.showtimeRequestSerial
