@@ -406,6 +406,30 @@ function optionMatchesTime(option: TicketOption, time: string): boolean {
   return option.value.includes(time) || option.label.includes(time)
 }
 
+function parseTimeToMinutes(timeStr: string): number {
+  const parts = timeStr.match(/^(\d{1,2})[:：](\d{2})/)
+  if (!parts) return 0
+  return Number(parts[1]) * 60 + Number(parts[2])
+}
+
+function findClosestShowtime(showtimes: TicketOption[], targetTime: string): TicketOption | undefined {
+  if (!targetTime || showtimes.length === 0) return undefined
+  const targetMin = parseTimeToMinutes(targetTime)
+  let bestOption: TicketOption | undefined = undefined
+  let minDiff = Infinity
+
+  for (const option of showtimes) {
+    const timeMin = parseTimeToMinutes(option.label)
+    if (timeMin === 0) continue
+    const diff = Math.abs(timeMin - targetMin)
+    if (diff < minDiff && diff <= 30) {
+      minDiff = diff
+      bestOption = option
+    }
+  }
+  return bestOption
+}
+
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms))
 }
@@ -1849,7 +1873,11 @@ export const useTicketStore = defineStore('ticket', {
       }
 
       if (parsed.time && this.showtimes.length > 0) {
-        const showtime = findUnique(this.showtimes, (item) => optionMatchesTime(item, parsed.time))
+        let showtime = findUnique(this.showtimes, (item) => optionMatchesTime(item, parsed.time))
+
+        if (!showtime) {
+          showtime = findClosestShowtime(this.showtimes, parsed.time)
+        }
 
         if (showtime) {
           this.query.showtime = showtime.value
