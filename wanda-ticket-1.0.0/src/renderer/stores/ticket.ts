@@ -408,19 +408,20 @@ function optionMatchesTime(option: TicketOption, time: string): boolean {
 
 function parseTimeToMinutes(timeStr: string): number {
   const parts = timeStr.match(/^(\d{1,2})[:：](\d{2})/)
-  if (!parts) return 0
+  if (!parts) return -1
   return Number(parts[1]) * 60 + Number(parts[2])
 }
 
 function findClosestShowtime(showtimes: TicketOption[], targetTime: string): TicketOption | undefined {
   if (!targetTime || showtimes.length === 0) return undefined
   const targetMin = parseTimeToMinutes(targetTime)
+  if (targetMin === -1) return undefined
   let bestOption: TicketOption | undefined = undefined
   let minDiff = Infinity
 
   for (const option of showtimes) {
     const timeMin = parseTimeToMinutes(option.label)
-    if (timeMin === 0) continue
+    if (timeMin === -1) continue
     const diff = Math.abs(timeMin - targetMin)
     if (diff < minDiff && diff <= 30) {
       minDiff = diff
