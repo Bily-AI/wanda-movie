@@ -52,6 +52,24 @@ function asRecord(value: unknown): Record<string, unknown> {
   return isRecord(value) ? value : {}
 }
 
+function firstText(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === 'string') {
+      const text = value.trim()
+
+      if (text) {
+        return text
+      }
+    }
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(value)
+    }
+  }
+
+  return ''
+}
+
 function firstListRecord(value: unknown): Record<string, unknown> {
   return asRecord(Array.isArray(value) ? value[0] : value)
 }
@@ -173,9 +191,52 @@ const paymentCardItems = computed<PaymentDisplayItem[]>(() =>
   })
 )
 
+function buildCouponLabel(coupon: (typeof ticketStore.coupons)[number]): string {
+  const raw = asRecord(coupon.raw)
+
+  return firstText(
+    coupon.name,
+    coupon.couponTypeName,
+    coupon.detailTypeName,
+    coupon.couponCategoryName,
+    coupon.couponNo,
+    coupon.voucherNo,
+    coupon.code,
+    raw.couponTypeName,
+    raw.couponName,
+    raw.name,
+    raw.detailTypeName,
+    raw.detailtypename,
+    raw.typeName,
+    raw.voucherNo,
+    raw.voucher_number,
+    raw.couponNo,
+    raw.no
+  )
+}
+
+function buildCouponMeta(coupon: (typeof ticketStore.coupons)[number]): string {
+  const raw = asRecord(coupon.raw)
+  const amountText = coupon.amount > 0 ? `￥${coupon.amount.toFixed(2)}` : ''
+
+  return firstText(
+    coupon.validity,
+    coupon.couponCategoryName,
+    coupon.detailTypeName,
+    amountText,
+    raw.validityDateShowMsg,
+    raw.validity,
+    raw.expireTime,
+    raw.couponCategoryName,
+    raw.typeName,
+    raw.detailTypeName,
+    raw.detailtypename
+  )
+}
+
 const couponItems = computed<PaymentDisplayItem[]>(() =>
   ticketStore.coupons.flatMap((coupon, index) => {
-    const value = coupon.code || coupon.couponNo
+    const value = coupon.code || coupon.couponNo || coupon.voucherNo
 
     if (!value) {
       return []
@@ -184,9 +245,9 @@ const couponItems = computed<PaymentDisplayItem[]>(() =>
     return [
       {
         key: `${value}-${index}`,
-        label: coupon.name || coupon.detailTypeName || coupon.couponNo || coupon.code,
+        label: buildCouponLabel(coupon) || `兑换券 ${index + 1}`,
         value,
-        meta: coupon.validity || coupon.detailTypeName || (coupon.amount ? `￥${coupon.amount.toFixed(2)}` : '-')
+        meta: buildCouponMeta(coupon) || '-'
       }
     ]
   })

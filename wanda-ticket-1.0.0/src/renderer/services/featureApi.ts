@@ -1,5 +1,5 @@
 import { WANDA_API_PATHS } from '@shared/wandaCore'
-import { WANDA_HOSTS, sanitizeWandaErrorMessage, wandaGet, wandaPostForm } from './wandaRequest'
+import { WANDA_HOSTS, sanitizeWandaErrorMessage, wandaGet, wandaPostForm, wandaSeatGet } from './wandaRequest'
 
 export interface StoredCardRow {
   holder: string
@@ -743,7 +743,7 @@ export async function fetchMemberCoupons(ck: string, userIdentifier: string): Pr
     userIdentifier
   )
   const data = ensureSuccess(response, '兑换券加载失败')
-  const groups = collectList(data, ['groups', 'groupList', 'list', 'items'])
+  const groups = collectList(data, ['couponGroups', 'groups', 'groupList', 'list', 'items'])
   const coupons = groups.flatMap((group) => collectList(group, ['couponInfoList', 'coupons', 'items']))
 
   return (coupons.length > 0 ? coupons : collectList(data, ['couponInfoList', 'coupons', 'items', 'list']))
@@ -1112,12 +1112,12 @@ export async function fetchActivityList(
   assertNotBlank(ck, '万达账号 CK 不能为空')
   assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
 
-  const response = await wandaGet<unknown>(
-    WANDA_HOSTS.GATEWAY,
+  const response = await wandaSeatGet<unknown>(
     `${WANDA_API_PATHS.PACK_ACTIVITY}list.api`,
     { cinemaId, json: true },
     ck,
     userIdentifier,
+    WANDA_HOSTS.GATEWAY,
     { useProxy }
   )
   const data = ensureSuccess(response, '活动礼包加载失败')
@@ -1139,12 +1139,12 @@ export async function fetchActivityDetail(
   assertNotBlank(ck, '万达账号 CK 不能为空')
   assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
 
-  const response = await wandaGet<unknown>(
-    WANDA_HOSTS.GATEWAY,
+  const response = await wandaSeatGet<unknown>(
     `${WANDA_API_PATHS.PACK_ACTIVITY}detail.api`,
     { cinemaId, activityCode, json: true },
     ck,
     userIdentifier,
+    WANDA_HOSTS.GATEWAY,
     { useProxy }
   )
 
@@ -1215,12 +1215,12 @@ export async function fetchGiftOrders(
   assertNotBlank(ck, '万达账号 CK 不能为空')
   assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
 
-  const response = await wandaGet<unknown>(
-    WANDA_HOSTS.GATEWAY,
+  const response = await wandaSeatGet<unknown>(
     WANDA_API_PATHS.GIFT_ORDERS,
     { pageIndex, pageSize, json: true },
     ck,
     userIdentifier,
+    WANDA_HOSTS.GATEWAY,
     { useProxy }
   )
   const data = ensureSuccess(response, '礼包订单加载失败')
@@ -1244,7 +1244,7 @@ export async function fetchGiftOrderDetail(
   assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
 
   const path = `${WANDA_API_PATHS.GIFT_ORDER_DETAIL}?id=${encodeURIComponent(orderId)}&json=true`
-  const response = await wandaGet<unknown>(WANDA_HOSTS.GATEWAY, path, {}, ck, userIdentifier, { useProxy })
+  const response = await wandaSeatGet<unknown>(path, {}, ck, userIdentifier, WANDA_HOSTS.GATEWAY, { useProxy })
   const data = ensureSuccess(response, '礼包订单详情加载失败')
   const result = asRecord(data.res)
   const order = asRecord(data.order ?? result.order)
@@ -1312,7 +1312,7 @@ export async function fetchGiftTransactionDetail(
   const path = `${WANDA_API_PATHS.GIFT_TRANSACTION_DETAIL}?payId=${encodeURIComponent(payId)}&id=${encodeURIComponent(
     transactionId
   )}&json=true`
-  const response = await wandaGet<unknown>(WANDA_HOSTS.GATEWAY, path, {}, ck, userIdentifier, { useProxy })
+  const response = await wandaSeatGet<unknown>(path, {}, ck, userIdentifier, WANDA_HOSTS.GATEWAY, { useProxy })
   const data = ensureSuccess(response, '礼包交易详情加载失败')
   const result = asRecord(data.res)
   const payParams = asRecord(data.payParams ?? result.payParams)

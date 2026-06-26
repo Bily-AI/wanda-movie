@@ -192,11 +192,14 @@ export interface CouponItem {
   code: string
   name: string
   couponNo: string
+  voucherNo: string
+  couponTypeName: string
   typeCode: string
   able: boolean
   amount: number
   validity: string
   detailTypeName: string
+  couponCategoryName: string
   raw: unknown
 }
 

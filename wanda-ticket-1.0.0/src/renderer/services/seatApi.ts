@@ -327,14 +327,17 @@ function normalizeCoupon(item: unknown): CouponItem {
   const record = asRecord(item)
 
   return {
-    code: firstText(record.code, record.couponCode),
-    name: firstText(record.name, record.couponName),
+    code: firstText(record.code, record.couponCode, record.voucherNo, record.voucher_number),
+    name: firstText(record.couponTypeName, record.couponName, record.name),
     couponNo: firstText(record.couponNo, record.no),
+    voucherNo: firstText(record.voucherNo, record.voucher_number, record.code, record.couponCode),
+    couponTypeName: firstText(record.couponTypeName, record.couponName, record.name),
     typeCode: firstText(record.typeCode),
     able: toBoolean(record.able),
     amount: centsToYuan(record.amount ?? record.price),
-    validity: firstText(record.validityDateShowMsg, record.validity),
-    detailTypeName: firstText(record.detailtypename, record.detailTypeName, record.couponTypeName),
+    validity: firstText(record.validityDateShowMsg, record.validity, record.expireTime),
+    detailTypeName: firstText(record.detailtypename, record.detailTypeName, record.couponTypeName, record.typeName, record.typeCode),
+    couponCategoryName: firstText(record.couponCategoryName, record.typeName, record.detailTypeName, record.detailtypename),
     raw: item
   }
 }
@@ -443,8 +446,34 @@ function collectGroupItems(group: Record<string, unknown>): unknown[] {
 
 function collectCoupons(payload: Record<string, unknown>): unknown[] {
   const res = asRecord(payload.res)
+  const groups = [
+    ...asList(res.couponGroups),
+    ...asList(payload.couponGroups),
+    ...asList(res.groups),
+    ...asList(payload.groups),
+    ...asList(res.groupList),
+    ...asList(payload.groupList)
+  ]
 
-  return [...asList(res.coupons), ...asList(res.couponList), ...asList(payload.coupons), ...asList(payload.couponList)]
+  const groupCoupons = groups.flatMap((group) => {
+    const record = asRecord(group)
+
+    return [
+      ...asList(record.couponInfoList),
+      ...asList(record.couponInfos),
+      ...asList(record.coupons),
+      ...asList(record.couponList),
+      ...asList(record.items)
+    ]
+  })
+
+  return [
+    ...groupCoupons,
+    ...asList(res.coupons),
+    ...asList(res.couponList),
+    ...asList(payload.coupons),
+    ...asList(payload.couponList)
+  ]
 }
 
 function normalizeCouponVoucher(value: unknown): string {

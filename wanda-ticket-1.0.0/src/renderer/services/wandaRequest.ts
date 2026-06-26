@@ -368,12 +368,13 @@ export async function wandaSeatGet<T>(
   query: WandaQuery,
   ck = '',
   userIdentifier = '',
-  host: string = WANDA_HOSTS.GATEWAY
+  host: string = WANDA_HOSTS.GATEWAY,
+  options: WandaRequestOptions = {}
 ): Promise<WandaApiResponse<T>> {
   const url = buildWandaUrl(host, path, query)
   const requestPath = buildRequestPath(url)
   const headers = buildSeatHeaders(requestPath, ck, userIdentifier, host)
-  const result = await getRequiredWandaApp().wandaHttpGet({ url, headers })
+  const result = await getRequiredWandaApp().wandaHttpGet({ url, headers, useProxy: options.useProxy })
 
   if (!result?.ok) {
     throw new Error(formatWandaTransportError('GET', host, requestPath, result?.error, '万达座位 GET 请求失败'))

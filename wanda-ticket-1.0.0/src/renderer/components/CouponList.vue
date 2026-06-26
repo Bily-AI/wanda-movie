@@ -31,11 +31,12 @@ const emit = defineEmits<{
         class="mini-list-group"
         @update:model-value="emit('update:selectedValues', $event)"
       >
-        <label v-for="item in items" :key="item.key" class="mini-list-item">
-          <el-checkbox :value="item.value" :aria-label="item.label" />
-          <span>{{ item.label }}</span>
-          <em>{{ item.meta }}</em>
-        </label>
+        <div v-for="item in items" :key="item.key" class="mini-list-item">
+          <el-checkbox :value="item.value" :aria-label="item.label" class="mini-list-checkbox">
+            <span class="mini-list-label">{{ item.label }}</span>
+            <em v-if="item.meta" class="mini-list-meta">{{ item.meta }}</em>
+          </el-checkbox>
+        </div>
       </el-checkbox-group>
     </div>
 
@@ -88,21 +89,31 @@ const emit = defineEmits<{
 
 .mini-list-item {
   min-height: 32px;
+  color: var(--app-text);
+}
+
+.mini-list-checkbox {
+  width: 100%;
+}
+
+.mini-list-checkbox :deep(.el-checkbox__label) {
+  min-width: 0;
+  width: 100%;
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 6px;
   color: var(--app-text);
 }
 
-.mini-list-item span,
-.mini-list-item em {
+.mini-list-label,
+.mini-list-meta {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.mini-list-item em {
+.mini-list-meta {
   color: var(--app-muted);
   font-style: normal;
 }

@@ -30,6 +30,7 @@ const accountsStore = useAccountsStore()
 const ticketStore = useTicketStore()
 const logsStore = useLogsStore()
 const activities = ref<ActivityGiftRow[]>([])
+const manualActivities = ref<ActivityGiftRow[]>([])
 const giftOrders = ref<ActivityGiftOrderRow[]>([])
 const activityMessage = ref('')
 const giftOrderMessage = ref('')
@@ -37,6 +38,7 @@ const giftOrderTotal = ref(0)
 const loading = ref(false)
 const loadingOrders = ref(false)
 const buyingActivityCode = ref('')
+const detailLoadingCode = ref('')
 const buyingPaymentOrderId = ref('')
 const openingAlipay = ref(false)
 const giftQuantities = ref<Record<string, number>>({})
@@ -51,7 +53,21 @@ const cinemaOptions = computed(() =>
     .filter((cinema) => !settingsStore.activity.city || cinema.cityId === settingsStore.activity.city)
     .map((cinema) => ({ label: cinema.name, value: cinema.id }))
 )
-const activityRows = computed(() => activities.value)
+const activityRows = computed(() => {
+  const merged = [...manualActivities.value, ...activities.value]
+  const seen = new Set<string>()
+
+  return merged.filter((row) => {
+    const key = getActivityCode(row)
+
+    if (!key || seen.has(key)) {
+      return false
+    }
+
+    seen.add(key)
+    return true
+  })
+})
 const giftOrderRows = computed(() => giftOrders.value)
 const paymentResultText = computed(() => {
   if (!paymentResult.value) {
@@ -88,6 +104,33 @@ function getCurrentAccount() {
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
+}
+
+function firstText(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim()
+    }
+  }
+
+  return ''
+}
+
+function toNumber(value: unknown, fallback = 0): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : fallback
+  }
+
+  return fallback
 }
 
 async function saveProxySettings() {
@@ -130,6 +173,79 @@ async function loadActivities() {
   }
 }
 
+function normalizeManualActivity(detail: unknown): ActivityGiftRow {
+  const record = asRecord(detail)
+  const listImage = asRecord(record.listImage)
+
+  return {
+    id: firstText(record.id, record.activityId, record.code, record.activityCode),
+    code: firstText(record.activityCode, record.code, record.id),
+    name: firstText(record.activityName, record.name, record.title),
+    note: firstText(record.subTitle, record.desc, record.description, record.note),
+    price: toNumber(record.unitPrice ?? record.price ?? record.salePrice ?? record.amount) / 100,
+    raw: {
+      ...record,
+      imageUrl: firstText(listImage.imageUrl, record.imageUrl)
+    }
+  }
+}
+
+async function handleAppendActivityByCode() {
+  const account = getCurrentAccount()
+
+  if (!account) {
+    return
+  }
+
+  const activityCode = settingsStore.activity.activityCode.trim()
+
+  if (!activityCode) {
+    activityMessage.value = '请输入礼包 ID'
+    return
+  }
+
+  if (!settingsStore.activity.cinema) {
+    activityMessage.value = '请选择影院'
+    return
+  }
+
+  const exists = activityRows.value.some((row) => {
+    const code = getActivityCode(row)
+    return code === activityCode
+  })
+
+  if (exists) {
+    ElMessage.info('该礼包已在列表中')
+    settingsStore.activity.activityCode = ''
+    return
+  }
+
+  loading.value = true
+
+  try {
+    await saveProxySettings()
+    const detail = await fetchActivityDetail(
+      settingsStore.activity.cinema,
+      activityCode,
+      account.ck,
+      account.userIdentifier,
+      settingsStore.useProxyIp
+    )
+
+    manualActivities.value.unshift(normalizeManualActivity(detail))
+    settingsStore.activity.activityCode = ''
+    ElMessage.success(`已添加礼包：${firstText(asRecord(detail).activityName, asRecord(detail).name, activityCode)}`)
+    logsStore.addLog('活动', account.phone, `手动添加礼包成功：${activityCode}`)
+  } catch (error) {
+    const message = error instanceof Error && error.message ? error.message : '获取详情失败'
+    activityMessage.value = message
+    ElMessage.error(message)
+    logsStore.addLog('活动', account.phone, `手动添加礼包失败：${message}`)
+  } finally {
+    loading.value = false
+  }
+}
+
 async function loadActivityDetail(activityCode = settingsStore.activity.activityCode) {
   const account = getCurrentAccount()
 
@@ -143,6 +259,7 @@ async function loadActivityDetail(activityCode = settingsStore.activity.activity
   }
 
   loading.value = true
+  detailLoadingCode.value = activityCode.trim()
 
   try {
     await saveProxySettings()
@@ -162,6 +279,7 @@ async function loadActivityDetail(activityCode = settingsStore.activity.activity
     logsStore.addLog('活动', account.phone, `活动详情加载失败：${message}`)
   } finally {
     loading.value = false
+    detailLoadingCode.value = ''
   }
 }
 
@@ -179,6 +297,82 @@ function setGiftQuantity(row: ActivityGiftRow, value: number | undefined) {
   const quantity = Number(value)
 
   giftQuantities.value[activityCode] = Number.isFinite(quantity) && quantity > 0 ? Math.floor(quantity) : 1
+}
+
+function getActivityRaw(row: ActivityGiftRow): Record<string, unknown> {
+  return asRecord(row.raw)
+}
+
+function getActivityImage(row: ActivityGiftRow): string {
+  const raw = getActivityRaw(row)
+  const listImage = asRecord(raw.listImage)
+  return firstText(listImage.imageUrl, raw.imageUrl, raw.picUrl, raw.cover)
+}
+
+function getActivityDescription(row: ActivityGiftRow): string {
+  const raw = getActivityRaw(row)
+  return firstText(raw.activityDesc, raw.subTitle, raw.desc, raw.note, row.note)
+}
+
+function getActivityTimeRange(row: ActivityGiftRow): string {
+  const raw = getActivityRaw(row)
+  const startTime = firstText(raw.startTime, raw.startDate)
+  const endTime = firstText(raw.endTime, raw.endDate)
+
+  if (startTime && endTime) {
+    return `${startTime} ~ ${endTime}`
+  }
+
+  return startTime || endTime
+}
+
+function getActivityLimit(row: ActivityGiftRow): number {
+  const raw = getActivityRaw(row)
+  return toNumber(raw.userLimit, 2) || 2
+}
+
+function getActivityDisplayPrice(row: ActivityGiftRow): string {
+  return `¥${(row.price * getGiftQuantity(row)).toFixed(2)}`
+}
+
+function getGiftOrderRaw(row: ActivityGiftOrderRow): Record<string, unknown> {
+  return asRecord(row.raw)
+}
+
+function getGiftOrderStatusCode(row: ActivityGiftOrderRow): number {
+  const raw = getGiftOrderRaw(row)
+  return toNumber(raw.status, -1)
+}
+
+function getGiftOrderStatusType(row: ActivityGiftOrderRow): '' | 'warning' | 'success' | 'info' {
+  const statusCode = getGiftOrderStatusCode(row)
+
+  if (statusCode === 1) {
+    return 'warning'
+  }
+
+  if (statusCode === 3) {
+    return 'success'
+  }
+
+  if (statusCode === 2) {
+    return 'info'
+  }
+
+  return ''
+}
+
+function canPayGiftOrder(row: ActivityGiftOrderRow): boolean {
+  return getGiftOrderStatusCode(row) === 1
+}
+
+async function copyText(text: string, successText = '已复制') {
+  try {
+    await navigator.clipboard.writeText(text)
+    ElMessage.success(successText)
+  } catch {
+    ElMessage.error('复制失败')
+  }
 }
 
 async function loadGiftOrders() {
@@ -355,6 +549,19 @@ watch(
   () => {
     settingsStore.activity.cinema = ''
     activities.value = []
+    manualActivities.value = []
+  }
+)
+
+watch(
+  () => settingsStore.activity.cinema,
+  (cinemaId) => {
+    activities.value = []
+    manualActivities.value = []
+
+    if (cinemaId) {
+      void loadActivities()
+    }
   }
 )
 
@@ -393,7 +600,7 @@ watch(
         :icon="Search"
         :disabled="!settingsStore.activity.activityCode"
         :loading="loading"
-        @click="loadActivityDetail()"
+        @click="handleAppendActivityByCode"
       >
         获取详情
       </el-button>
@@ -403,53 +610,76 @@ watch(
       <header class="panel-title">
         <span>可购买礼包</span>
         <div class="proxy-row">
-          <el-input v-model="settingsStore.proxyApi" size="small" placeholder="代理提取API" />
+          <span class="proxy-label">代理提取API</span>
+          <el-input
+            v-model="settingsStore.proxyApi"
+            size="small"
+            placeholder="推荐使用快代理和小象代理，代理提取api在服务设置每次提取一个IP，txt文本返回。"
+          />
+          <div class="proxy-links">
+            <a href="https://www.kuaidaili.com/" target="_blank" rel="noreferrer">快代理</a>
+            <span>/</span>
+            <a href="https://www.xiaoxiangdaili.com/" target="_blank" rel="noreferrer">小象代理</a>
+          </div>
           <el-checkbox v-model="settingsStore.useProxyIp">使用代理IP</el-checkbox>
         </div>
       </header>
-      <el-table v-loading="loading" :data="activityRows" height="100%" :empty-text="activityMessage || '暂无活动礼包'">
-        <el-table-column prop="name" label="礼包名称" min-width="220" />
-        <el-table-column prop="note" label="说明" min-width="280" />
-        <el-table-column label="价格" width="110">
-          <template #default="{ row }">¥{{ row.price.toFixed(2) }}</template>
-        </el-table-column>
-        <el-table-column label="数量" width="120">
-          <template #default="{ row }">
-            <el-input-number
-              class="quantity-input"
-              :model-value="getGiftQuantity(row)"
-              :min="1"
-              :max="20"
-              size="small"
-              controls-position="right"
-              @change="setGiftQuantity(row, $event)"
-            />
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="220">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="loadActivityDetail(row.code || row.id)">查看详情</el-button>
-            <el-popconfirm
-              width="240"
-              title="将创建真实礼包订单，确认购买？"
-              confirm-button-text="确认购买"
-              cancel-button-text="取消"
-              @confirm="handleBuyGift(row)"
-            >
-              <template #reference>
-                <el-button
-                  link
-                  type="success"
-                  :disabled="!settingsStore.activity.cinema"
-                  :loading="buyingActivityCode === getActivityCode(row)"
-                >
-                  购买
-                </el-button>
-              </template>
-            </el-popconfirm>
-          </template>
-        </el-table-column>
-      </el-table>
+      <div v-loading="loading" class="panel-body">
+        <div v-if="activityRows.length > 0" class="activity-list">
+          <article
+            v-for="row in activityRows"
+            :key="getActivityCode(row)"
+            class="activity-card"
+          >
+            <img v-if="getActivityImage(row)" :src="getActivityImage(row)" class="activity-card__image" alt="礼包图片" />
+            <div class="activity-card__body">
+              <div class="activity-card__title">{{ row.name }}</div>
+              <div v-if="getActivityDescription(row)" class="activity-card__desc">{{ getActivityDescription(row) }}</div>
+              <div v-if="getActivityTimeRange(row)" class="activity-card__meta">{{ getActivityTimeRange(row) }}</div>
+            </div>
+            <div class="activity-card__actions">
+              <el-button
+                size="small"
+                type="primary"
+                :loading="detailLoadingCode === getActivityCode(row)"
+                @click="loadActivityDetail(getActivityCode(row))"
+              >
+                查看详情
+              </el-button>
+              <el-input-number
+                class="quantity-input"
+                :model-value="getGiftQuantity(row)"
+                :min="1"
+                :max="getActivityLimit(row)"
+                size="small"
+                @change="setGiftQuantity(row, $event)"
+              />
+              <span class="activity-card__price">{{ getActivityDisplayPrice(row) }}</span>
+              <el-popconfirm
+                width="240"
+                title="将创建真实礼包订单，确认购买？"
+                confirm-button-text="确认购买"
+                cancel-button-text="取消"
+                @confirm="handleBuyGift(row)"
+              >
+                <template #reference>
+                  <el-button
+                    link
+                    type="success"
+                    :disabled="!settingsStore.activity.cinema"
+                    :loading="buyingActivityCode === getActivityCode(row)"
+                  >
+                    购买
+                  </el-button>
+                </template>
+              </el-popconfirm>
+            </div>
+          </article>
+        </div>
+        <div v-else class="panel-empty">
+          <el-empty :description="activityMessage || '暂无活动'" />
+        </div>
+      </div>
     </section>
 
     <section class="panel order-panel">
@@ -459,34 +689,40 @@ watch(
           刷新订单
         </el-button>
       </header>
-      <el-table
-        v-loading="loadingOrders"
-        :data="giftOrderRows"
-        height="100%"
-        :empty-text="giftOrderMessage || '暂无订单'"
-      >
-        <el-table-column prop="orderId" label="订单号" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="subject" label="礼包" min-width="220" show-overflow-tooltip />
-        <el-table-column prop="activityCode" label="activityCode" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="quantity" label="数量" width="80" />
-        <el-table-column label="金额" width="110">
-          <template #default="{ row }">¥{{ row.totalPrice.toFixed(2) }}</template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="120" />
-        <el-table-column prop="createdAt" label="创建时间" min-width="170" show-overflow-tooltip />
-        <el-table-column label="操作" width="110" fixed="right">
-          <template #default="{ row }">
-            <el-button
-              link
-              type="primary"
-              :loading="buyingPaymentOrderId === row.orderId"
-              @click="handleOrderPayment(row)"
-            >
-              支付参数
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <div v-loading="loadingOrders" class="panel-body">
+        <div v-if="giftOrderRows.length > 0" class="order-list">
+          <article v-for="row in giftOrderRows" :key="row.orderId" class="order-card">
+            <div class="order-card__title">{{ row.subject }}</div>
+            <div class="order-card__meta">
+              <span>#{{ row.orderId }}</span>
+              <span
+                v-if="row.activityCode"
+                class="order-card__code"
+                title="双击复制礼包ID"
+                @dblclick="copyText(row.activityCode, `已复制：${row.activityCode}`)"
+              >
+                礼包ID：{{ row.activityCode }}
+              </span>
+              <span v-if="row.createdAt">{{ row.createdAt }}</span>
+              <span>x{{ row.quantity }}</span>
+              <span>¥{{ row.totalPrice.toFixed(2) }}</span>
+              <el-tag :type="getGiftOrderStatusType(row)" size="small">{{ row.status }}</el-tag>
+              <el-button
+                v-if="canPayGiftOrder(row)"
+                size="small"
+                type="primary"
+                :loading="buyingPaymentOrderId === row.orderId"
+                @click="handleOrderPayment(row)"
+              >
+                支付
+              </el-button>
+            </div>
+          </article>
+        </div>
+        <div v-else class="panel-empty">
+          <el-empty :description="giftOrderMessage || '暂无订单'" />
+        </div>
+      </div>
     </section>
 
     <el-dialog v-model="detailDialogVisible" title="活动详情" width="680px">
@@ -522,11 +758,14 @@ watch(
 
 <style scoped>
 .activity-page {
+  flex: 1;
+  height: 100%;
   min-width: 980px;
-  min-height: 100%;
+  min-height: 0;
   display: grid;
-  grid-template-rows: 50px minmax(280px, 1fr) minmax(240px, 1fr);
+  grid-template-rows: 50px minmax(300px, 1fr) minmax(300px, 1fr);
   gap: 16px;
+  overflow: hidden;
 }
 
 .activity-toolbar {
@@ -534,10 +773,14 @@ watch(
   grid-template-columns: auto 180px minmax(240px, 360px) 88px minmax(220px, 280px) 108px;
   gap: 10px;
   align-items: center;
+  min-height: 0;
 }
 
 .panel {
+  min-width: 0;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
@@ -560,11 +803,133 @@ watch(
 .proxy-row {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) auto;
+  grid-template-columns: auto minmax(320px, 1fr) auto auto;
   gap: 12px;
   align-items: center;
   color: var(--app-subtle);
   font-weight: 400;
+}
+
+.proxy-label {
+  color: var(--app-subtle);
+  white-space: nowrap;
+}
+
+.proxy-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.proxy-links a {
+  color: var(--el-color-primary);
+  text-decoration: none;
+}
+
+.proxy-links a:hover {
+  text-decoration: underline;
+}
+
+.panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.panel-empty {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.activity-list,
+.order-list {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.activity-card,
+.order-card {
+  display: flex;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: linear-gradient(135deg, #fff 0%, #f8fbff 100%);
+}
+
+.activity-card__image {
+  width: 120px;
+  height: 120px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #f3f6fb;
+}
+
+.activity-card__body {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.activity-card__title,
+.order-card__title {
+  color: var(--app-text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.activity-card__desc {
+  color: var(--app-subtle);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.activity-card__meta,
+.order-card__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--app-subtle);
+  font-size: 13px;
+}
+
+.activity-card__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-self: center;
+}
+
+.activity-card__price {
+  color: var(--el-color-danger);
+  font-size: 18px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.order-card {
+  flex-direction: column;
+}
+
+.order-card__code {
+  cursor: pointer;
+}
+
+.order-card__code:hover {
+  color: var(--el-color-primary);
 }
 
 .quantity-input {
