@@ -12,6 +12,9 @@ import {
 import { ElMessage } from 'element-plus'
 
 import SeatMap from '@renderer/components/SeatMap.vue'
+import CouponList from '@renderer/components/CouponList.vue'
+import PayCardList from '@renderer/components/PayCardList.vue'
+import PaymentPanel from '@renderer/components/PaymentPanel.vue'
 import SelectedSeatList from '@renderer/components/SelectedSeatList.vue'
 import { extractAppPayParam, openAlipayPayment } from '@renderer/services/alipayBridge'
 import { useAccountsStore } from '@renderer/stores/accounts'
@@ -660,69 +663,31 @@ watch(
       </section>
 
       <section class="panel side-panel">
-        <header class="panel-header">
-          <span>支付活动</span>
-          <span>可用 {{ paymentActivityOptions.length }} 个</span>
-        </header>
-        <div class="side-line">
-          <span>活动价</span>
-          <el-select
-            v-model="ticketStore.paymentActivity"
-            size="small"
-            placeholder="无活动"
-            :loading="ticketStore.loadingPaymentData"
-          >
-            <el-option label="无活动" value="" />
-            <el-option
-              v-for="item in paymentActivityOptions"
-              :key="item.key"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-        </div>
+        <PaymentPanel
+          :activities="paymentActivityOptions"
+          :selected-activity="ticketStore.paymentActivity"
+          :loading="ticketStore.loadingPaymentData"
+          @update:selected-activity="ticketStore.paymentActivity = $event"
+        />
       </section>
 
       <section class="panel side-panel">
-        <header class="panel-header">
-          <span>支付卡</span>
-          <span>已选 {{ ticketStore.selectedPaymentCards.length }} / {{ paymentCardItems.length }} 张</span>
-        </header>
-        <div v-if="paymentCardItems.length" class="mini-list">
-          <div v-for="item in paymentCardItems" :key="item.key" class="mini-list-item">
-            <el-checkbox
-              v-model="ticketStore.selectedPaymentCards"
-              :value="item.value"
-              :aria-label="item.label"
-            />
-            <span>{{ item.label }}</span>
-            <em>{{ item.meta }}</em>
-          </div>
-        </div>
-        <div v-else class="side-empty">
-          {{ ticketStore.loadingPaymentData ? '支付卡加载中' : '暂无可用支付卡' }}
-        </div>
+        <PayCardList
+          :items="paymentCardItems"
+          :selected-values="ticketStore.selectedPaymentCards"
+          :loading="ticketStore.loadingPaymentData"
+          @update:selected-values="ticketStore.selectedPaymentCards = $event"
+        />
       </section>
 
       <section class="panel side-panel">
-        <header class="panel-header">
-          <span>兑换券</span>
-          <span>已选 {{ ticketStore.selectedCoupons.length }} 张 | 可兑 {{ couponItems.length }} 张</span>
-        </header>
-        <div v-if="couponItems.length" class="mini-list">
-          <div v-for="item in couponItems" :key="item.key" class="mini-list-item">
-            <el-checkbox
-              v-model="ticketStore.selectedCoupons"
-              :value="item.value"
-              :aria-label="item.label"
-            />
-            <span>{{ item.label }}</span>
-            <em>{{ item.meta }}</em>
-          </div>
-        </div>
-        <div v-else class="side-empty">
-          {{ ticketStore.loadingPaymentData ? '兑换券加载中' : '暂无可用兑换券' }}
-        </div>
+        <CouponList
+          :items="couponItems"
+          :selected-values="ticketStore.selectedCoupons"
+          :loading="ticketStore.loadingPaymentData"
+          :seat-count="ticketStore.selectedSeatCount"
+          @update:selected-values="ticketStore.selectedCoupons = $event"
+        />
       </section>
 
       <section class="panel side-panel">
@@ -782,7 +747,7 @@ watch(
         title="确认提交支付？将调用真实支付接口，请确认订单和账号无误。"
         confirm-button-text="提交支付"
         cancel-button-text="取消"
-        @confirm="ticketStore.submitCurrentOrderPayment"
+        @confirm="handleSubmitPayment"
       >
         <template #reference>
           <el-button
