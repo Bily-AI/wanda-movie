@@ -16,6 +16,7 @@ const rendererEnv = read('src/renderer/env.d.ts')
 const ticketView = read('src/renderer/views/TicketView.vue')
 const storedCardView = read('src/renderer/views/StoredValueCardView.vue')
 const activityView = read('src/renderer/views/ActivityView.vue')
+const settingsView = read('src/renderer/views/SettingsView.vue')
 const packageJson = read('package.json')
 
 for (const marker of [
@@ -45,6 +46,16 @@ for (const [file, content] of [
   for (const marker of ['openAlipayPayment', '打开支付宝支付', 'settingsStore.autoPayment', 'settingsStore.requestParams']) {
     assertIncludes(file, content, marker)
   }
+}
+
+for (const marker of [
+  'handleRefreshAlipayDevice',
+  'buildAlipayDeviceFingerprint',
+  'wandaApp.alipaySyncDevice',
+  'wandaApp.alipayClearSession',
+  'refreshingAlipayDevice'
+]) {
+  assertIncludes('src/renderer/views/SettingsView.vue', settingsView, marker)
 }
 
 for (const marker of ['check:alipay-ui', 'check-alipay-ui-contract.mjs']) {

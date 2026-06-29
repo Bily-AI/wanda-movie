@@ -1,12 +1,15 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { Delete, InfoFilled, Key, Monitor, Refresh, Setting, Tickets, Wallet } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
+import { buildAlipayDeviceFingerprint } from '@renderer/services/alipayBridge'
 import { useSettingsStore } from '@renderer/stores/settings'
 import { useTicketStore } from '@renderer/stores/ticket'
 
 const settingsStore = useSettingsStore()
 const ticketStore = useTicketStore()
+const refreshingAlipayDevice = ref(false)
 
 async function persistSettings(successText: string) {
   await settingsStore.saveSettings()
@@ -16,6 +19,40 @@ async function persistSettings(successText: string) {
 async function handleRefreshRequestParams() {
   settingsStore.refreshRequestParams()
   await persistSettings(`业务参数已刷新！设备：${settingsStore.requestParams.model}`)
+}
+
+async function handleRefreshAlipayDevice() {
+  refreshingAlipayDevice.value = true
+
+  try {
+    settingsStore.refreshRequestParams()
+    await settingsStore.saveSettings()
+
+    const wandaApp = window.wandaApp
+
+    if (!wandaApp) {
+      throw new Error('Electron 桥接未就绪')
+    }
+
+    const device = buildAlipayDeviceFingerprint(settingsStore.requestParams)
+    const syncResult = await wandaApp.alipaySyncDevice(device)
+
+    if (!syncResult.ok) {
+      throw new Error(syncResult.error || '同步支付宝设备失败')
+    }
+
+    const clearResult = await wandaApp.alipayClearSession()
+
+    if (!clearResult.ok) {
+      throw new Error(clearResult.error || '清理支付宝会话失败')
+    }
+
+    ElMessage.success(`设备已刷新：${device.model || '-'} iOS ${device.ios || '-'} ${device.screen || '-'}`)
+  } catch (error) {
+    ElMessage.error(error instanceof Error && error.message ? error.message : '刷新设备失败')
+  } finally {
+    refreshingAlipayDevice.value = false
+  }
 }
 
 async function handleClearCacheData() {
@@ -174,7 +211,7 @@ async function handleClearCacheData() {
             show-password
             @change="() => persistSettings('自动支付设置已保存')"
           />
-          <el-button size="small" :icon="Refresh" @click="handleRefreshRequestParams">刷新设备</el-button>
+          <el-button size="small" :icon="Refresh" :loading="refreshingAlipayDevice" @click="handleRefreshAlipayDevice">刷新设备</el-button>
         </div>
 
         <p class="auto-pay-warning">
