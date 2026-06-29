@@ -63,11 +63,20 @@ for (const text of [
   'exchangePassword',
   'handleActivateWPlus',
   'handleReceiveAllAccountsWPlusRights',
+  'fetchWPlusProfile(account.ck, userIdentifier)',
+  "accountsStore.accounts.filter((account) => account.ck)",
+  'skippedAccountCount',
+  'isNonWPlusMessage',
   'handleReceiveAllWPlusRights',
   'wplusRightGroups',
   'wplusProfile'
 ]) {
   assertIncludes('src/renderer/views/MemberView.vue', memberView, text)
 }
+
+assert.ok(
+  !/handleReceiveAllAccountsWPlusRights\(\)[\s\S]*?accountsStore\.accounts\.filter\(\(account\) => account\.ck && account\.isPayMember\)/.test(memberView),
+  'all-account W+ receive should not filter by cached isPayMember'
+)
 
 console.log('会员模块旧系统复刻契约检查通过')

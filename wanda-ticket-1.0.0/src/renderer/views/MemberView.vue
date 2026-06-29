@@ -255,6 +255,10 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback
 }
 
+function isNonWPlusMessage(message: string) {
+  return message.includes('不是 W+ 会员') || message.includes('不是付费会员') || message.includes('非付费会员')
+}
+
 function isCurrentGrade(group: MemberGradeGroup) {
   return Boolean(currentGrade.value && group.gradeId === currentGrade.value.gradeId)
 }
@@ -651,16 +655,18 @@ async function handleReceiveAllWPlusRights() {
 }
 
 async function handleReceiveAllAccountsWPlusRights() {
-  const accounts = accountsStore.accounts.filter((account) => account.ck && account.isPayMember)
+  const accounts = accountsStore.accounts.filter((account) => account.ck)
 
   if (!accounts.length) {
-    ElMessage.warning('没有已登录的 W+ 账号')
+    ElMessage.warning('没有已登录的万达账号')
     return
   }
 
   let successAccountCount = 0
   let failAccountCount = 0
+  let skippedAccountCount = 0
   let totalSuccessCount = 0
+  let memberFlagChanged = false
 
   batchLoading.value = true
 
@@ -669,10 +675,22 @@ async function handleReceiveAllAccountsWPlusRights() {
       const userIdentifier = account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
 
       try {
+        const profile = await fetchWPlusProfile(account.ck, userIdentifier)
+        if (account.isPayMember !== profile.isPayMember) {
+          account.isPayMember = profile.isPayMember
+          memberFlagChanged = true
+        }
+
+        if (!profile.isPayMember) {
+          skippedAccountCount += 1
+          continue
+        }
+
         const groups = await fetchWPlusRightGroups(account.ck, userIdentifier)
         const rights = groups.flatMap((group) => group.rightList).filter(canReceiveWPlusRight)
 
         if (!rights.length) {
+          skippedAccountCount += 1
           continue
         }
 
@@ -691,7 +709,18 @@ async function handleReceiveAllAccountsWPlusRights() {
         if (accountSuccess > 0) {
           successAccountCount += 1
         }
-      } catch {
+      } catch (error) {
+        const message = getErrorMessage(error, 'W+ 权益领取失败')
+
+        if (isNonWPlusMessage(message)) {
+          if (account.isPayMember) {
+            account.isPayMember = false
+            memberFlagChanged = true
+          }
+          skippedAccountCount += 1
+          continue
+        }
+
         failAccountCount += 1
       }
     }
@@ -699,7 +728,13 @@ async function handleReceiveAllAccountsWPlusRights() {
     batchLoading.value = false
   }
 
-  const message = `所有账号处理完成：成功 ${successAccountCount} 个账号，失败 ${failAccountCount} 个账号，共领取 ${totalSuccessCount} 项权益`
+  if (memberFlagChanged) {
+    await accountsStore.saveAccounts().catch((error) => {
+      logsStore.addLog('会员', currentAccount.value?.phone || '', `W+ 账号状态保存失败：${getErrorMessage(error, '保存失败')}`)
+    })
+  }
+
+  const message = `所有账号处理完成：成功 ${successAccountCount} 个账号，跳过 ${skippedAccountCount} 个账号，失败 ${failAccountCount} 个账号，共领取 ${totalSuccessCount} 项权益`
 
   if (totalSuccessCount > 0) {
     ElMessage.success(message)
