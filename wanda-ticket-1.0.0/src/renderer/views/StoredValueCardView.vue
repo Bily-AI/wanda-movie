@@ -707,7 +707,7 @@ watch(cardDisplayMode, (mode) => {
 
 .stored-card-no {
   margin-top: 12px;
-  color: var(--app-text-muted);
+  color: var(--app-muted);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
@@ -720,7 +720,7 @@ watch(cardDisplayMode, (mode) => {
 
 .stored-card-meta {
   margin-top: 10px;
-  color: var(--app-text-muted);
+  color: var(--app-muted);
   font-size: 13px;
 }
 
@@ -751,6 +751,6 @@ watch(cardDisplayMode, (mode) => {
   padding: 10px 12px;
   border: 1px solid var(--app-border);
   border-radius: 6px;
-  color: var(--app-text-muted);
+  color: var(--app-muted);
 }
 </style>
