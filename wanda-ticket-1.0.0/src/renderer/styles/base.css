@@ -15,6 +15,32 @@
   --el-border-radius-base: 6px;
 }
 
+.theme-dark {
+  color-scheme: dark;
+  --app-bg: #151a22;
+  --app-bg-soft: #10151c;
+  --app-header-bg: #191f28;
+  --app-surface: #202733;
+  --app-text: #e6edf7;
+  --app-subtle: #b6c2d2;
+  --app-muted: #8794a6;
+  --app-border: #354153;
+  --app-hover: #263348;
+  --app-accent: #58a6ff;
+  --app-accent-soft: #173456;
+  --el-bg-color: var(--app-surface);
+  --el-bg-color-overlay: #242d3a;
+  --el-fill-color-light: #263141;
+  --el-fill-color-blank: var(--app-surface);
+  --el-border-color: var(--app-border);
+  --el-border-color-light: #40506a;
+  --el-text-color-primary: var(--app-text);
+  --el-text-color-regular: var(--app-subtle);
+  --el-text-color-secondary: var(--app-muted);
+  --el-disabled-bg-color: #202733;
+  --el-disabled-text-color: #6d7888;
+}
+
 *,
 *::before,
 *::after {

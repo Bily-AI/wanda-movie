@@ -583,49 +583,49 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="auto-order-page">
-    <header class="page-header">
+    <header class="auto-order-header">
       <div>
-        <h2>自动接单服务</h2>
-        <p>平台接单 → 自动购票</p>
+        <h2 class="auto-order-title">自动接单服务</h2>
+        <p class="auto-order-subtitle">平台接单 → 自动购票</p>
       </div>
       <el-button :type="running ? 'danger' : 'primary'" :icon="running ? VideoPause : VideoPlay" @click="toggleService">
         {{ running ? '停止服务' : '启动服务' }}
       </el-button>
     </header>
 
-    <section class="panel platform-config">
-      <div class="platform-row">
+    <section class="platform-config">
+      <div class="platform-item">
         <el-switch v-model="mahuaConfig.enabled" size="small" active-text="麻花" @change="saveConfig" />
-        <span class="field-label">Token</span>
+        <span class="platform-label">Token</span>
         <el-input v-model="mahuaConfig.token" size="small" clearable placeholder="麻花 Token" @change="saveConfig" />
-        <span class="field-label">Cookie</span>
+        <span class="platform-label">Cookie</span>
         <el-input v-model="mahuaConfig.cookie" size="small" clearable placeholder="麻花 Cookie" @change="saveConfig" />
       </div>
 
-      <div class="platform-row">
+      <div class="platform-item">
         <el-switch v-model="hahaConfig.enabled" size="small" active-text="哈哈" @change="saveConfig" />
-        <span class="field-label">Token</span>
+        <span class="platform-label">Token</span>
         <el-input v-model="hahaConfig.token" size="small" clearable placeholder="哈哈 Token" @change="saveConfig" />
-        <span class="field-label">Cookie</span>
+        <span class="platform-label">Cookie</span>
         <el-input v-model="hahaConfig.cookie" size="small" clearable placeholder="哈哈 Cookie（含 PHPSESSID）" @change="saveConfig" />
       </div>
     </section>
 
     <section class="control-bar">
-      <div class="control-status">
-        <el-icon :class="{ 'is-loading': running }"><Connection /></el-icon>
-        <span>轮询 {{ pollIntervalMs / 1000 }} 秒</span>
-        <span>上次查询：{{ lastQueryTime || '--' }}</span>
-      </div>
       <el-button size="small" plain :icon="Refresh" :loading="loading" :disabled="!running" @click="refreshOrders">
         立即刷新
       </el-button>
+      <div class="control-bar__info">
+        <el-icon :class="{ 'is-loading': running }"><Connection /></el-icon>
+        <span class="polling-badge">轮询中 ({{ pollIntervalMs / 1000 }}s)</span>
+        <span>上次查询：{{ lastQueryTime || '--' }}</span>
+      </div>
     </section>
 
-    <section class="panel">
+    <section class="bidding-panel">
       <div class="panel-header">
-        <span>竞价中列表</span>
-        <span>({{ biddingOrders.length }})</span>
+        <span class="panel-header__title">竞价中列表</span>
+        <span class="panel-header__count">({{ biddingOrders.length }})</span>
       </div>
       <el-table :data="biddingOrders" stripe size="small" empty-text="暂无竞价中订单">
         <el-table-column prop="platform" label="平台" width="70" />
@@ -639,11 +639,11 @@ onBeforeUnmount(() => {
       </el-table>
     </section>
 
-    <section class="dual-list">
-      <section class="panel">
+    <section class="dual-order-lists">
+      <section class="order-list-panel">
         <div class="panel-header">
-          <span>待提交列表</span>
-          <span>({{ pendingOrders.length }})</span>
+          <span class="panel-header__title">待提交列表</span>
+          <span class="panel-header__count">({{ pendingOrders.length }})</span>
         </div>
         <el-table :data="pendingOrders" stripe size="small" empty-text="暂无待处理订单">
           <el-table-column prop="platform" label="平台" width="70" />
@@ -661,10 +661,12 @@ onBeforeUnmount(() => {
         </el-table>
       </section>
 
-      <section class="panel">
+      <div class="order-list-divider" />
+
+      <section class="order-list-panel">
         <div class="panel-header">
-          <span>已完成列表</span>
-          <span>({{ finishedOrders.length }})</span>
+          <span class="panel-header__title">已完成列表</span>
+          <span class="panel-header__count">({{ finishedOrders.length }})</span>
         </div>
         <el-table :data="finishedOrders" stripe size="small" empty-text="暂无已完成记录">
           <el-table-column prop="platform" label="平台" width="70" />
@@ -689,104 +691,167 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .auto-order-page {
-  min-width: 0;
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  background: var(--bg-page, var(--app-bg));
+  overflow: hidden;
 }
 
-.page-header,
-.panel,
-.control-bar {
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: var(--app-surface);
-  box-shadow: 0 2px 8px rgb(31 42 68 / 5%);
-}
-
-.page-header {
+.auto-order-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
+  padding: 20px 28px 16px;
+  border-bottom: 1px solid var(--border-light, var(--app-border));
+  flex-shrink: 0;
 }
 
-.page-header h2 {
+.auto-order-title {
   margin: 0;
-  color: var(--app-text);
-  font-size: 18px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary, var(--app-text));
 }
 
-.page-header p {
+.auto-order-subtitle {
   margin: 4px 0 0;
-  color: var(--app-muted);
-  font-size: 13px;
+  font-size: var(--font-size-sm, 13px);
+  color: var(--text-secondary, var(--app-muted));
 }
 
 .platform-config {
+  padding: 12px 28px;
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-light, var(--app-border));
+  background: var(--bg-card, var(--app-surface));
 }
 
-.platform-row {
-  display: grid;
-  grid-template-columns: 92px 48px minmax(160px, 240px) 52px minmax(220px, 1fr);
+.platform-item {
+  display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
-.field-label {
-  color: var(--app-subtle);
+.platform-item :deep(.el-input) {
+  width: 200px;
+}
+
+.platform-label {
+  color: var(--text-secondary, var(--app-subtle));
   font-size: 13px;
-  text-align: right;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .control-bar {
+  padding: 14px 28px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
+  gap: 16px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-light, var(--app-border));
+  background: var(--bg-card, var(--app-surface));
 }
 
-.control-status {
+.control-bar__info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+  color: var(--text-secondary, var(--app-subtle));
+  font-size: var(--font-size-xs, 12px);
+}
+
+.polling-badge {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  color: var(--app-subtle);
-  font-size: 13px;
+  gap: 6px;
+  color: #67c23a;
+  font-size: var(--font-size-sm, 13px);
 }
 
-.panel {
+.bidding-panel {
+  flex: 0 1 40%;
+  min-height: 120px;
   min-width: 0;
-  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-bottom: 2px solid var(--border-light, var(--app-border));
 }
 
-.panel-header {
+.bidding-panel .panel-header,
+.order-list-panel .panel-header {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 10px;
-  color: var(--app-text);
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-light, var(--app-border));
+  background: var(--bg-card, var(--app-surface));
+}
+
+.bidding-panel .panel-header {
+  padding: 12px 28px 10px;
+}
+
+.order-list-panel .panel-header {
+  padding: 12px 16px 10px;
+}
+
+.panel-header__title {
+  color: var(--text-primary, var(--app-text));
+  font-size: 14px;
   font-weight: 600;
 }
 
-.dual-list {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 14px;
+.panel-header__count {
+  color: var(--text-secondary, var(--app-subtle));
+  font-size: var(--font-size-sm, 13px);
 }
 
-@media (max-width: 1280px) {
-  .platform-row,
-  .dual-list {
-    grid-template-columns: 1fr;
-  }
+.bidding-panel :deep(.el-table),
+.order-list-panel :deep(.el-table) {
+  flex: 1;
+  overflow-y: auto;
+}
 
-  .field-label {
-    text-align: left;
+.dual-order-lists {
+  flex: 1 1 60%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.order-list-panel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.order-list-divider {
+  width: 1px;
+  flex-shrink: 0;
+  background: var(--border-light, var(--app-border));
+}
+
+@media (max-height: 680px) {
+  .bidding-panel {
+    flex: 0 0 25%;
+  }
+}
+
+@media (max-height: 550px) {
+  .bidding-panel {
+    min-height: 0;
+    flex: 0 0 0%;
   }
 }
 </style>

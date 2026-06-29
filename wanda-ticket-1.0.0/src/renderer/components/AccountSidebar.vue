@@ -33,6 +33,10 @@ function tableRowClassName({ row }: { row: WandaAccount }) {
   return row.id === accountsStore.currentAccountId ? 'is-current-row' : ''
 }
 
+function formatLoginDate(row: WandaAccount): string {
+  return row.loginDate || row.loginTime || '-'
+}
+
 function handleRowContextMenu(row: WandaAccount, column: any, event: MouseEvent) {
   event.preventDefault()
   contextMenuAccount.value = row
@@ -109,6 +113,10 @@ async function handleMoveToGroup(groupId: string) {
 
 const moveGroupDialogVisible = ref(false)
 const targetGroupId = ref('')
+const importAccountsDialogVisible = ref(false)
+const importAccountsText = ref('')
+const importAccountsPlaceholder =
+  '支持格式：手机号---ck、备注---ck---手机号---登录时间、JSON数组\n[{"phone":"13800138000","ck":"..."}]'
 
 function handleMoveSelectedToGroup(): void {
   targetGroupId.value = accountsStore.groups[0]?.id || ''
@@ -130,22 +138,22 @@ async function confirmMoveSelectedToGroup(): Promise<void> {
 
 async function handleImportAccounts(): Promise<void> {
   contextMenuVisible.value = false
+  importAccountsText.value = ''
+  importAccountsDialogVisible.value = true
+}
+
+async function confirmImportAccounts(): Promise<void> {
   try {
-    const result = await ElMessageBox.prompt('每行一个账号，可填写手机号、CK 和用户标识', '导入万达账号', {
-      confirmButtonText: '导入',
-      cancelButtonText: '取消',
-      inputType: 'textarea',
-      inputPlaceholder: '手机号 CK 后接真实值 USER 后接用户标识'
-    })
-    const count = await accountsStore.importAccountsFromText(result.value)
+    const count = await accountsStore.importAccountsFromText(importAccountsText.value)
 
     if (count > 0) {
       ElMessage.success(accountsStore.loginForm.message)
+      importAccountsDialogVisible.value = false
     } else {
       ElMessage.warning(accountsStore.loginForm.message)
     }
-  } catch {
-    // 用户取消导入时不需要提示。
+  } catch (error) {
+    ElMessage.error(error instanceof Error && error.message ? error.message : '导入失败')
   }
 }
 </script>
@@ -196,9 +204,20 @@ async function handleImportAccounts(): Promise<void> {
         @selection-change="handleAccountSelectionChange"
       >
         <el-table-column type="selection" width="40" />
-        <el-table-column prop="phone" label="手机号" min-width="130" />
-        <el-table-column prop="remark" label="备注" min-width="88" />
-        <el-table-column prop="statusText" label="状态" width="72" />
+        <el-table-column prop="phone" label="手机号" min-width="122" show-overflow-tooltip />
+        <el-table-column prop="statusText" label="状态" width="62" align="center" />
+        <el-table-column label="登录日期" width="96" align="center">
+          <template #default="{ row }">
+            <span class="login-date-cell">{{ formatLoginDate(row) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="CK" width="48" align="center">
+          <template #default="{ row }">
+            <span :class="['ck-badge', row.ck ? 'ck-badge--active' : '']">
+              {{ row.ck ? '有' : '无' }}
+            </span>
+          </template>
+        </el-table-column>
       </el-table>
 
       <div class="account-actions">
@@ -329,6 +348,28 @@ async function handleImportAccounts(): Promise<void> {
         </span>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="importAccountsDialogVisible"
+      title="导入旧版账号"
+      width="620px"
+      append-to-body
+      class="legacy-account-import-dialog"
+    >
+      <el-input
+        v-model="importAccountsText"
+        type="textarea"
+        :rows="12"
+        resize="none"
+        :placeholder="importAccountsPlaceholder"
+      />
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="importAccountsDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="confirmImportAccounts">导入</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </aside>
 </template>
 
@@ -410,6 +451,33 @@ async function handleImportAccounts(): Promise<void> {
 
 .account-table :deep(.is-current-row) > td.el-table__cell {
   background-color: var(--app-accent-soft) !important;
+}
+
+.login-date-cell {
+  color: var(--app-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.ck-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  background: #f4f4f5;
+  color: #909399;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.ck-badge--active {
+  border-color: #e1f3d8;
+  background: #f0f9eb;
+  color: #67c23a;
 }
 
 .custom-context-menu {
@@ -510,5 +578,31 @@ async function handleImportAccounts(): Promise<void> {
   background-color: #f0f9eb;
   color: #67c23a;
   border: 1px solid #e1f3d8;
+}
+
+:global(.legacy-account-import-dialog .el-dialog__header) {
+  padding: 22px 24px 10px;
+  margin-right: 0;
+}
+
+:global(.legacy-account-import-dialog .el-dialog__title) {
+  color: var(--app-text);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+:global(.legacy-account-import-dialog .el-dialog__body) {
+  padding: 10px 24px 12px;
+}
+
+:global(.legacy-account-import-dialog .el-textarea__inner) {
+  min-height: 275px !important;
+  color: var(--app-text);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+:global(.legacy-account-import-dialog .el-dialog__footer) {
+  padding: 8px 24px 20px;
 }
 </style>

@@ -416,8 +416,8 @@ function normalizeEquity(item: unknown, group: Record<string, unknown> = {}): Me
 
   const STATUS_MAP: Record<number, string> = {
     1: '未解锁',
-    2: '已生效',
-    3: '可领取',
+    2: '待领取',
+    3: '已生效',
     4: '已抢光',
     5: '已领取',
     6: '未达条件'
@@ -519,9 +519,9 @@ function normalizeWPlusRight(item: unknown, group: Record<string, unknown> = {})
     deadline: firstText(record.deadline, record.validityDateShowMsg, record.expireTime, record.endTime),
     receiveStatus: toNumber(record.receiveStatus),
     verifyStatus: toNumber(record.verifyStatus ?? group.verifyStatus),
-    orderCode: firstText(record.orderCode),
-    code: firstText(record.code, record.rightCode),
-    rightType: firstText(record.rightType, record.type),
+    orderCode: firstText(record.orderCode, record.orderNo, record.orderId, record.order_code),
+    code: firstText(record.code, record.rightCode, record.rightNo, record.rightId, record.equityCode),
+    rightType: firstText(record.rightType, record.type, record.right_type),
     redirect,
     raw: item
   }

@@ -32,6 +32,17 @@ function generateDeviceUserId(): string {
   return value
 }
 
+function generateRequestFingerprint(): string {
+  const chars = '0123456789abcdef'
+  let value = ''
+
+  for (let index = 0; index < 32; index += 1) {
+    value += chars[Math.floor(Math.random() * chars.length)]
+  }
+
+  return value
+}
+
 function pickRandom<T>(list: readonly T[]): T {
   return list[Math.floor(Math.random() * list.length)]
 }
@@ -56,6 +67,7 @@ function randomDeviceProfile() {
 
 function toPlainSettingsData(data: SettingsLocalData): SettingsLocalData {
   return structuredClone({
+    themeMode: data.themeMode,
     rememberWindow: data.rememberWindow,
     autoClosePaymentWindow: data.autoClosePaymentWindow,
     paymentCardDisplay: data.paymentCardDisplay,
@@ -77,8 +89,13 @@ function toPlainRequestParamsData(data: RequestParamsLocalData): RequestParamsLo
   return structuredClone({ ...toRaw(data) })
 }
 
+function hasUsableRequestParams(data: RequestParamsLocalData): boolean {
+  return Boolean(data.shumeiBoxId && data.userId && data.model)
+}
+
 export const useSettingsStore = defineStore('settings', {
   state: () => ({
+    themeMode: DEFAULT_LOCAL_DATA.settings.themeMode,
     rememberWindow: DEFAULT_LOCAL_DATA.settings.rememberWindow,
     autoClosePaymentWindow: DEFAULT_LOCAL_DATA.settings.autoClosePaymentWindow,
     paymentCardDisplay: DEFAULT_LOCAL_DATA.settings.paymentCardDisplay,
@@ -122,9 +139,12 @@ export const useSettingsStore = defineStore('settings', {
     },
     refreshRequestParams() {
       const deviceProfile = randomDeviceProfile()
+      const fingerprint = generateRequestFingerprint()
 
       this.requestParams = {
         ...this.requestParams,
+        deviceFingerprint: fingerprint,
+        shumeiBoxId: fingerprint,
         userId: generateDeviceUserId(),
         model: deviceProfile.model,
         ios: deviceProfile.ios,
@@ -149,6 +169,7 @@ export const useSettingsStore = defineStore('settings', {
       ])
 
       if (settingsResult.ok) {
+        this.themeMode = settingsResult.data.themeMode || DEFAULT_LOCAL_DATA.settings.themeMode
         this.rememberWindow = settingsResult.data.rememberWindow
         this.autoClosePaymentWindow = settingsResult.data.autoClosePaymentWindow
         this.paymentCardDisplay = settingsResult.data.paymentCardDisplay
@@ -167,6 +188,11 @@ export const useSettingsStore = defineStore('settings', {
         this.requestParams = requestParamsResult.data
       }
 
+      if (!hasUsableRequestParams(this.requestParams)) {
+        this.refreshRequestParams()
+        await wandaApp.writeLocalData('requestParams', toPlainRequestParamsData(this.requestParams))
+      }
+
       this.syncRequestParams()
     },
     async saveSettings() {
@@ -178,6 +204,7 @@ export const useSettingsStore = defineStore('settings', {
 
       const requestParamsData = toPlainRequestParamsData(this.requestParams)
       const settingsData = toPlainSettingsData({
+        themeMode: this.themeMode,
         rememberWindow: this.rememberWindow,
         autoClosePaymentWindow: this.autoClosePaymentWindow,
         paymentCardDisplay: this.paymentCardDisplay,

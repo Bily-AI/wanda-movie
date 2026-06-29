@@ -39,6 +39,7 @@ export interface AccountsLocalData {
 }
 
 export interface SettingsLocalData {
+  themeMode: '浅色' | '深色'
   rememberWindow: boolean
   autoClosePaymentWindow: boolean
   paymentCardDisplay: '列表' | '卡片'
@@ -124,6 +125,7 @@ export const DEFAULT_LOCAL_DATA: LocalDataMap = {
     currentAccountId: ''
   },
   settings: {
+    themeMode: '浅色',
     rememberWindow: true,
     autoClosePaymentWindow: true,
     paymentCardDisplay: '列表',

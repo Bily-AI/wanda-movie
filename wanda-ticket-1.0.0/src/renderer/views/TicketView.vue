@@ -354,32 +354,6 @@ function handleShowPaymentInfo(): void {
   payInfoDialogVisible.value = true
 }
 
-async function handleSubmitPayment(): Promise<void> {
-  const hadPayInfo = Boolean(ticketStore.currentOrderPayInfo && ticketAppPayParam.value)
-  const previousMessage = ticketStore.paymentDataMessage
-
-  await ticketStore.submitCurrentOrderPayment()
-
-  if (!hadPayInfo && ticketStore.currentOrderPayInfo && ticketAppPayParam.value) {
-    payInfoDialogVisible.value = true
-    await handleOpenTicketAlipayPayment()
-    return
-  }
-
-  const message = ticketStore.paymentDataMessage.trim()
-
-  if (!message || message === previousMessage) {
-    return
-  }
-
-  if (message.includes('完成') || message.includes('成功')) {
-    ElMessage.success(message)
-    return
-  }
-
-  ElMessage.warning(message)
-}
-
 async function handleOpenTicketAlipayPayment(): Promise<void> {
   if (!ticketAppPayParam.value) {
     ElMessage.warning('缺少支付宝支付参数')
@@ -808,7 +782,7 @@ watch(
         title="确认提交支付？将调用真实支付接口，请确认订单和账号无误。"
         confirm-button-text="提交支付"
         cancel-button-text="取消"
-        @confirm="handleSubmitPayment"
+        @confirm="ticketStore.submitCurrentOrderPayment"
       >
         <template #reference>
           <el-button
@@ -916,11 +890,13 @@ watch(
 <style scoped>
 .ticket-page {
   min-width: 1080px;
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
   display: grid;
   grid-template-columns: minmax(560px, 1fr) 288px;
   grid-template-rows: minmax(0, 1fr) 56px;
   gap: 12px;
+  overflow: hidden;
 }
 
 .ticket-center,
@@ -929,6 +905,14 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.ticket-center {
+  overflow: hidden;
+}
+
+.order-column {
+  overflow-y: auto;
 }
 
 .panel {

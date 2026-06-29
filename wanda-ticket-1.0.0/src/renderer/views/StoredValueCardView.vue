@@ -19,6 +19,7 @@ import { useLogsStore } from '@renderer/stores/logs'
 import { useSettingsStore } from '@renderer/stores/settings'
 
 const DEFAULT_WANDA_USER_IDENTIFIER = 'YYDDJDKYHA'
+const CARD_DISPLAY_MODE_KEY = 'setting_paycard_display_mode'
 
 interface PaymentDialogData extends StoredCardPaymentResult {
   title: string
@@ -33,7 +34,9 @@ const balanceInfo = ref<StoredCardBalanceInfo | null>(null)
 const loading = ref(false)
 const loadingAll = ref(false)
 const cardsMessage = ref('')
-const cardDisplayMode = ref<'table' | 'card'>('table')
+const cardDisplayMode = ref<'table' | 'card'>(
+  localStorage.getItem(CARD_DISPLAY_MODE_KEY) === 'card' ? 'card' : 'table'
+)
 
 const detailDialogVisible = ref(false)
 const purchaseDialogVisible = ref(false)
@@ -314,7 +317,7 @@ async function handleConfirmPurchase() {
     purchaseDialogVisible.value = false
     showPaymentResult('购买储值卡支付参数', denomination.label, result)
     logsStore.addLog('储值卡', account.phone, `购买储值卡支付参数获取成功：${denomination.label}`)
-    ElMessage.success('支付参数已获取')
+    await handleOpenAlipayPayment()
   } catch (error) {
     const message = getErrorMessage(error, '购买储值卡失败')
     logsStore.addLog('储值卡', account.phone, `购买储值卡失败：${message}`)
@@ -347,7 +350,7 @@ async function handleConfirmRecharge() {
     rechargeDialogVisible.value = false
     showPaymentResult('储值卡充值支付参数', `${safeCardNo} / ${denomination.label}`, result)
     logsStore.addLog('储值卡', account.phone, `储值卡充值支付参数获取成功：${safeCardNo}`)
-    ElMessage.success('支付参数已获取')
+    await handleOpenAlipayPayment()
   } catch (error) {
     const message = getErrorMessage(error, '储值卡充值失败')
     logsStore.addLog('储值卡', account.phone, `储值卡充值失败：${message}`)
@@ -441,6 +444,10 @@ watch(
     void loadCards()
   }
 )
+
+watch(cardDisplayMode, (mode) => {
+  localStorage.setItem(CARD_DISPLAY_MODE_KEY, mode)
+})
 </script>
 
 <template>
@@ -622,10 +629,12 @@ watch(
 <style scoped>
 .table-page {
   min-width: 980px;
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
   display: grid;
   grid-template-rows: 50px minmax(0, 1fr);
   gap: 16px;
+  overflow: hidden;
 }
 
 .page-toolbar {

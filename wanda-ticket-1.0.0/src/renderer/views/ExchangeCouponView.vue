@@ -20,12 +20,16 @@ import type { CouponCategory } from '@shared/localData'
 const accountsStore = useAccountsStore()
 const logsStore = useLogsStore()
 
+const DEFAULT_WANDA_USER_IDENTIFIER = 'YYDDJDKYHA'
+
 const coupons = ref<MemberCouponRow[]>([])
 const selectedCoupons = ref<MemberCouponRow[]>([])
 const couponCategories = ref<CouponCategory[]>([])
 const keyword = ref('')
 const nameFilter = ref('')
 const categoryFilter = ref('')
+const sortField = ref('')
+const sortOrder = ref('')
 const loading = ref(false)
 const couponMessage = ref('')
 const categoryDialogVisible = ref(false)
@@ -199,13 +203,16 @@ async function handleCategoryCouponNamesChange() {
 function getCurrentAccount() {
   const account = accountsStore.currentAccount
 
-  if (!account?.ck || !account.userIdentifier) {
+  if (!account?.ck) {
     coupons.value = []
     couponMessage.value = '请选择已登录的万达账号'
     return null
   }
 
-  return account
+  return {
+    ...account,
+    userIdentifier: account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
+  }
 }
 
 const couponRows = computed(() => {
@@ -232,6 +239,20 @@ const couponRows = computed(() => {
         .toLowerCase()
         .includes(searchText)
     )
+  }
+
+  if (sortField.value && sortOrder.value) {
+    const direction = sortOrder.value === 'ascending' ? 1 : -1
+    rows = [...rows].sort((left, right) => {
+      const leftValue = getCouponSortValue(left, sortField.value)
+      const rightValue = getCouponSortValue(right, sortField.value)
+
+      if (typeof leftValue === 'number' && typeof rightValue === 'number') {
+        return direction * (leftValue - rightValue)
+      }
+
+      return direction * String(leftValue).localeCompare(String(rightValue), 'zh-CN')
+    })
   }
 
   return rows
@@ -275,6 +296,23 @@ const bindPreviewItems = computed(() => {
 })
 
 const currentCouponJson = computed(() => JSON.stringify(currentCouponDetail.value?.raw ?? currentCouponDetail.value, null, 2))
+
+function getCouponSortValue(row: MemberCouponRow, prop: string): string | number {
+  if (prop === 'endTime') {
+    return row.endTime || 0
+  }
+
+  if (prop === 'couponTypeName') {
+    return row.couponTypeName || row.name || ''
+  }
+
+  return String((row as unknown as Record<string, unknown>)[prop] ?? '')
+}
+
+function handleCouponSortChange({ prop, order }: { prop?: string; order?: string | null }) {
+  sortField.value = prop || ''
+  sortOrder.value = order || ''
+}
 
 function getPresentCouponNos(rows: MemberCouponRow[]): string[] {
   const couponNos = rows.map((coupon) => coupon.couponNo.trim()).filter(Boolean)
@@ -829,6 +867,7 @@ watch(
             size="default"
             stripe
             height="100%"
+            @sort-change="handleCouponSortChange"
             @selection-change="handleSelectionChange"
           >
             <el-table-column type="selection" width="40" />

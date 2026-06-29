@@ -357,11 +357,38 @@ function findTimeFromSchedule(words: string[]): string {
 }
 
 function findTimeFromScheduleText(text: string): string {
-  const normalized = normalizeSeparators(text)
-  const match = normalized.match(/(?:^|[^\d])([01]?\d|2[0-3])[:：点时]([0-5]\d)(?:[^\d]|$)/)
+  const words = splitWords(text)
+  const candidates = [
+    ...words.filter((word) => isLikelyScheduleWord(word)),
+    ...words.filter(
+      (word) =>
+        !isLikelyStatusBarWord(word) &&
+        /(?:今天|明天|后天|今日|翌日|\d{1,2}\s*月\s*\d{1,2}|20\d{2}|[-－—~至])/.test(word)
+    ),
+    ...words.filter((word) => !isLikelyStatusBarWord(word))
+  ]
+  const seen = new Set<string>()
 
-  if (match) {
-    return `${match[1].padStart(2, '0')}:${match[2]}`
+  for (const word of candidates) {
+    const normalized = normalizeSeparators(word)
+
+    if (seen.has(normalized)) {
+      continue
+    }
+
+    seen.add(normalized)
+
+    const rangeMatch = normalized.match(/(?:^|[^\d])([01]?\d|2[0-3])[:：点时]([0-5]\d)\s*(?:-|－|—|~|至)/)
+
+    if (rangeMatch) {
+      return `${rangeMatch[1].padStart(2, '0')}:${rangeMatch[2]}`
+    }
+
+    const match = normalized.match(/(?:^|[^\d])([01]?\d|2[0-3])[:：点时]([0-5]\d)(?:[^\d]|$)/)
+
+    if (match) {
+      return `${match[1].padStart(2, '0')}:${match[2]}`
+    }
   }
 
   return ''
@@ -375,7 +402,16 @@ function findLanguageFromSchedule(words: string[]): string {
       : words
 
   for (const word of candidates) {
-    const match = word.match(/(IMAX|2D|3D|杜比|国语|原版|粤语|英语)/i)
+    const normalized = normalizeSeparators(word).replace(/\s+/g, '')
+    const combinedMatch = normalized.match(
+      /((?:国语|中文|原版|粤语|英语)?(?:IMAX|2D|3D|杜比)|(?:IMAX|2D|3D|杜比)(?:国语|中文|原版|粤语|英语)?)/i
+    )
+
+    if (combinedMatch?.[1]) {
+      return combinedMatch[1]
+    }
+
+    const match = normalized.match(/(IMAX|2D|3D|杜比|国语|中文|原版|粤语|英语)/i)
 
     if (match?.[1]) {
       return match[1]
@@ -386,7 +422,16 @@ function findLanguageFromSchedule(words: string[]): string {
 }
 
 function findLanguageFromScheduleText(text: string): string {
-  const match = normalizeSeparators(text).match(/(IMAX|2D|3D|杜比|国语|原版|粤语|英语)/i)
+  const normalized = normalizeSeparators(text).replace(/\s+/g, '')
+  const combinedMatch = normalized.match(
+    /((?:国语|中文|原版|粤语|英语)?(?:IMAX|2D|3D|杜比)|(?:IMAX|2D|3D|杜比)(?:国语|中文|原版|粤语|英语)?)/i
+  )
+
+  if (combinedMatch?.[1]) {
+    return combinedMatch[1]
+  }
+
+  const match = normalized.match(/(IMAX|2D|3D|杜比|国语|中文|原版|粤语|英语)/i)
 
   return match?.[1] ?? ''
 }

@@ -134,7 +134,7 @@ async function getBaiduOcrConfig(): Promise<BaiduOcrConfig> {
   const secretKey = settings.baiduOcr.secretKey.trim() || getConfigValue('BAIDU_OCR_SECRET_KEY')
 
   if (!apiKey || !secretKey) {
-    throw new Error('缂哄皯鐧惧害 OCR 閰嶇疆 BAIDU_OCR_API_KEY / BAIDU_OCR_SECRET_KEY')
+    throw new Error('缺少百度 OCR 配置 BAIDU_OCR_API_KEY / BAIDU_OCR_SECRET_KEY')
   }
 
   return {
@@ -216,14 +216,14 @@ function validateAiOcrParseRequest(request: AiOcrParseRequest): string | null {
   }
 
   if (request.text.length > MAX_AI_OCR_TEXT_LENGTH) {
-    return 'OCR 鏂囨湰杩囬暱锛岃缂╃煭鍚庡啀瑙ｆ瀽'
+    return 'OCR 文本过长，请缩短后再解析'
   }
 
   if (
     request.words !== undefined &&
     (!Array.isArray(request.words) || request.words.some((word) => typeof word !== 'string'))
   ) {
-    return 'OCR words 蹇呴』鏄瓧绗︿覆鏁扮粍'
+    return 'OCR words 必须是字符串数组'
   }
 
   return null
@@ -251,7 +251,7 @@ async function getBaiduAccessToken(): Promise<string> {
   })
 
   if (response.status < 200 || response.status >= 300 || !response.data.access_token) {
-    throw new Error(response.data.error_description || response.data.error || '鑾峰彇鐧惧害 access_token 澶辫触')
+    throw new Error(response.data.error_description || response.data.error || '获取百度 access_token 失败')
   }
 
   accessTokenCache = {
@@ -288,7 +288,7 @@ async function requestBaiduOcr(imageBase64: string, accurate = true): Promise<Ba
   })
 
   if (response.status < 200 || response.status >= 300) {
-    throw new Error(`鐧惧害 OCR 璇锋眰澶辫触锛欻TTP ${response.status}`)
+    throw new Error(`百度 OCR 请求失败：HTTP ${response.status}`)
   }
 
   return response.data
@@ -472,7 +472,7 @@ function extractJsonObject(content: string): unknown {
     const match = cleanContent.match(/\{[\s\S]*\}/)
 
     if (!match) {
-      throw new Error('AI OCR 杩斿洖鍐呭涓嶆槸鏈夋晥 JSON')
+      throw new Error('AI OCR 返回内容不是有效 JSON')
     }
 
     return JSON.parse(match[0])
@@ -530,13 +530,13 @@ async function requestAiOcrParse(request: AiOcrParseRequest): Promise<AiOcrParse
   if (response.status < 200 || response.status >= 300) {
     const error = response.data?.error
     const message = typeof error === 'string' ? error : error?.message
-    throw new Error(message || `AI OCR 璇锋眰澶辫触锛欻TTP ${response.status}`)
+    throw new Error(message || `AI OCR 请求失败：HTTP ${response.status}`)
   }
 
   const content = response.data.choices?.[0]?.message?.content?.trim()
 
   if (!content) {
-    throw new Error('AI OCR 杩斿洖鍐呭涓虹┖')
+    throw new Error('AI OCR 返回内容为空')
   }
 
   return normalizeAiOcrTicket(extractJsonObject(content), {
@@ -591,7 +591,7 @@ export async function recognizeBaiduOcr(request: BaiduOcrRequest): Promise<Baidu
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error && error.message ? error.message : '鐧惧害 OCR 璇锋眰澶辫触'
+      error: error instanceof Error && error.message ? error.message : '百度 OCR 请求失败'
     }
   } finally {
     forceGeneralBasic = false
@@ -616,7 +616,7 @@ export async function parseAiOcrTicketText(request: AiOcrParseRequest): Promise<
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error && error.message ? error.message : 'AI OCR 瑙ｆ瀽澶辫触'
+      error: error instanceof Error && error.message ? error.message : 'AI OCR 解析失败'
     }
   }
 }
@@ -627,7 +627,7 @@ function readClipboardImage(): ClipboardImageResult {
   if (image.isEmpty()) {
     return {
       ok: false,
-      error: '鍓创鏉夸腑娌℃湁鍥剧墖'
+      error: '剪贴板中没有图片'
     }
   }
 
@@ -649,7 +649,7 @@ export function registerBaiduOcrHandlers(): void {
     if (!text) {
       return {
         ok: false,
-        error: '鍓创鏉夸腑娌℃湁鏂囨湰鍐呭'
+        error: '剪贴板中没有文本内容'
       }
     }
 

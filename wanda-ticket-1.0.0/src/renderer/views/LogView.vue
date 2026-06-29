@@ -119,7 +119,7 @@ async function handleClearLogs() {
       border
       empty-text="暂无日志记录"
       class="log-table"
-      max-height="calc(100vh - 200px)"
+      height="100%"
     >
       <el-table-column prop="time" label="日期时间" width="170" sortable />
       <el-table-column label="类型" width="110">
@@ -152,6 +152,7 @@ async function handleClearLogs() {
   gap: 12px;
   height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 .filter-bar {

@@ -5,6 +5,8 @@ import type { OrderPayInfoResult, OrderRecord } from '@shared/wandaTicketTypes'
 import { useAccountsStore } from './accounts'
 import { useLogsStore } from './logs'
 
+const DEFAULT_WANDA_USER_IDENTIFIER = 'YYDDJDKYHA'
+
 export type OrderDateRange = [Date, Date] | []
 
 interface OrderSummary {
@@ -213,7 +215,7 @@ export const useOrdersStore = defineStore('orders', {
       ++this.detailRequestSerial
       this.detailLoading = false
 
-      if (!account?.phone || !account.ck || !account.userIdentifier) {
+      if (!account?.phone || !account.ck) {
         this.orders = []
         this.total = 0
         this.loading = false
@@ -223,6 +225,7 @@ export const useOrdersStore = defineStore('orders', {
       }
 
       const accountId = account.id
+      const userIdentifier = account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
       const pageIndex = this.pageIndex
       const pageSize = this.pageSize
       this.orders = []
@@ -231,7 +234,7 @@ export const useOrdersStore = defineStore('orders', {
       this.message = ''
 
       try {
-        const result = await queryOrderList(pageIndex, pageSize, account.phone, account.ck, account.userIdentifier)
+        const result = await queryOrderList(pageIndex, pageSize, account.phone, account.ck, userIdentifier)
 
         if (
           requestSerial !== this.ordersRequestSerial ||
@@ -277,7 +280,7 @@ export const useOrdersStore = defineStore('orders', {
       const account = useAccountsStore().currentAccount
       this.currentPayInfo = null
 
-      if (!account?.ck || !account.userIdentifier) {
+      if (!account?.ck) {
         ++this.detailRequestSerial
         this.detailLoading = false
         this.message = '请选择已登录的万达账号'
@@ -295,12 +298,13 @@ export const useOrdersStore = defineStore('orders', {
 
       const accountId = account.id
       const orderId = order.orderId
+      const userIdentifier = account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
       const detailSerial = ++this.detailRequestSerial
       this.detailLoading = true
       this.message = ''
 
       try {
-        const result = await queryOrderByUserId(orderId, account.ck, account.userIdentifier)
+        const result = await queryOrderByUserId(orderId, account.ck, userIdentifier)
 
         if (detailSerial !== this.detailRequestSerial || useAccountsStore().currentAccount?.id !== accountId) {
           return

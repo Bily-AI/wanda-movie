@@ -67,6 +67,7 @@ onBeforeUnmount(() => {
 
 watch(
   () => ({
+    themeMode: settingsStore.themeMode,
     rememberWindow: settingsStore.rememberWindow,
     autoClosePaymentWindow: settingsStore.autoClosePaymentWindow,
     paymentCardDisplay: settingsStore.paymentCardDisplay,
@@ -147,7 +148,7 @@ async function processAutoOrderTicket(request: AutoOrderTicketRequest): Promise<
   try {
     const account = accountsStore.currentAccount
 
-    if (!account?.ck || !account.userIdentifier) {
+    if (!account?.ck) {
       throw new Error('请先在主窗口选择已登录的万达账号')
     }
 
@@ -214,7 +215,7 @@ function registerAutoOrderListener(): void {
 </script>
 
 <template>
-  <div class="app-shell">
+  <div class="app-shell" :class="{ 'theme-dark': settingsStore.themeMode === '深色' }">
     <header class="app-header">
       <div class="titlebar">
         <div class="brand-block" aria-label="万达快速出票">
@@ -448,14 +449,15 @@ function registerAutoOrderListener(): void {
   min-width: 0;
   min-height: 0;
   padding: 16px;
-  overflow: auto;
+  overflow: hidden;
   background:
     linear-gradient(180deg, var(--app-bg) 0%, var(--app-bg-soft) 100%);
 }
 
 .workspace-layout {
   min-width: 1180px;
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
   gap: 12px;
@@ -466,6 +468,7 @@ function registerAutoOrderListener(): void {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .nav-button + .nav-button {

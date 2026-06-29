@@ -46,6 +46,8 @@ import type {
 import { useAccountsStore } from './accounts'
 import { useLogsStore } from './logs'
 
+const DEFAULT_WANDA_USER_IDENTIFIER = 'YYDDJDKYHA'
+
 export interface TicketOption {
   label: string
   value: string
@@ -1089,7 +1091,7 @@ export const useTicketStore = defineStore('ticket', {
         return
       }
 
-      if (!account?.ck || !account.userIdentifier) {
+      if (!account?.ck) {
         this.clearPaymentPrerequisiteData()
         this.paymentPrerequisiteError = '请先选择创建订单的已登录账号'
         this.paymentDataMessage = '请先选择创建订单的已登录账号'
@@ -1116,6 +1118,7 @@ export const useTicketStore = defineStore('ticket', {
 
       const orderId = currentOrder.orderId
       const accountId = account.id
+      const userIdentifier = account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
       const paymentSerial = ++this.paymentRequestSerial
       this.loadingPaymentData = true
       this.paymentPrerequisiteError = ''
@@ -1123,10 +1126,10 @@ export const useTicketStore = defineStore('ticket', {
 
       try {
         const [statusResult, activityResult, cardsResult, couponsResult] = await Promise.allSettled([
-          queryOrderStatus(orderId, account.ck, account.userIdentifier),
-          fetchPaymentActivity(currentOrder.seats, orderId, currentOrder.showtimeId, account.ck, account.userIdentifier),
-          fetchPayCards(orderId, account.ck, account.userIdentifier),
-          fetchCoupons(currentOrder.seats, currentOrder.cinemaId, currentOrder.showtimeId, account.ck, account.userIdentifier)
+          queryOrderStatus(orderId, account.ck, userIdentifier),
+          fetchPaymentActivity(currentOrder.seats, orderId, currentOrder.showtimeId, account.ck, userIdentifier),
+          fetchPayCards(orderId, account.ck, userIdentifier),
+          fetchCoupons(currentOrder.seats, currentOrder.cinemaId, currentOrder.showtimeId, account.ck, userIdentifier)
         ] as const)
 
         if (
@@ -1234,7 +1237,7 @@ export const useTicketStore = defineStore('ticket', {
         return
       }
 
-      if (!account?.ck || !account.userIdentifier) {
+      if (!account?.ck) {
         this.paymentDataMessage = '请先选择创建订单的已登录账号'
         return
       }
@@ -1246,12 +1249,13 @@ export const useTicketStore = defineStore('ticket', {
 
       const orderId = currentOrder.orderId
       const accountId = account.id
+      const userIdentifier = account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
       const checkSerial = ++this.paymentCheckSerial
       this.checkingPayment = true
       this.paymentDataMessage = ''
 
       try {
-        const status = await queryOrderStatus(orderId, account.ck, account.userIdentifier)
+        const status = await queryOrderStatus(orderId, account.ck, userIdentifier)
 
         if (
           checkSerial !== this.paymentCheckSerial ||
@@ -1430,6 +1434,10 @@ export const useTicketStore = defineStore('ticket', {
       const account = useAccountsStore().currentAccount
       const currentOrder = this.currentOrder
 
+      if (account?.ck && !account.userIdentifier) {
+        account.userIdentifier = DEFAULT_WANDA_USER_IDENTIFIER
+      }
+
       if (this.submittingPayment) {
         this.paymentDataMessage = '支付提交中，请勿重复提交'
         return
@@ -1581,7 +1589,7 @@ export const useTicketStore = defineStore('ticket', {
         return
       }
 
-      if (!account?.ck || !account.userIdentifier) {
+      if (!account?.ck) {
         this.currentOrderMessage = '请先选择创建订单的已登录账号'
         return
       }
@@ -1593,12 +1601,13 @@ export const useTicketStore = defineStore('ticket', {
 
       const orderId = currentOrder.orderId
       const accountId = account.id
+      const userIdentifier = account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
       const checkSerial = ++this.paymentCheckSerial
       this.checkingPayment = true
       this.currentOrderMessage = ''
 
       try {
-        const payInfo = await queryOrderByUserId(orderId, account.ck, account.userIdentifier)
+        const payInfo = await queryOrderByUserId(orderId, account.ck, userIdentifier)
 
         if (
           checkSerial !== this.paymentCheckSerial ||
@@ -1652,7 +1661,7 @@ export const useTicketStore = defineStore('ticket', {
         return
       }
 
-      if (!account?.ck || !account.userIdentifier) {
+      if (!account?.ck) {
         this.currentOrderMessage = '请先选择创建订单的已登录账号'
         return
       }
@@ -1666,6 +1675,7 @@ export const useTicketStore = defineStore('ticket', {
       const pollIntervalMs = 3000
       const orderId = currentOrder.orderId
       const accountId = account.id
+      const userIdentifier = account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
       const pollSerial = ++this.ticketCodePollingSerial
       this.ticketCodePolling = true
       this.ticketCodePollingAttempts = 0
@@ -1684,7 +1694,7 @@ export const useTicketStore = defineStore('ticket', {
           this.ticketCodePollingAttempts = attempt
 
           try {
-            const status = await queryOrderStatus(orderId, account.ck, account.userIdentifier)
+            const status = await queryOrderStatus(orderId, account.ck, userIdentifier)
 
             if (
               pollSerial !== this.ticketCodePollingSerial ||
@@ -1701,7 +1711,7 @@ export const useTicketStore = defineStore('ticket', {
           }
 
           try {
-            const payInfo = await queryOrderByUserId(orderId, account.ck, account.userIdentifier)
+            const payInfo = await queryOrderByUserId(orderId, account.ck, userIdentifier)
 
             if (
               pollSerial !== this.ticketCodePollingSerial ||
@@ -1850,18 +1860,19 @@ export const useTicketStore = defineStore('ticket', {
       const account = useAccountsStore().currentAccount
       const cinemaId = this.query.cinema
 
-      if (!account?.ck || !account.userIdentifier || !cinemaId) {
+      if (!account?.ck || !cinemaId) {
         this.showtimeError = '请先选择已登录万达账号和影院'
         return
       }
 
       const requestSerial = ++this.showtimeRequestSerial
       const accountId = account.id
+      const userIdentifier = account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
       this.loadingShowtimes = true
       this.showtimeError = ''
 
       try {
-        const rawShowtimeData = await fetchCinemaShowtime(cinemaId, account.ck, account.userIdentifier)
+        const rawShowtimeData = await fetchCinemaShowtime(cinemaId, account.ck, userIdentifier)
 
         if (
           requestSerial !== this.showtimeRequestSerial ||
@@ -2024,6 +2035,10 @@ export const useTicketStore = defineStore('ticket', {
     async loadRealTimeSeats() {
       const account = useAccountsStore().currentAccount
 
+      if (account?.ck && !account.userIdentifier) {
+        account.userIdentifier = DEFAULT_WANDA_USER_IDENTIFIER
+      }
+
       if (!account?.ck || !account.userIdentifier || !this.currentShowtime) {
         this.clearSeatData()
         this.seatError = '请先选择已登录万达账号和真实场次'
@@ -2033,11 +2048,12 @@ export const useTicketStore = defineStore('ticket', {
       const seatSerial = ++this.seatRequestSerial
       const dId = this.currentShowtime.dId
       const accountId = account.id
+      const userIdentifier = account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
       this.loadingSeats = true
       this.seatError = ''
 
       try {
-        const seatData = await fetchRealTimeSeat(dId, account.ck, account.userIdentifier)
+        const seatData = await fetchRealTimeSeat(dId, account.ck, userIdentifier)
 
         if (
           seatSerial !== this.seatRequestSerial ||
@@ -2440,7 +2456,6 @@ export const useTicketStore = defineStore('ticket', {
 
       if (
         !account?.ck ||
-        !account.userIdentifier ||
         !account.phone ||
         !this.currentShowtime?.dId ||
         this.selectedSeatNodes.length === 0
@@ -2453,7 +2468,7 @@ export const useTicketStore = defineStore('ticket', {
         accountId: account.id,
         phone: account.phone,
         ck: account.ck,
-        userIdentifier: account.userIdentifier,
+        userIdentifier: account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER,
         cityName: this.cities.find((item) => item.value === this.query.city)?.label ?? '',
         cinemaId: this.query.cinema,
         cinemaName: this.cinemas.find((item) => item.value === this.query.cinema)?.label ?? '',
@@ -2537,7 +2552,7 @@ export const useTicketStore = defineStore('ticket', {
         return
       }
 
-      if (!account?.ck || !account.userIdentifier || !this.currentOrderId) {
+      if (!account?.ck || !this.currentOrderId) {
         this.currentOrderMessage = '暂无可取消订单'
         return
       }
@@ -2551,7 +2566,7 @@ export const useTicketStore = defineStore('ticket', {
       const accountId = account.id
       const phone = account.phone
       const ck = account.ck
-      const userIdentifier = account.userIdentifier
+      const userIdentifier = account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
       const requestSerial = ++this.orderRequestSerial
       this.orderCancelling = true
 

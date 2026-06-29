@@ -53,6 +53,80 @@ function toPlainAccount(account: WandaAccount): WandaAccount {
   }
 }
 
+interface ImportedAccountSource {
+  phone: string
+  ck: string
+  remark: string
+  loginDate: string
+  loginTime: string
+  userIdentifier: string
+}
+
+function readText(value: unknown): string {
+  return typeof value === 'string' || typeof value === 'number' ? String(value).trim() : ''
+}
+
+function firstText(record: Record<string, unknown>, ...keys: string[]): string {
+  for (const key of keys) {
+    const value = readText(record[key])
+
+    if (value) {
+      return value
+    }
+  }
+
+  return ''
+}
+
+function normalizeImportedAccount(source: Partial<ImportedAccountSource>, groupId: string): WandaAccount | null {
+  const phone = readText(source.phone).match(/1\d{10}/)?.[0] ?? ''
+
+  if (!phone) {
+    return null
+  }
+
+  const ck = readText(source.ck)
+  const remark = readText(source.remark) || (ck ? '导入账号' : '待登录')
+  const now = new Date()
+  const loginDate = readText(source.loginDate) || now.toISOString().slice(0, 10)
+  const loginTime = readText(source.loginTime) || now.toLocaleTimeString('zh-CN', { hour12: false })
+
+  return {
+    id: phone,
+    phone,
+    remark,
+    status: ck ? 'normal' : 'unknown',
+    statusText: ck ? '正常' : '待登录',
+    groupId,
+    ck,
+    userIdentifier: readText(source.userIdentifier) || DEFAULT_WANDA_USER_IDENTIFIER,
+    loginDate,
+    loginTime,
+    createdAt: now.toISOString(),
+    isPayMember: false
+  }
+}
+
+function buildImportedAccountFromRecord(value: unknown, groupId: string): WandaAccount | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return null
+  }
+
+  const record = value as Record<string, unknown>
+
+  return normalizeImportedAccount(
+    {
+      phone: firstText(record, 'phone', 'mobile', 'mobilePhone', '手机号'),
+      ck: firstText(record, 'ck', 'CK', 'token', 'userToken'),
+      remark: firstText(record, 'remark', '备注', 'name'),
+      loginDate: firstText(record, 'loginDate', '登录日期'),
+      loginTime: firstText(record, 'loginTime', '登录时间'),
+      userIdentifier: firstText(record, 'userIdentifier', 'user', 'USER', '用户标识')
+    },
+    groupId
+  )
+}
+
 function buildImportedAccount(line: string, groupId: string): WandaAccount | null {
   const phone = line.match(/1\d{10}/)?.[0] ?? ''
 
@@ -60,29 +134,82 @@ function buildImportedAccount(line: string, groupId: string): WandaAccount | nul
     return null
   }
 
-  const ckMatch = line.match(/(?:CK|ck)[:：]?\s*([A-Za-z0-9+/=_-]+)/)
+  const legacyParts = line
+    .split('---')
+    .map((part) => part.trim())
+    .filter(Boolean)
+
+  if (legacyParts.length >= 2) {
+    const phoneIndex = legacyParts.findIndex((part) => /1\d{10}/.test(part))
+
+    if (phoneIndex === 0) {
+      return normalizeImportedAccount(
+        {
+          phone,
+          ck: legacyParts[1],
+          loginTime: legacyParts[2]
+        },
+        groupId
+      )
+    }
+
+    if (phoneIndex >= 2) {
+      return normalizeImportedAccount(
+        {
+          phone,
+          remark: legacyParts[phoneIndex - 2],
+          ck: legacyParts[phoneIndex - 1],
+          loginTime: legacyParts[phoneIndex + 1]
+        },
+        groupId
+      )
+    }
+  }
+
+  const ckMatch = line.match(/(?:CK|ck)[:：]?\s*([^\s,，|]+)/)
   const userMatch = line.match(/(?:USER|user|userIdentifier|用户标识)[:：]?\s*([A-Za-z0-9_-]+)/)
   const parts = line
     .split(/[\s,，|]+/)
     .map((part) => part.trim())
     .filter(Boolean)
   const ck = ckMatch?.[1] ?? parts.find((part) => part !== phone && part.length >= 20) ?? ''
-  const now = new Date()
 
-  return {
-    id: phone,
-    phone,
-    remark: ck ? '导入账号' : '待登录',
-    status: ck ? 'normal' : 'unknown',
-    statusText: ck ? '正常' : '待登录',
-    groupId,
-    ck,
-    userIdentifier: userMatch?.[1] ?? DEFAULT_WANDA_USER_IDENTIFIER,
-    loginDate: now.toISOString().slice(0, 10),
-    loginTime: now.toLocaleTimeString('zh-CN', { hour12: false }),
-    createdAt: now.toISOString(),
-    isPayMember: false
+  return normalizeImportedAccount(
+    {
+      phone,
+      ck,
+      userIdentifier: userMatch?.[1]
+    },
+    groupId
+  )
+}
+
+function parseImportedAccounts(text: string, groupId: string): WandaAccount[] {
+  const trimmed = text.trim()
+
+  if (!trimmed) {
+    return []
   }
+
+  if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed)
+      const records = Array.isArray(parsed) ? parsed : [parsed]
+
+      return records
+        .map((record) => buildImportedAccountFromRecord(record, groupId))
+        .filter((account): account is WandaAccount => Boolean(account))
+    } catch {
+      return []
+    }
+  }
+
+  return trimmed
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => buildImportedAccount(line, groupId))
+    .filter((account): account is WandaAccount => Boolean(account))
 }
 
 function toPlainAccountsData(data: AccountsLocalData): AccountsLocalData {
@@ -258,13 +385,7 @@ export const useAccountsStore = defineStore('accounts', {
     },
     async importAccountsFromText(text: string) {
       const groupId = this.selectedGroupId || 'default'
-      const lines = text
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean)
-      const importedAccounts = lines
-        .map((line) => buildImportedAccount(line, groupId))
-        .filter((account): account is WandaAccount => Boolean(account))
+      const importedAccounts = parseImportedAccounts(text, groupId)
 
       if (importedAccounts.length === 0) {
         this.loginForm.message = '未识别到可导入的手机号'

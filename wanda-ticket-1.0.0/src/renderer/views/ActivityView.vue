@@ -163,6 +163,7 @@ async function loadActivities() {
     )
     activityMessage.value = activities.value.length > 0 ? '' : '暂无可购买礼包'
     logsStore.addLog('活动', account.phone, `活动礼包加载成功：${activities.value.length} 个`)
+    void loadGiftOrders()
   } catch (error) {
     const message = error instanceof Error && error.message ? error.message : '活动礼包加载失败'
     activities.value = []
@@ -550,6 +551,7 @@ watch(
     settingsStore.activity.cinema = ''
     activities.value = []
     manualActivities.value = []
+    void saveProxySettings()
   }
 )
 
@@ -560,6 +562,7 @@ watch(
     manualActivities.value = []
 
     if (cinemaId) {
+      void saveProxySettings()
       void loadActivities()
     }
   }
@@ -593,7 +596,7 @@ watch(
       >
         <el-option v-for="cinema in cinemaOptions" :key="cinema.value" :label="cinema.label" :value="cinema.value" />
       </el-select>
-      <el-button type="primary" :icon="Refresh" :loading="loading" @click="loadActivities">刷新</el-button>
+      <el-button type="primary" :icon="Refresh" :loading="loading || loadingOrders" @click="loadActivities">刷新</el-button>
       <el-input v-model="settingsStore.activity.activityCode" placeholder="输入礼包ID/activityCode" />
       <el-button
         type="success"
@@ -762,8 +765,8 @@ watch(
   height: 100%;
   min-width: 980px;
   min-height: 0;
-  display: grid;
-  grid-template-rows: 50px minmax(300px, 1fr) minmax(300px, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 16px;
   overflow: hidden;
 }
@@ -778,7 +781,6 @@ watch(
 
 .panel {
   min-width: 0;
-  min-height: 0;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--app-border);
@@ -786,6 +788,17 @@ watch(
   background: var(--app-surface);
   box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
   overflow: hidden;
+}
+
+.gifts-panel {
+  max-height: 720px;
+  min-height: 260px;
+  flex-shrink: 0;
+}
+
+.order-panel {
+  min-height: 120px;
+  flex: 1;
 }
 
 .panel-title {
@@ -848,7 +861,7 @@ watch(
 
 .activity-list,
 .order-list {
-  min-height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;

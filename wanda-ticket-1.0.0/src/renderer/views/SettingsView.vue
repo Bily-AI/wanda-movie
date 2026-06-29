@@ -15,19 +15,19 @@ async function persistSettings(successText: string) {
 
 async function handleRefreshRequestParams() {
   settingsStore.refreshRequestParams()
-  await persistSettings(`业务参数已刷新：${settingsStore.requestParams.model}`)
+  await persistSettings(`业务参数已刷新！设备：${settingsStore.requestParams.model}`)
 }
 
 async function handleClearCacheData() {
   try {
-    await ElMessageBox.confirm('只清除城市和影院缓存，不会删除账号、日志和设置。是否继续？', '清除缓存', {
-      confirmButtonText: '清除',
+    await ElMessageBox.confirm('确定要清除所有本地缓存数据吗？此操作不可恢复。', '清除缓存', {
+      confirmButtonText: '确认清除',
       cancelButtonText: '取消',
       type: 'warning'
     })
     await settingsStore.clearCacheData()
     await ticketStore.loadCityData()
-    ElMessage.success('缓存已清除，城市和影院数据已重新加载')
+    ElMessage.success('缓存已清除，保留登录状态和设置')
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') {
       ElMessage.error(error instanceof Error && error.message ? error.message : '清除缓存失败')
@@ -53,11 +53,18 @@ async function handleClearCacheData() {
         </template>
         <div class="setting-row">
           <div class="setting-label">
-            <span class="setting-name">界面风格</span>
-            <span class="setting-desc">沿用旧版桌面操作布局</span>
+            <span class="setting-name">主题模式</span>
+            <span class="setting-desc">切换浅色/深色显示模式</span>
           </div>
           <div class="setting-control">
-            <el-tag>默认</el-tag>
+            <el-radio-group
+              v-model="settingsStore.themeMode"
+              size="small"
+              @change="() => persistSettings(`已切换至${settingsStore.themeMode}模式`)"
+            >
+              <el-radio-button value="浅色">浅色</el-radio-button>
+              <el-radio-button value="深色">深色</el-radio-button>
+            </el-radio-group>
           </div>
         </div>
       </el-card>
@@ -171,7 +178,7 @@ async function handleClearCacheData() {
         </div>
 
         <p class="auto-pay-warning">
-          手动支付一次缓存支付宝登录信息以后在开启自动支付功能，否则会出现不确定错误或导致无限验证。
+          手动支付一次缓存支付宝登录信息以后在开启自动支付功能，否则会出现不确定错误或导致无限验证。滑块验证不通过时点击「刷新设备」更换设备特征。
         </p>
       </el-card>
 
@@ -190,7 +197,7 @@ async function handleClearCacheData() {
           </div>
 
           <div class="biz-params-preview">
-            <div>设备指纹：{{ settingsStore.requestParams.deviceFingerprint?.slice(0, 24) || '...' }}</div>
+            <div>设备指纹：{{ settingsStore.requestParams.shumeiBoxId?.slice(0, 24) || '...' }}</div>
             <div>设备型号：{{ settingsStore.requestParams.model || '-' }}</div>
             <div>用户标识：{{ settingsStore.requestParams.userId || '-' }}</div>
           </div>
@@ -232,7 +239,48 @@ async function handleClearCacheData() {
         </div>
       </el-card>
 
-      <el-card class="settings-card" shadow="never">
+      <el-card class="settings-card settings-card--single" shadow="never" style="height: 128px">
+        <template #header>
+          <div class="card-header">
+            <el-icon><Delete /></el-icon>
+            <span>数据管理</span>
+          </div>
+        </template>
+        <div class="setting-row">
+          <div class="setting-label">
+            <span class="setting-name">清除缓存数据</span>
+            <span class="setting-desc">清除本地缓存，下次启动将重新加载数据</span>
+          </div>
+          <div class="setting-control">
+            <el-button type="danger" plain size="small" @click="handleClearCacheData">清除缓存</el-button>
+          </div>
+        </div>
+      </el-card>
+
+      <el-card class="settings-card settings-card--about" shadow="never" style="height: 178px">
+        <template #header>
+          <div class="card-header">
+            <el-icon><InfoFilled /></el-icon>
+            <span>关于</span>
+          </div>
+        </template>
+        <div class="about-info">
+          <div class="about-row">
+            <span class="about-label">应用名称</span>
+            <span class="about-value">万达快速出票</span>
+          </div>
+          <div class="about-row">
+            <span class="about-label">当前版本</span>
+            <span class="about-value">v1.0.0</span>
+          </div>
+          <div class="about-row">
+            <span class="about-label">运行环境</span>
+            <span class="about-value">Electron + Vue 3</span>
+          </div>
+        </div>
+      </el-card>
+
+      <el-card class="settings-card settings-card--ocr" shadow="never">
         <template #header>
           <div class="card-header">
             <el-icon><Key /></el-icon>
@@ -285,7 +333,7 @@ async function handleClearCacheData() {
         </div>
       </el-card>
 
-      <el-card class="settings-card" shadow="never">
+      <el-card class="settings-card settings-card--ai-ocr" shadow="never">
         <template #header>
           <div class="card-header">
             <el-icon><Key /></el-icon>
@@ -364,57 +412,17 @@ async function handleClearCacheData() {
           </div>
         </div>
       </el-card>
-
-      <el-card class="settings-card settings-card--single" shadow="never" style="height: 128px">
-        <template #header>
-          <div class="card-header">
-            <el-icon><Delete /></el-icon>
-            <span>数据管理</span>
-          </div>
-        </template>
-        <div class="setting-row">
-          <div class="setting-label">
-            <span class="setting-name">清除缓存数据</span>
-            <span class="setting-desc">清除本地缓存，下次启动将重新加载数据</span>
-          </div>
-          <div class="setting-control">
-            <el-button type="danger" plain size="small" @click="handleClearCacheData">清除缓存</el-button>
-          </div>
-        </div>
-      </el-card>
-
-      <el-card class="settings-card settings-card--about" shadow="never" style="height: 178px">
-        <template #header>
-          <div class="card-header">
-            <el-icon><InfoFilled /></el-icon>
-            <span>关于</span>
-          </div>
-        </template>
-        <div class="about-info">
-          <div class="about-row">
-            <span class="about-label">应用名称</span>
-            <span class="about-value">万达快速出票</span>
-          </div>
-          <div class="about-row">
-            <span class="about-label">当前版本</span>
-            <span class="about-value">v1.0.0</span>
-          </div>
-          <div class="about-row">
-            <span class="about-label">运行环境</span>
-            <span class="about-value">Electron + Vue 3</span>
-          </div>
-        </div>
-      </el-card>
     </div>
   </div>
 </template>
 
 <style scoped>
 .settings-page {
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  height: 100%;
+  overflow: hidden;
   min-height: 0;
 }
 
@@ -422,91 +430,176 @@ async function handleClearCacheData() {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex-shrink: 0;
+  padding: 24px 32px 16px;
+  border-bottom: 1px solid var(--app-border);
 }
 
 .settings-title {
   margin: 0;
-  font-size: 24px;
+  color: var(--app-text);
+  font-size: 20px;
   font-weight: 600;
 }
 
 .settings-subtitle {
   margin: 0;
-  color: var(--text-secondary);
+  color: var(--app-muted);
   font-size: 13px;
 }
 
 .settings-body {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  flex: 1;
   min-height: 0;
-  padding-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  padding: 24px 32px;
 }
 
 .settings-card {
+  flex-shrink: 0 !important;
+  overflow: hidden !important;
+  border: 1px solid var(--app-border);
   border-radius: 8px;
+  background: var(--app-surface);
+}
+
+.settings-card :deep(.el-card__header) {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.settings-card :deep(.el-card__body) {
+  padding: 0;
+  overflow: hidden !important;
+}
+
+.settings-card--single {
+  height: 112px !important;
+}
+
+.settings-card--ticket {
+  height: 252px !important;
+}
+
+.settings-card--auto-pay {
+  height: 165px !important;
+}
+
+.settings-card--biz,
+.settings-card--proxy {
+  height: 146px !important;
+}
+
+.settings-card--about {
+  height: 178px !important;
+}
+
+.settings-card--ocr {
+  min-height: 260px;
+}
+
+.settings-card--ai-ocr {
+  min-height: 404px;
+}
+
+.settings-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.settings-body::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: #c7d0dd;
+}
+
+.settings-body::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .card-header {
   display: flex;
   align-items: center;
   gap: 8px;
+  color: var(--app-text);
+  font-size: 14px;
   font-weight: 600;
+}
+
+.card-header :deep(.el-icon) {
+  color: var(--app-accent);
+  font-size: 18px;
 }
 
 .setting-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 24px;
+  padding: 16px 20px;
+}
+
+.setting-row + .setting-row {
+  border-top: 1px solid var(--app-border);
 }
 
 .setting-row--stack {
   flex-direction: column;
   align-items: stretch;
+  gap: 8px;
+  padding: 14px 20px;
 }
 
 .setting-label {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
+  min-width: 0;
 }
 
 .setting-name {
+  color: var(--app-text);
   font-size: 14px;
   font-weight: 500;
 }
 
 .setting-desc {
-  color: var(--text-secondary);
+  color: var(--app-muted);
   font-size: 12px;
   line-height: 1.6;
 }
 
 .setting-control {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  margin-left: 24px;
 }
 
 .setting-control--wide {
   flex: 1;
-  min-width: 280px;
+  max-width: 520px;
+  min-width: 320px;
 }
 
 .auto-pay-row {
-  display: grid;
-  grid-template-columns: auto 1fr 1fr auto;
-  gap: 8px;
+  display: flex;
   align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+}
+
+.auto-pay-row :deep(.el-input) {
+  width: 160px;
 }
 
 .auto-pay-warning {
-  margin: 12px 0 0;
-  color: #e6a23c;
+  margin: 8px 20px 0;
+  color: #f56c6c;
   font-size: 12px;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .inline-header {
@@ -517,19 +610,17 @@ async function handleClearCacheData() {
 }
 
 .biz-params-preview {
+  color: var(--app-muted);
+  font-family: monospace;
   font-size: 11px;
-  color: var(--text-secondary);
   line-height: 1.6;
+  border-radius: 8px;
   background: var(--el-fill-color-light);
   padding: 6px 10px;
-  border-radius: 8px;
-  font-family: monospace;
 }
 
 .about-info {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  padding: 16px 20px;
 }
 
 .about-row {
@@ -537,35 +628,55 @@ async function handleClearCacheData() {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  padding: 8px 0;
+}
+
+.about-row + .about-row {
+  border-top: 1px solid var(--app-border);
 }
 
 .about-label {
-  color: var(--text-secondary);
+  color: var(--app-muted);
+  font-size: 13px;
 }
 
 .about-value {
+  color: var(--app-text);
+  font-size: 13px;
   font-weight: 500;
 }
 
 @media (max-width: 1200px) {
+  .settings-header {
+    padding: 20px 20px 14px;
+  }
+
   .settings-body {
-    grid-template-columns: 1fr;
+    padding: 20px;
   }
 
   .auto-pay-row {
-    grid-template-columns: 1fr;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .auto-pay-row :deep(.el-input) {
+    width: 100%;
   }
 
   .setting-row {
-    flex-direction: column;
     align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
   }
 
   .setting-control {
     justify-content: flex-start;
+    margin-left: 0;
   }
 
   .setting-control--wide {
+    max-width: none;
     min-width: 0;
   }
 }

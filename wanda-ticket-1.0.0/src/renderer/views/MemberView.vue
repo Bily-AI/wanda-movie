@@ -33,9 +33,10 @@ const activeTab = ref<'rtime' | 'wplus'>('rtime')
 const rtimeLoading = ref(false)
 const wplusProfileLoading = ref(false)
 const wplusRightsLoading = ref(false)
-const equityLoading = ref(false)
 const batchLoading = ref(false)
 const activateLoading = ref(false)
+const rtimeClaimingKeys = ref<string[]>([])
+const wplusClaimingKeys = ref<string[]>([])
 
 const gradeGroups = ref<MemberGradeGroup[]>([])
 const signInCalendar = ref<MemberSignInCalendar | null>(null)
@@ -51,7 +52,14 @@ const wplusError = ref('')
 const currentAccount = computed(() => accountsStore.currentAccount)
 const hasCurrentAccount = computed(() => Boolean(currentAccount.value?.ck))
 
-const currentGrowthValue = computed(() => gradeGroups.value[0]?.memberGrowthVal || 0)
+const sortedGradeGroups = computed(() => [...gradeGroups.value].sort((a, b) => a.growthMinVal - b.growthMinVal))
+
+const currentGrowthValue = computed(() => {
+  const explicitCurrent = gradeGroups.value.find((group) => group.isCurrent && group.memberGrowthVal)
+  const memberGrowthGroup = gradeGroups.value.find((group) => group.memberGrowthVal)
+
+  return explicitCurrent?.memberGrowthVal || memberGrowthGroup?.memberGrowthVal || gradeGroups.value[0]?.growthValue || 0
+})
 
 const currentGrade = computed(() => {
   if (gradeGroups.value.length === 0) {
@@ -59,15 +67,20 @@ const currentGrade = computed(() => {
   }
 
   const growthValue = currentGrowthValue.value
-  const groups = [...gradeGroups.value].sort((a, b) => b.gradeId.localeCompare(a.gradeId))
+  const explicitCurrent = gradeGroups.value.find((group) => group.isCurrent)
 
-  for (const group of groups) {
-    if (growthValue >= group.growthMinVal) {
-      return group
-    }
+  if (explicitCurrent) {
+    return explicitCurrent
   }
 
-  return groups[groups.length - 1] || null
+  return (
+    [...sortedGradeGroups.value]
+      .reverse()
+      .find((group) => growthValue >= group.growthMinVal && (group.growthMaxVal === null || growthValue <= group.growthMaxVal)) ||
+    [...sortedGradeGroups.value].reverse().find((group) => growthValue >= group.growthMinVal) ||
+    sortedGradeGroups.value[0] ||
+    null
+  )
 })
 
 const nextGrade = computed(() => {
@@ -77,14 +90,13 @@ const nextGrade = computed(() => {
     return null
   }
 
-  const groups = [...gradeGroups.value].sort((a, b) => a.gradeId.localeCompare(b.gradeId))
-  const index = groups.findIndex((item) => item.gradeId === record.gradeId)
+  const index = sortedGradeGroups.value.findIndex((item) => item.gradeId === record.gradeId)
 
-  if (index < 0 || index >= groups.length - 1) {
+  if (index < 0 || index >= sortedGradeGroups.value.length - 1) {
     return null
   }
 
-  return groups[index + 1]
+  return sortedGradeGroups.value[index + 1]
 })
 
 const isMaxGrade = computed(() => !nextGrade.value)
@@ -97,10 +109,10 @@ const orderedGradeGroups = computed(() => {
   const record = currentGrade.value
 
   if (!record) {
-    return gradeGroups.value
+    return sortedGradeGroups.value
   }
 
-  const groups = [...gradeGroups.value]
+  const groups = [...sortedGradeGroups.value]
   const index = groups.findIndex((item) => item.gradeId === record.gradeId)
 
   if (index > 0) {
@@ -133,11 +145,11 @@ const monthExpireDowngradeName = computed(() => {
 })
 
 const maxGrowthValue = computed(() => {
-  if (gradeGroups.value.length === 0) {
+  if (sortedGradeGroups.value.length === 0) {
     return 100000
   }
 
-  const lastGroup = gradeGroups.value[gradeGroups.value.length - 1]
+  const lastGroup = sortedGradeGroups.value[sortedGradeGroups.value.length - 1]
 
   return lastGroup.growthMaxVal ?? lastGroup.growthMinVal * 2
 })
@@ -183,9 +195,7 @@ const needGrowthToNext = computed(() => {
   return Math.max(0, next.growthMinVal - record.memberGrowthVal)
 })
 
-const claimableRtimeRows = computed(() =>
-  gradeGroups.value.flatMap((group) => group.equities).filter((row) => !row.auto && row.equityGainStatus === 2)
-)
+const claimableRtimeRows = computed(() => gradeGroups.value.flatMap((group) => group.equities).filter(canGainEquity))
 
 const hasClaimableRtime = computed(() => claimableRtimeRows.value.length > 0)
 
@@ -194,10 +204,22 @@ const totalWPlusRights = computed(() =>
 )
 
 const claimableWPlusRights = computed(() =>
-  wplusRightGroups.value.flatMap((group) => group.rightList).filter((item) => item.receiveStatus === 1)
+  wplusRightGroups.value.flatMap((group) => group.rightList).filter(canReceiveWPlusRight)
 )
 
 const hasClaimableWPlus = computed(() => claimableWPlusRights.value.length > 0)
+
+const wplusEmptyDescription = computed(() => {
+  if (wplusError.value) {
+    return '获取W+会员信息失败'
+  }
+
+  if (wplusProfile.value && !wplusProfile.value.isPayMember) {
+    return '当前账号不是 W+ 会员，请先激活 W+'
+  }
+
+  return '暂无可领取 W+ 权益'
+})
 
 const signInDays = computed(() => signInCalendar.value?.dataList ?? [])
 
@@ -238,7 +260,44 @@ function isCurrentGrade(group: MemberGradeGroup) {
 }
 
 function isPassedGrade(group: MemberGradeGroup) {
-  return Boolean(currentGrade.value && group.gradeId < currentGrade.value.gradeId)
+  return Boolean(currentGrade.value && group.growthMinVal < currentGrade.value.growthMinVal)
+}
+
+type TagType = 'primary' | 'success' | 'warning' | 'info' | 'danger'
+
+function getRtimeEquityKey(row: MemberEquityRow) {
+  return `${row.gradeId || 'grade'}:${row.equityId || row.name}`
+}
+
+function getWPlusRightKey(right: MemberWPlusRight) {
+  return `${right.orderCode || right.groupId || 'order'}:${right.code || right.name}:${right.rightType || 'type'}`
+}
+
+function setLoadingKey(keys: typeof rtimeClaimingKeys, key: string, loading: boolean) {
+  if (loading) {
+    if (!keys.value.includes(key)) {
+      keys.value = [...keys.value, key]
+    }
+    return
+  }
+
+  keys.value = keys.value.filter((item) => item !== key)
+}
+
+function isRtimeEquityLoading(row: MemberEquityRow) {
+  return rtimeClaimingKeys.value.includes(getRtimeEquityKey(row))
+}
+
+function isWPlusRightLoading(right: MemberWPlusRight) {
+  return wplusClaimingKeys.value.includes(getWPlusRightKey(right))
+}
+
+function hasRtimeClaimParams(row: MemberEquityRow) {
+  return Boolean(row.gradeId && row.equityId)
+}
+
+function hasWPlusClaimParams(right: MemberWPlusRight) {
+  return Boolean(right.orderCode && right.code && right.rightType)
 }
 
 function isClaimedEquity(row: MemberEquityRow) {
@@ -246,7 +305,51 @@ function isClaimedEquity(row: MemberEquityRow) {
 }
 
 function isClaimableEquity(row: MemberEquityRow) {
-  return row.equityGainStatus === 2
+  return !row.auto && row.equityGainStatus === 2
+}
+
+function canGainEquity(row: MemberEquityRow) {
+  return isClaimableEquity(row)
+}
+
+function canReceiveWPlusRight(right: MemberWPlusRight) {
+  return right.receiveStatus === 1
+}
+
+function getRtimeEquityStatus(row: MemberEquityRow): { label: string; type: TagType } {
+  if (row.auto) {
+    return { label: '自动生效', type: 'success' }
+  }
+
+  if (isClaimedEquity(row)) {
+    return { label: '已领', type: 'warning' }
+  }
+
+  if (isClaimableEquity(row)) {
+    return { label: '待领', type: 'primary' }
+  }
+
+  if (row.equityGainStatus === 4) {
+    return { label: '已抢光', type: 'info' }
+  }
+
+  return { label: row.status && row.status !== '-' ? row.status : '不可领', type: 'info' }
+}
+
+function getWPlusStatusType(status: number): TagType {
+  if (status === 1) {
+    return 'primary'
+  }
+
+  if (status === 2 || status === 5 || status === 10) {
+    return 'warning'
+  }
+
+  if (status === 3 || status === 8) {
+    return 'success'
+  }
+
+  return 'info'
 }
 
 function getEquityCategory(row: MemberEquityRow) {
@@ -404,7 +507,13 @@ async function handleGainEquity(row: MemberEquityRow) {
     return
   }
 
-  equityLoading.value = true
+  if (!isClaimableEquity(row)) {
+    ElMessage.info('当前权益不可领取')
+    return
+  }
+
+  const loadingKey = getRtimeEquityKey(row)
+  setLoadingKey(rtimeClaimingKeys, loadingKey, true)
 
   try {
     await gainMemberEquity(row.gradeId, row.equityId, account.ck, account.userIdentifier)
@@ -416,7 +525,7 @@ async function handleGainEquity(row: MemberEquityRow) {
     ElMessage.error(message)
     logsStore.addLog('会员', account.phone, `领取权益失败：${message}`)
   } finally {
-    equityLoading.value = false
+    setLoadingKey(rtimeClaimingKeys, loadingKey, false)
   }
 }
 
@@ -433,21 +542,23 @@ async function handleGainAllRtimeEquities() {
     return
   }
 
-  batchLoading.value = true
-
   let successCount = 0
   let failCount = 0
 
-  for (const row of claimableRtimeRows.value) {
-    try {
-      await gainMemberEquity(row.gradeId, row.equityId, account.ck, account.userIdentifier)
-      successCount += 1
-    } catch {
-      failCount += 1
-    }
-  }
+  batchLoading.value = true
 
-  batchLoading.value = false
+  try {
+    for (const row of claimableRtimeRows.value) {
+      try {
+        await gainMemberEquity(row.gradeId, row.equityId, account.ck, account.userIdentifier)
+        successCount += 1
+      } catch {
+        failCount += 1
+      }
+    }
+  } finally {
+    batchLoading.value = false
+  }
 
   if (successCount > 0 && failCount === 0) {
     ElMessage.success(`一键领取完成，成功 ${successCount} 项`)
@@ -469,7 +580,18 @@ async function handleReceiveWPlusRight(right: MemberWPlusRight) {
     return
   }
 
-  equityLoading.value = true
+  if (right.receiveStatus !== 1) {
+    ElMessage.info('当前 W+ 权益不可领取')
+    return
+  }
+
+  if (!hasWPlusClaimParams(right)) {
+    ElMessage.warning('当前 W+ 权益缺少领取参数，请刷新后重试')
+    return
+  }
+
+  const loadingKey = getWPlusRightKey(right)
+  setLoadingKey(wplusClaimingKeys, loadingKey, true)
 
   try {
     await receiveWPlusRight(account.ck, account.userIdentifier, right.orderCode, right.code, right.rightType)
@@ -481,7 +603,7 @@ async function handleReceiveWPlusRight(right: MemberWPlusRight) {
     ElMessage.error(message)
     logsStore.addLog('会员', account.phone, `W+ 权益领取失败：${message}`)
   } finally {
-    equityLoading.value = false
+    setLoadingKey(wplusClaimingKeys, loadingKey, false)
   }
 }
 
@@ -498,21 +620,23 @@ async function handleReceiveAllWPlusRights() {
     return
   }
 
-  batchLoading.value = true
-
   let successCount = 0
   let failCount = 0
 
-  for (const right of claimableWPlusRights.value) {
-    try {
-      await receiveWPlusRight(account.ck, account.userIdentifier, right.orderCode, right.code, right.rightType)
-      successCount += 1
-    } catch {
-      failCount += 1
-    }
-  }
+  batchLoading.value = true
 
-  batchLoading.value = false
+  try {
+    for (const right of claimableWPlusRights.value) {
+      try {
+        await receiveWPlusRight(account.ck, account.userIdentifier, right.orderCode, right.code, right.rightType)
+        successCount += 1
+      } catch {
+        failCount += 1
+      }
+    }
+  } finally {
+    batchLoading.value = false
+  }
 
   if (successCount > 0 && failCount === 0) {
     ElMessage.success(`一键领取完成，成功领取 ${successCount} 项`)
@@ -534,44 +658,46 @@ async function handleReceiveAllAccountsWPlusRights() {
     return
   }
 
-  batchLoading.value = true
-
   let successAccountCount = 0
   let failAccountCount = 0
   let totalSuccessCount = 0
 
-  for (const account of accounts) {
-    const userIdentifier = account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
+  batchLoading.value = true
 
-    try {
-      const groups = await fetchWPlusRightGroups(account.ck, userIdentifier)
-      const rights = groups.flatMap((group) => group.rightList).filter((item) => item.receiveStatus === 1)
+  try {
+    for (const account of accounts) {
+      const userIdentifier = account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
 
-      if (!rights.length) {
-        continue
-      }
+      try {
+        const groups = await fetchWPlusRightGroups(account.ck, userIdentifier)
+        const rights = groups.flatMap((group) => group.rightList).filter(canReceiveWPlusRight)
 
-      let accountSuccess = 0
-
-      for (const right of rights) {
-        try {
-          await receiveWPlusRight(account.ck, userIdentifier, right.orderCode, right.code, right.rightType)
-          accountSuccess += 1
-          totalSuccessCount += 1
-        } catch {
+        if (!rights.length) {
           continue
         }
-      }
 
-      if (accountSuccess > 0) {
-        successAccountCount += 1
+        let accountSuccess = 0
+
+        for (const right of rights) {
+          try {
+            await receiveWPlusRight(account.ck, userIdentifier, right.orderCode, right.code, right.rightType)
+            accountSuccess += 1
+            totalSuccessCount += 1
+          } catch {
+            continue
+          }
+        }
+
+        if (accountSuccess > 0) {
+          successAccountCount += 1
+        }
+      } catch {
+        failAccountCount += 1
       }
-    } catch {
-      failAccountCount += 1
     }
+  } finally {
+    batchLoading.value = false
   }
-
-  batchLoading.value = false
 
   const message = `所有账号处理完成：成功 ${successAccountCount} 个账号，失败 ${failAccountCount} 个账号，共领取 ${totalSuccessCount} 项权益`
 
@@ -586,6 +712,22 @@ async function handleReceiveAllAccountsWPlusRights() {
   if (currentAccount.value?.ck) {
     await loadWPlusRightsData()
   }
+}
+
+function handleUseRtimeEquity(row: MemberEquityRow) {
+  const category = getEquityCategory(row)
+
+  if (category.includes('影票') || row.name.includes('影票') || row.name.includes('兑换券')) {
+    ElMessage.info(`去使用【${row.name}】 - 请到购票页面选择影片后使用`)
+    return
+  }
+
+  if (category.includes('卖品') || row.name.includes('卖品') || row.name.includes('套餐')) {
+    ElMessage.info(`去使用【${row.name}】 - 请到卖品/活动页面使用`)
+    return
+  }
+
+  ElMessage.info(`去使用【${row.name}】`)
 }
 
 function handleUseWPlusRight(right: MemberWPlusRight) {
@@ -812,7 +954,7 @@ onMounted(() => {
             <div v-if="currentGrade" class="growth-stage-progress">
               <div class="stage-labels">
                 <span
-                  v-for="group in [...gradeGroups].sort((a, b) => a.growthMinVal - b.growthMinVal)"
+                  v-for="group in sortedGradeGroups"
                   :key="group.gradeId"
                   :class="[
                     'stage-label',
@@ -925,35 +1067,43 @@ onMounted(() => {
                   </el-table-column>
                   <el-table-column label="状态" width="90" align="center">
                     <template #default="{ row }">
-                      <el-tag v-if="row.auto" size="small" type="success">自动生效</el-tag>
-                      <el-tag v-else-if="isClaimedEquity(row)" size="small" type="warning">已领</el-tag>
-                      <el-tag v-else-if="isClaimableEquity(row)" size="small" type="primary">待领</el-tag>
-                      <span v-else>{{ row.status || '不可领' }}</span>
+                      <el-tag size="small" :type="getRtimeEquityStatus(row).type">
+                        {{ getRtimeEquityStatus(row).label }}
+                      </el-tag>
                     </template>
                   </el-table-column>
                   <el-table-column label="操作" width="120" align="center">
                     <template #default="{ row }">
                       <span v-if="row.auto">-</span>
-                      <el-image
+                      <img
                         v-else-if="isClaimedEquity(row) && row.useEquityIconUrl"
                         :src="row.useEquityIconUrl"
-                        fit="contain"
-                        style="width: 80px; height: 28px; cursor: pointer"
-                      />
-                      <el-button v-else-if="isClaimedEquity(row)" type="warning" size="small" round>去使用</el-button>
-                      <el-image
+                        class="equity-action-icon"
+                        alt="去使用"
+                      >
+                      <el-button
+                        v-else-if="isClaimedEquity(row)"
+                        type="warning"
+                        size="small"
+                        round
+                        @click="handleUseRtimeEquity(row)"
+                      >
+                        去使用
+                      </el-button>
+                      <img
                         v-else-if="isClaimableEquity(row) && row.getEquityIconUrl"
                         :src="row.getEquityIconUrl"
-                        fit="contain"
-                        style="width: 80px; height: 28px; cursor: pointer"
+                        class="equity-action-icon"
+                        alt="领取"
                         @click="handleGainEquity(row)"
-                      />
+                      >
                       <el-button
                         v-else-if="isClaimableEquity(row)"
                         type="primary"
                         size="small"
                         round
-                        :loading="equityLoading"
+                        :loading="isRtimeEquityLoading(row)"
+                        :disabled="batchLoading"
                         @click="handleGainEquity(row)"
                       >
                         领取
@@ -1124,19 +1274,19 @@ onMounted(() => {
                           去使用
                         </el-button>
                         <el-button
-                          v-else-if="right.receiveStatus === 1"
+                          v-else-if="canReceiveWPlusRight(right)"
                           type="primary"
                           size="small"
                           round
+                          :loading="isWPlusRightLoading(right)"
+                          :disabled="batchLoading"
                           @click="handleReceiveWPlusRight(right)"
                         >
                           领取
                         </el-button>
-                        <el-tag v-else-if="right.receiveStatus === 4" type="info" size="small">已过期</el-tag>
-                        <el-tag v-else-if="right.receiveStatus === 8" type="success" size="small">需实名</el-tag>
-                        <el-tag v-else-if="right.receiveStatus === 10" type="warning" size="small">生日专享</el-tag>
-                        <el-tag v-else-if="right.receiveStatus === 3" type="info" size="small">已生效</el-tag>
-                        <el-tag v-else type="info" size="small">{{ getWPlusStatusText(right.receiveStatus) }}</el-tag>
+                        <el-tag v-else :type="getWPlusStatusType(right.receiveStatus)" size="small">
+                          {{ getWPlusStatusText(right.receiveStatus) }}
+                        </el-tag>
                       </div>
                     </div>
                   </div>
@@ -1149,12 +1299,12 @@ onMounted(() => {
 
               <el-empty
                 v-else-if="!wplusRightGroups.length"
-                description="获取W+会员信息失败"
+                :description="wplusEmptyDescription"
                 :image-size="60"
               />
             </template>
 
-            <el-empty v-else description="获取W+会员信息失败" :image-size="60" />
+            <el-empty v-else :description="wplusEmptyDescription" :image-size="60" />
           </div>
 
           <div class="wplus-actions">
@@ -1470,6 +1620,13 @@ onMounted(() => {
   object-fit: contain;
   border-radius: 8px;
   flex-shrink: 0;
+}
+
+.equity-action-icon {
+  width: 80px;
+  height: 28px;
+  object-fit: contain;
+  cursor: pointer;
 }
 
 .right-item-info {
