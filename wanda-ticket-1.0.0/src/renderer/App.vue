@@ -471,11 +471,11 @@ function registerAutoOrderListener(): void {
 }
 
 .workspace-layout {
-  min-width: 1180px;
+  min-width: 1280px;
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: 392px minmax(0, 1fr);
   gap: 12px;
 }
 
