@@ -50,6 +50,17 @@ const navItems = [
   { path: '/settings', label: '设置', icon: Setting }
 ]
 
+function syncThemeClass(): void {
+  if (typeof document === 'undefined') {
+    return
+  }
+
+  const isDark = settingsStore.themeMode === '深色'
+  document.documentElement.classList.toggle('dark', isDark)
+  document.documentElement.classList.toggle('theme-dark', isDark)
+  document.body.classList.toggle('theme-dark', isDark)
+}
+
 onMounted(async () => {
   await Promise.all([
     appStore.initialize(),
@@ -57,13 +68,18 @@ onMounted(async () => {
     settingsStore.loadSettings(),
     ticketStore.loadCityData()
   ])
+  syncThemeClass()
   localDataLoaded = true
   registerAutoOrderListener()
 })
 
 onBeforeUnmount(() => {
   stopAutoOrderListener?.()
+  document.documentElement.classList.remove('dark', 'theme-dark')
+  document.body.classList.remove('theme-dark')
 })
+
+watch(() => settingsStore.themeMode, syncThemeClass, { immediate: true })
 
 watch(
   () => ({
