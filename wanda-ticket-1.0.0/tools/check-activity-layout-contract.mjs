@@ -37,6 +37,7 @@ for (const text of [
   'activity-toolbar-section--location {\n  flex: 1 1 620px;',
   'activity-toolbar-section--manual {\n  flex: 0 1 350px;',
   'activity-toolbar-section--proxy {\n  flex: 1 1 425px;',
+  '.panel.activity-toolbar {\n  flex-direction: row;\n  align-content: center;',
   'grid-template-columns: minmax(0, 1fr) minmax(360px, 0.36fr);'
 ]) {
   assertIncludes('src/renderer/views/ActivityView.vue', activityView, text)

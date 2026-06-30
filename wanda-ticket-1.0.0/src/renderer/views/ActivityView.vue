@@ -1001,6 +1001,11 @@ watch(
   overflow: hidden;
 }
 
+.panel.activity-toolbar {
+  flex-direction: row;
+  align-content: center;
+}
+
 .gifts-panel {
   min-height: 0;
 }
