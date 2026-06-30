@@ -20,6 +20,7 @@
     "check:ai-ocr": "node tools/check-ai-ocr-contract.mjs",
     "check:ticket-code": "node tools/check-ticket-code-contract.mjs",
     "check:history-ticket-code": "node tools/check-history-ticket-code-contract.mjs",
+    "check:history-order-layout": "node tools/check-history-order-layout-contract.mjs",
     "check:payment-submit": "node tools/check-payment-submit-contract.mjs",
     "check:wanda-diagnostics": "node tools/check-wanda-diagnostics-contract.mjs",
     "check:activity-gift": "node tools/check-activity-gift-contract.mjs",

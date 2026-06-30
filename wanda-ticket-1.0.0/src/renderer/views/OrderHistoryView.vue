@@ -301,6 +301,22 @@ function handleExport() {
   ElMessage.success('导出成功')
 }
 
+function getOrderStatusTagType(row: OrderRecord): 'success' | 'warning' | 'info' | 'danger' {
+  if (row.status === 'completed') {
+    return 'success'
+  }
+
+  if (row.status === 'pending') {
+    return 'warning'
+  }
+
+  if (row.status === 'refunded') {
+    return 'danger'
+  }
+
+  return 'info'
+}
+
 async function fillCinemaAddress(detail: TicketDetail, payInfo: OrderPayInfoResult) {
   if (detail.cinemaAddress) {
     return
@@ -540,8 +556,27 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="page-container">
-    <div class="order-filter-bar">
+  <section class="history-order-page">
+    <section class="history-summary-grid" aria-label="历史订单摘要">
+      <article class="history-summary-card history-summary-card--blue">
+        <span class="stat-label">今日订单</span>
+        <strong class="stat-value">{{ ordersStore.summary.today }}</strong>
+      </article>
+      <article class="history-summary-card history-summary-card--orange">
+        <span class="stat-label">待处理</span>
+        <strong class="stat-value">{{ ordersStore.summary.pending }}</strong>
+      </article>
+      <article class="history-summary-card history-summary-card--green">
+        <span class="stat-label">已完成</span>
+        <strong class="stat-value">{{ ordersStore.summary.completed }}</strong>
+      </article>
+      <article class="history-summary-card history-summary-card--red">
+        <span class="stat-label">总金额</span>
+        <strong class="stat-value">{{ ordersStore.totalAmountText }}</strong>
+      </article>
+    </section>
+
+    <section class="history-filter-panel panel">
       <div class="filter-left">
         <el-input
           v-model="ordersStore.filters.keyword"
@@ -574,115 +609,104 @@ onBeforeUnmount(() => {
       <div class="filter-right">
         <el-button type="success" :icon="Download" @click="handleExport">导出</el-button>
       </div>
-    </div>
+    </section>
 
-    <div class="order-stats">
-      <div class="stat-card">
-        <span class="stat-label">今日订单</span>
-        <span class="stat-value primary">{{ ordersStore.summary.today }}</span>
+    <section class="history-table-panel panel">
+      <header class="history-table-header">
+        <div class="history-table-title">
+          <span>
+            <el-icon><Tickets /></el-icon>
+            订单列表
+          </span>
+          <em>{{ ordersStore.filteredOrders.length }} / {{ ordersStore.total }} 条</em>
+        </div>
+        <span class="history-table-hint">双击订单可查看取票信息</span>
+      </header>
+
+      <div class="order-table-wrapper">
+        <el-table
+          v-loading="ordersStore.loading || ordersStore.detailLoading"
+          :data="ordersStore.filteredOrders"
+          height="100%"
+          highlight-current-row
+          :empty-text="ordersStore.message || '暂无数据'"
+          @row-dblclick="handleViewOrderDetail"
+        >
+          <el-table-column prop="phone" label="手机号" width="132" />
+
+          <el-table-column prop="orderNo" label="订单号" width="156">
+            <template #default="{ row }">
+              <span class="order-no">{{ row.orderNo }}</span>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="订单信息" min-width="360">
+            <template #default="{ row }">
+              <div class="order-primary-cell">
+                <strong class="order-primary-title">{{ row.movieName || '-' }}</strong>
+                <span class="order-primary-meta">{{ row.cinema || '-' }}</span>
+                <span class="order-primary-meta">{{ row.showtime || '-' }}</span>
+              </div>
+            </template>
+          </el-table-column>
+
+          <el-table-column prop="amount" label="金额" width="110" align="right">
+            <template #default="{ row }">
+              <span class="amount">{{ formatMoney(row.amount) }}</span>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="状态" width="104" align="center">
+            <template #default="{ row }">
+              <el-tag :type="getOrderStatusTagType(row)" size="small">
+                {{ row.statusText || row.status }}
+              </el-tag>
+            </template>
+          </el-table-column>
+
+          <el-table-column prop="createdAt" label="创建时间" width="160" />
+
+          <el-table-column label="操作" width="190" align="right" fixed="right">
+            <template #default="{ row }">
+              <div class="order-action-group">
+                <el-button link type="primary" size="small" @click.stop="handleQueryPayInfo(row)">详情</el-button>
+                <el-button
+                  v-if="row.status === 'pending'"
+                  link
+                  type="danger"
+                  size="small"
+                  @click.stop="handleCancelOrder(row)"
+                >
+                  取消
+                </el-button>
+                <el-button
+                  v-if="row.status === 'completed'"
+                  link
+                  type="danger"
+                  size="small"
+                  @click.stop="handleRefundOrder(row)"
+                >
+                  退款
+                </el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
-      <div class="stat-card">
-        <span class="stat-label">待处理</span>
-        <span class="stat-value warning">{{ ordersStore.summary.pending }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">已完成</span>
-        <span class="stat-value success">{{ ordersStore.summary.completed }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">总金额</span>
-        <span class="stat-value danger">{{ ordersStore.totalAmountText }}</span>
-      </div>
-    </div>
 
-    <div class="order-table-wrapper">
-      <el-table
-        v-loading="ordersStore.loading || ordersStore.detailLoading"
-        :data="ordersStore.filteredOrders"
-        stripe
-        height="100%"
-        highlight-current-row
-        :empty-text="ordersStore.message || '暂无数据'"
-      >
-        <el-table-column prop="phone" label="手机号" width="140" />
-
-        <el-table-column prop="orderNo" label="订单号" width="150">
-          <template #default="{ row }">
-            <span class="order-no">{{ row.orderNo }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="movieName" label="影片" min-width="140" />
-        <el-table-column prop="cinema" label="影院" min-width="160" />
-        <el-table-column prop="showtime" label="场次" width="120" />
-
-        <el-table-column prop="amount" label="金额" width="100" align="center">
-          <template #default="{ row }">
-            <span class="amount">{{ formatMoney(row.amount) }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag
-              :type="
-                row.status === 'completed'
-                  ? 'success'
-                  : row.status === 'pending'
-                    ? 'warning'
-                    : row.status === 'cancelled'
-                      ? 'info'
-                      : row.status === 'refunded'
-                        ? 'danger'
-                        : 'info'
-              "
-              size="small"
-            >
-              {{ row.statusText || row.status }}
-            </el-tag>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="createdAt" label="创建时间" width="160" />
-
-        <el-table-column label="操作" width="180" align="center" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" size="small" @click.stop="handleQueryPayInfo(row)">详情</el-button>
-            <el-button
-              v-if="row.status === 'pending'"
-              link
-              type="danger"
-              size="small"
-              @click.stop="handleCancelOrder(row)"
-            >
-              取消
-            </el-button>
-            <el-button
-              v-if="row.status === 'completed'"
-              link
-              type="danger"
-              size="small"
-              @click.stop="handleRefundOrder(row)"
-            >
-              退款
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </div>
-
-    <div class="order-pagination">
-      <el-pagination
-        v-model:current-page="ordersStore.pageIndex"
-        v-model:page-size="ordersStore.pageSize"
-        :page-sizes="[20, 50, 100]"
-        :total="ordersStore.total"
-        layout="total, sizes, prev, pager, next, jumper"
-        background
-        @size-change="ordersStore.loadOrders"
-        @current-change="ordersStore.loadOrders"
-      />
-    </div>
+      <footer class="order-pagination">
+        <el-pagination
+          v-model:current-page="ordersStore.pageIndex"
+          v-model:page-size="ordersStore.pageSize"
+          :page-sizes="[20, 50, 100]"
+          :total="ordersStore.total"
+          layout="total, sizes, prev, pager, next, jumper"
+          background
+          @size-change="ordersStore.loadOrders"
+          @current-change="ordersStore.loadOrders"
+        />
+      </footer>
+    </section>
 
     <Transition name="ticket-fade">
       <div v-if="ticketDialogVisible && ticketDetail" class="ticket-overlay" @click="closeTicketDialog">
@@ -834,120 +858,206 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.page-container {
-  min-width: 980px;
+.history-order-page {
+  min-width: 0;
   height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 86px auto minmax(0, 1fr);
+  gap: 12px;
+  overflow: hidden;
+}
+
+.panel {
+  min-width: 0;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface);
+  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+}
+
+.history-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.history-summary-card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  padding: 13px 16px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface);
+  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+}
+
+.history-summary-card--blue { border-color: #c8def8; background: #f7fbff; }
+.history-summary-card--green { border-color: #c8ead3; background: #f6fdf8; }
+.history-summary-card--orange { border-color: #f2d9b3; background: #fffaf2; }
+.history-summary-card--red { border-color: #f1c9c9; background: #fff8f8; }
+
+.stat-label {
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.stat-value {
+  min-width: 0;
+  color: var(--app-text);
+  font-size: 18px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-filter-panel {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.filter-left,
+.filter-right {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-left {
+  flex: 1;
+}
+
+.filter-right {
+  flex: 0 0 auto;
+}
+
+.history-table-panel {
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-.order-filter-bar {
-  height: 56px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-light);
+.history-table-header {
+  min-height: 48px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--spacing-md);
-  gap: var(--spacing-md);
-  flex-shrink: 0;
+  gap: 12px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--app-border);
 }
 
-.filter-left,
-.filter-right {
+.history-table-title {
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
-}
-
-.order-stats {
-  display: flex;
-  gap: var(--spacing-md);
-  padding: var(--spacing-md);
-  flex-shrink: 0;
-}
-
-.stat-card {
-  flex: 1;
-  background: var(--bg-secondary);
-  border-radius: var(--radius-base);
-  border: 1px solid var(--border-light);
-  padding: 16px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  box-shadow: var(--shadow-light);
-}
-
-.stat-label {
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-}
-
-.stat-value {
-  font-size: var(--font-size-xxl);
+  gap: 10px;
+  color: var(--app-text);
   font-weight: 700;
 }
 
-.stat-value.primary {
-  color: var(--wanda-primary);
+.history-table-title span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.stat-value.success {
-  color: var(--wanda-success);
+.history-table-title :deep(.el-icon) {
+  color: var(--app-accent);
 }
 
-.stat-value.warning {
-  color: var(--wanda-warning);
-}
-
-.stat-value.danger {
-  color: var(--wanda-danger);
+.history-table-title em,
+.history-table-hint {
+  color: var(--app-muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
 }
 
 .order-table-wrapper {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  padding: 0 var(--spacing-md);
+  padding: 0 12px;
 }
 
 .order-table-wrapper :deep(.el-table) {
-  --el-table-border-color: var(--border-light);
+  --el-table-border-color: var(--app-border);
+  color: var(--app-text);
 }
 
 .order-table-wrapper :deep(th.el-table__cell) {
-  background: #fafbfc;
-  font-weight: 600;
-  color: var(--text-primary);
+  background: #f8fafc;
+  color: var(--app-subtle);
+  font-weight: 700;
 }
 
 .order-table-wrapper :deep(.el-table__body tr) {
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background-color 160ms ease;
+}
+
+.order-primary-cell {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  line-height: 1.35;
+}
+
+.order-primary-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--app-text);
+  font-weight: 700;
+}
+
+.order-primary-meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--app-muted);
+  font-size: 12px;
 }
 
 .order-no {
+  color: var(--app-muted);
   font-family: 'Courier New', monospace;
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 .amount {
-  font-weight: 600;
-  color: var(--wanda-danger);
+  color: #d16b6b;
+  font-weight: 700;
+}
+
+.order-action-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  white-space: nowrap;
 }
 
 .order-pagination {
-  height: 52px;
+  min-height: 54px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  padding: 0 var(--spacing-md);
-  background: var(--bg-secondary);
-  border-top: 1px solid var(--border-light);
+  padding: 0 14px;
+  border-top: 1px solid var(--app-border);
+  background: var(--app-surface);
   flex-shrink: 0;
 }
 
