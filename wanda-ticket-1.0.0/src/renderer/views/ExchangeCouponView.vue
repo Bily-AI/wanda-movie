@@ -259,6 +259,7 @@ const couponRows = computed(() => {
 })
 
 const nameOptions = computed(() => [...new Set(coupons.value.map((coupon) => coupon.name).filter(Boolean))])
+const presentableCouponCount = computed(() => coupons.value.filter((coupon) => coupon.giftStatus === 1).length)
 
 const couponNameStats = computed(() => {
   const stats = new Map<string, number>()
@@ -417,6 +418,22 @@ function handleSelectionChange(rows: MemberCouponRow[]) {
 function showCouponDetail(row: MemberCouponRow) {
   currentCouponDetail.value = row
   couponDetailDialogVisible.value = true
+}
+
+function formatCouponValidity(row: MemberCouponRow): string {
+  if (row.endTime) {
+    const endTime = row.endTime < 1_000_000_000_000 ? row.endTime * 1000 : row.endTime
+    const date = new Date(endTime)
+
+    if (!Number.isNaN(date.getTime())) {
+      return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日过期`
+    }
+  }
+
+  return String(row.validityDateShowMsg || row.validity || '')
+    .replace('有效期：', '')
+    .replace('有效期:', '')
+    .trim() || '-'
 }
 
 function showStats() {
@@ -771,7 +788,7 @@ async function handleGenerateCouponLink(row: MemberCouponRow) {
 ${finalUrl}`)
     logsStore.addLog('兑换券', account.phone, `生成兑换链接 ${maskVoucherNo(couponId)}`)
   } catch (error) {
-    ElMessage.error(getErrorMessage(error, '????'))
+    ElMessage.error(getErrorMessage(error, '生成分享链接失败'))
   }
 }
 
@@ -808,112 +825,136 @@ watch(
 </script>
 
 <template>
-  <section class="page-container">
-    <div v-if="!accountsStore.currentAccount" class="no-account-hint">
-      <el-empty description="请先在左侧选择一个已登录的万达账号" :image-size="80" />
-    </div>
+  <section class="coupon-page">
+    <section class="coupon-summary-grid" aria-label="兑换券摘要">
+      <article class="coupon-summary-card coupon-summary-card--blue">
+        <span>可见兑换券</span>
+        <strong>{{ couponRows.length }}</strong>
+        <em>全部 {{ coupons.length }} 张</em>
+      </article>
+      <article class="coupon-summary-card coupon-summary-card--green">
+        <span>可赠送</span>
+        <strong>{{ presentableCouponCount }}</strong>
+      </article>
+      <article class="coupon-summary-card coupon-summary-card--amber">
+        <span>已选择</span>
+        <strong>{{ selectedCoupons.length }}</strong>
+      </article>
+      <article class="coupon-summary-card">
+        <span>分类</span>
+        <strong>{{ couponCategories.length }}</strong>
+        <em>{{ statsMode ? '统计视图' : '明细视图' }}</em>
+      </article>
+    </section>
 
-    <template v-else>
-      <div v-if="loading" class="loading-wrapper">
-        <el-skeleton :rows="3" animated />
+    <section class="coupon-filter-panel panel">
+      <div class="coupon-filter-left">
+        <el-input v-model="keyword" placeholder="搜索券号 / 名称 / couponNo" clearable :prefix-icon="Search" style="width: 260px" />
+        <el-select v-model="nameFilter" placeholder="券名称" clearable style="width: 170px">
+          <el-option v-for="name in nameOptions" :key="name" :label="name" :value="name" />
+        </el-select>
+        <el-select v-model="categoryFilter" placeholder="分类" clearable style="width: 150px">
+          <el-option v-for="category in couponCategories" :key="category.id" :label="category.name" :value="category.id" />
+        </el-select>
+        <el-button :type="statsMode ? 'warning' : 'default'" @click="showStats">
+          {{ statsMode ? '明细' : '统计' }}
+        </el-button>
+        <el-button :icon="Refresh" :loading="loading" @click="loadCoupons">刷新</el-button>
       </div>
 
-      <div v-else class="section-wrapper">
-        <div class="section-header">
-          <span class="section-title">
+      <div class="coupon-filter-right">
+        <el-button type="primary" @click="openBindDialog">绑定卡券</el-button>
+        <el-button type="warning" @click="handleBatchPresent">
+          批量赠送<span v-if="selectedCoupons.length > 0">（{{ selectedCoupons.length }}）</span>
+        </el-button>
+        <el-button @click="openCategoryDialog">分类管理</el-button>
+      </div>
+    </section>
+
+    <section class="coupon-table-panel panel">
+      <header class="coupon-table-header">
+        <div class="coupon-table-title">
+          <span>
             <el-icon><Present /></el-icon>
-            兑换券
-            <span class="count-badge">{{ couponRows.length }}</span>
+            兑换券列表
           </span>
-
-          <div class="section-header-actions">
-            <el-button size="small" type="primary" @click="openBindDialog">绑定卡券</el-button>
-            <el-button size="small" type="warning" @click="handleBatchPresent">批量赠送<span v-if="selectedCoupons.length > 0"> ({{ selectedCoupons.length }})</span></el-button>
-            <el-select v-model="nameFilter" placeholder="选择券名称" size="small" clearable style="width: 160px">
-              <el-option v-for="name in nameOptions" :key="name" :label="name" :value="name" />
-            </el-select>
-            <el-select v-model="categoryFilter" placeholder="按分类筛选" size="small" clearable style="width: 160px">
-              <el-option v-for="category in couponCategories" :key="category.id" :label="category.name" :value="category.id" />
-            </el-select>
-            <el-button size="small" @click="openCategoryDialog">分类管理</el-button>
-            <el-input v-model="keyword" placeholder="搜索关键字" size="small" clearable style="width: 200px">
-              <template #prefix>
-                <el-icon><Search /></el-icon>
-              </template>
-            </el-input>
-            <el-button size="small" :type="statsMode ? 'warning' : 'default'" @click="showStats">
-              {{ statsMode ? '明细' : '统计' }}
-            </el-button>
-            <el-button size="small" :icon="Refresh" :loading="loading" @click="loadCoupons">刷新</el-button>
-          </div>
+          <em>{{ couponRows.length }} / {{ coupons.length }} 张</em>
         </div>
+        <span class="coupon-table-hint">可复制券名、生成兑换链接或赠送给指定手机号</span>
+      </header>
 
-        <div class="coupon-table-wrapper">
-          <el-table
-            v-if="statsMode"
-            :data="couponNameStats"
-            size="default"
-            stripe
-            height="100%"
-            :empty-text="couponMessage || '暂无统计数据'"
-          >
-            <el-table-column type="index" label="#" width="50" align="center" />
-            <el-table-column prop="name" label="券名称" min-width="220" show-overflow-tooltip />
-            <el-table-column prop="count" label="张数" width="120" align="center">
-              <template #default="{ row }">
-                <el-tag type="warning" size="small">{{ row.count }}</el-tag>
-              </template>
-            </el-table-column>
-          </el-table>
+      <div v-if="!accountsStore.currentAccount" class="no-account-hint">
+        <el-empty description="请先在左侧选择一个已登录的万达账号" :image-size="80" />
+      </div>
 
-          <el-table
-            v-else
-            :data="couponRows"
-            size="default"
-            stripe
-            height="100%"
-            @sort-change="handleCouponSortChange"
-            @selection-change="handleSelectionChange"
-          >
-            <el-table-column type="selection" width="40" />
-            <el-table-column prop="couponId" label="券号" width="160" show-overflow-tooltip>
-              <template #default="{ row }">
-                <span class="coupon-code">{{ row.couponId || '-' }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="couponNo" label="couponNo" width="135" show-overflow-tooltip>
-              <template #default="{ row }">
-                <span class="coupon-code">{{ row.couponNo || '-' }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="couponTypeName" label="券名称" min-width="200" show-overflow-tooltip sortable="custom">
-              <template #default="{ row }">
-                <span class="copyable-cell" :title="`点击复制: ${row.couponTypeName || '-'}`" @click="copyCouponName(row.couponTypeName || '-')">
-                  {{ row.couponTypeName || '-' }}
-                </span>
-              </template>
-            </el-table-column>
-            <el-table-column label="类型" width="100" align="center">
-              <template #default="{ row }">
-                <el-tag size="small">{{ row.couponCategoryName || '-' }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="状态" width="90" align="center">
-              <template #default="{ row }">
-                <el-tag :type="row.giftStatus === 1 ? 'success' : 'info'" size="small">
-                  {{ row.giftStatus === 1 ? '可赠送' : '不可赠送' }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="endTime" label="有效期" width="200" show-overflow-tooltip sortable="custom">
-              <template #default="{ row }">
-                <span :class="{ 'expiring-date': isExpiringSoon(row) }">
-                  {{ (row.validityDateShowMsg || '').replace('有效期：', '').replace('有效期:', '') }}
-                </span>
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="220" align="center" fixed="right">
-              <template #default="{ row }">
+      <div v-else-if="loading" class="loading-wrapper">
+        <el-skeleton :rows="4" animated />
+      </div>
+
+      <div v-else class="coupon-table-wrapper">
+        <el-table
+          v-if="statsMode"
+          :data="couponNameStats"
+          stripe
+          height="100%"
+          :empty-text="couponMessage || '暂无统计数据'"
+        >
+          <el-table-column type="index" label="#" width="56" align="center" />
+          <el-table-column prop="name" label="券名称" min-width="360" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span class="copyable-cell" :title="`点击复制: ${row.name || '-'}`" @click="copyCouponName(row.name || '-')">
+                {{ row.name || '-' }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="count" label="张数" width="120" align="center">
+            <template #default="{ row }">
+              <el-tag type="warning" size="small">{{ row.count }}</el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <el-table
+          v-else
+          :data="couponRows"
+          stripe
+          height="100%"
+          :empty-text="couponMessage || '暂无兑换券'"
+          @sort-change="handleCouponSortChange"
+          @selection-change="handleSelectionChange"
+        >
+          <el-table-column type="selection" width="44" />
+          <el-table-column prop="couponTypeName" label="券信息" min-width="420" sortable="custom">
+            <template #default="{ row }">
+              <div class="coupon-primary-cell">
+                <strong class="coupon-primary-title" :title="`点击复制: ${row.couponTypeName || row.name || '-'}`" @click="copyCouponName(row.couponTypeName || row.name || '-')">
+                  {{ row.couponTypeName || row.name || '-' }}
+                </strong>
+                <span class="coupon-primary-meta">券号：<span class="coupon-code">{{ row.couponId || '-' }}</span></span>
+                <span class="coupon-primary-meta">couponNo：<span class="coupon-code">{{ row.couponNo || '-' }}</span></span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="类型" width="116" align="center">
+            <template #default="{ row }">
+              <el-tag size="small">{{ row.couponCategoryName || '-' }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="104" align="center">
+            <template #default="{ row }">
+              <el-tag :type="row.giftStatus === 1 ? 'success' : 'info'" size="small">
+                {{ row.giftStatus === 1 ? '可赠送' : '不可赠送' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="endTime" label="有效期" width="150" show-overflow-tooltip sortable="custom">
+            <template #default="{ row }">
+              <span :class="{ 'expiring-date': isExpiringSoon(row) }">{{ formatCouponValidity(row) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="220" align="right" fixed="right">
+            <template #default="{ row }">
+              <div class="coupon-action-group">
                 <el-button size="small" type="primary" link @click="handleGenerateCouponLink(row)">
                   生成链接
                 </el-button>
@@ -921,14 +962,12 @@ watch(
                   赠送
                 </el-button>
                 <el-button size="small" link @click="showCouponDetail(row)">详情</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-
-          <el-empty v-if="!statsMode && couponRows.length === 0" description="暂无兑换券" :image-size="80" />
-        </div>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
-    </template>
+    </section>
 
     <el-dialog v-model="presentDialogVisible" :title="pendingPresentCoupons.length > 1 ? '批量赠送兑换券' : '赠送兑换券'" width="520px" :close-on-click-modal="false" @closed="resetPresentForm">
       <div class="coupon-gift-list">
@@ -1078,89 +1117,165 @@ watch(
 </template>
 
 <style scoped>
-.page-container {
-  display: flex;
-  flex-direction: column;
+.coupon-page {
+  min-width: 0;
   height: 100%;
-  overflow: hidden;
-  position: relative;
-}
-
-.no-account-hint {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-}
-
-.loading-wrapper {
-  padding: 24px;
-}
-
-.section-wrapper {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
   min-height: 0;
+  display: grid;
+  grid-template-rows: 86px auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-page, var(--app-bg));
 }
 
-.section-header {
+.coupon-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.coupon-summary-card {
+  min-width: 0;
+  height: 86px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 16px;
+  border: 1px solid #d8e8ff;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.coupon-summary-card span,
+.coupon-summary-card em {
+  overflow: hidden;
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 13px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coupon-summary-card strong {
+  overflow: hidden;
+  color: var(--text-primary, var(--app-text));
+  font-size: 22px;
+  line-height: 1.12;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coupon-summary-card--blue {
+  border-color: #bfdbfe;
+  background: #f0f7ff;
+}
+
+.coupon-summary-card--green {
+  border-color: #bbf7d0;
+  background: #f3fcf6;
+}
+
+.coupon-summary-card--amber {
+  border-color: #fed7aa;
+  background: #fff8ed;
+}
+
+.coupon-filter-panel {
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px var(--spacing-md);
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-light);
+  gap: 16px;
+  padding: 10px 14px;
+  overflow: hidden;
+}
+
+.coupon-filter-left,
+.coupon-filter-right {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.coupon-filter-left {
+  flex: 1;
+}
+
+.coupon-filter-right {
   flex-shrink: 0;
 }
 
-.section-title {
+.coupon-table-panel {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.coupon-table-header {
+  min-height: 50px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  color: var(--text-primary);
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border-light, var(--app-border));
 }
 
-.section-title :deep(.el-icon) {
-  color: var(--wanda-primary);
+.coupon-table-title {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
-.count-badge {
+.coupon-table-title span {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #fff;
-  background: var(--wanda-primary);
-  border-radius: 11px;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary, var(--app-text));
+  font-size: 15px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.section-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.coupon-table-title .el-icon {
+  color: var(--app-accent);
+}
+
+.coupon-table-title em,
+.coupon-table-hint {
+  overflow: hidden;
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 12px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .coupon-table-wrapper {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  padding: var(--spacing-md);
-  display: flex;
-  flex-direction: column;
 }
 
 .coupon-table-wrapper :deep(.el-table) {
-  flex: 1;
-  min-height: 0;
+  height: 100%;
   --el-table-border-color: var(--border-light);
   font-size: 13px;
+}
+
+.coupon-table-wrapper :deep(.el-table__cell) {
+  vertical-align: top;
 }
 
 .coupon-table-wrapper :deep(.el-table th.el-table__cell) {
@@ -1169,27 +1284,80 @@ watch(
   color: var(--text-primary);
 }
 
+.coupon-primary-cell {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  line-height: 1.35;
+}
+
+.coupon-primary-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--app-accent);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.coupon-primary-title:hover {
+  color: var(--wanda-primary-light);
+  text-decoration: underline;
+}
+
+.coupon-primary-meta {
+  overflow: hidden;
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .coupon-code {
+  color: var(--text-primary, var(--app-text));
   font-family: 'Courier New', monospace;
-  font-size: 14px;
-  color: var(--text-primary);
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .copyable-cell {
   cursor: pointer;
-  color: #409eff;
+  color: var(--app-accent);
   transition: color 0.2s;
 }
 
 .copyable-cell:hover {
-  color: #66b1ff;
+  color: var(--wanda-primary-light);
   text-decoration: underline;
 }
 
+.coupon-action-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+
 .expiring-date {
-  color: #e6a23c;
+  color: #b45309;
   font-weight: 600;
+}
+
+.no-account-hint,
+.loading-wrapper {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.loading-wrapper {
+  align-items: stretch;
 }
 
 .coupon-gift-list {
@@ -1365,6 +1533,42 @@ watch(
   color: #666;
   font-size: 15px;
   font-weight: 500;
+}
+
+@media (max-width: 1480px) {
+  .coupon-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: 82px;
+  }
+
+  .coupon-page {
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .coupon-filter-panel {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .coupon-filter-left {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-height: 720px) {
+  .coupon-page {
+    grid-template-rows: 72px auto minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .coupon-summary-card {
+    height: 72px;
+  }
+
+  .coupon-summary-card strong {
+    font-size: 20px;
+  }
 }
 </style>
 

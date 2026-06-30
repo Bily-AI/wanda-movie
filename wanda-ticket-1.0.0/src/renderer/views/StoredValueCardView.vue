@@ -57,6 +57,8 @@ const paymentResult = ref<PaymentDialogData | null>(null)
 let loadSerial = 0
 
 const cardRows = computed(() => cards.value)
+const availableCardCount = computed(() => cards.value.filter((card) => card.available).length)
+const unavailableCardCount = computed(() => Math.max(cards.value.length - availableCardCount.value, 0))
 const normalBalance = computed(
   () => balanceInfo.value?.balance ?? cards.value.reduce((sum, card) => sum + card.balance, 0)
 )
@@ -461,65 +463,122 @@ watch(cardDisplayMode, (mode) => {
 </script>
 
 <template>
-  <section class="card-page table-page">
-    <header class="page-toolbar">
-      <div class="page-title">
-        <el-icon><CreditCard /></el-icon>
-        <strong>储值卡</strong>
-        <el-tag round>{{ cardRows.length }}</el-tag>
-      </div>
-      <span class="toolbar-spacer" />
-      <span class="total-text">总额: {{ formatMoney(totalBalance) }}</span>
-      <el-button @click="cardDisplayMode = cardDisplayMode === 'table' ? 'card' : 'table'">
-        {{ cardDisplayMode === 'table' ? '卡片' : '列表' }}
-      </el-button>
-      <el-button type="success" :icon="ShoppingCart" @click="openPurchaseDialog">购买储值卡</el-button>
-      <el-button type="warning" :loading="loadingAll" @click="loadAllAccountsCards">获取全部账号支付卡</el-button>
-      <el-button :icon="Refresh" :loading="loading" @click="loadCards">刷新</el-button>
-    </header>
-
-    <section v-if="cardDisplayMode === 'table'" class="table-panel">
-      <el-table v-loading="loading" :data="cardRows" height="100%" :empty-text="cardsMessage || '暂无数据'">
-        <el-table-column prop="holder" label="持有人" min-width="140" />
-        <el-table-column prop="name" label="卡名称" min-width="210" />
-        <el-table-column prop="cardNo" label="卡号" min-width="210" />
-        <el-table-column label="余额" width="110">
-          <template #default="{ row }">{{ formatMoney(row.balance) }}</template>
-        </el-table-column>
-        <el-table-column label="赠送余额" width="120">
-          <template #default="{ row }">{{ formatMoney(row.presentBalance) }}</template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="110" />
-        <el-table-column prop="effectDate" label="有效期" min-width="150" />
-        <el-table-column label="操作" width="190" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="showCardDetail(row)">详情</el-button>
-            <el-button link type="success" @click="openRechargeDialog(row)">充值</el-button>
-            <el-button link @click="openTransferDialog(row)">赠送</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+  <section class="stored-card-page">
+    <section class="stored-card-summary-grid" aria-label="储值卡摘要">
+      <article class="stored-summary-card stored-summary-card--blue">
+        <span>储值卡</span>
+        <strong>{{ cardRows.length }}</strong>
+        <em>可用 {{ availableCardCount }} 张</em>
+      </article>
+      <article class="stored-summary-card stored-summary-card--green">
+        <span>总余额</span>
+        <strong>{{ formatMoney(totalBalance) }}</strong>
+      </article>
+      <article class="stored-summary-card">
+        <span>本金余额</span>
+        <strong>{{ formatMoney(normalBalance) }}</strong>
+      </article>
+      <article class="stored-summary-card stored-summary-card--amber">
+        <span>赠送余额</span>
+        <strong>{{ formatMoney(presentBalance) }}</strong>
+        <em>不可用 {{ unavailableCardCount }} 张</em>
+      </article>
     </section>
 
-    <section v-else v-loading="loading" class="card-grid-panel">
-      <el-empty v-if="cardRows.length === 0" :description="cardsMessage || '暂无数据'" />
-      <article v-for="row in cardRows" v-else :key="row.cardNo || row.name" class="stored-card">
-        <div class="stored-card-top">
-          <strong>{{ row.name || '储值卡' }}</strong>
-          <el-tag size="small" :type="row.available ? 'success' : 'info'">{{ row.status }}</el-tag>
+    <section class="stored-card-action-panel panel">
+      <div class="stored-card-action-left">
+        <el-radio-group v-model="cardDisplayMode" class="stored-card-view-toggle" size="small">
+          <el-radio-button label="table">列表</el-radio-button>
+          <el-radio-button label="card">卡片</el-radio-button>
+        </el-radio-group>
+        <span class="stored-card-account">当前账号：{{ accountsStore.currentAccount?.phone || '-' }}</span>
+      </div>
+
+      <div class="stored-card-action-right">
+        <el-button type="success" :icon="ShoppingCart" @click="openPurchaseDialog">购买储值卡</el-button>
+        <el-button type="warning" :loading="loadingAll" @click="loadAllAccountsCards">获取全部账号支付卡</el-button>
+        <el-button :icon="Refresh" :loading="loading" @click="loadCards">刷新</el-button>
+      </div>
+    </section>
+
+    <section class="stored-card-content-panel panel">
+      <header class="stored-card-panel-header">
+        <div class="stored-card-panel-title">
+          <span>
+            <el-icon><CreditCard /></el-icon>
+            储值卡列表
+          </span>
+          <em>{{ cardRows.length }} 张 | 总额 {{ formatMoney(totalBalance) }}</em>
         </div>
-        <div class="stored-card-no">{{ row.cardNo || '-' }}</div>
-        <div class="stored-card-money">{{ formatMoney(row.balance + row.presentBalance) }}</div>
-        <div class="stored-card-meta">
-          <span>{{ row.ownerPhone || row.holder || '-' }}</span>
-          <span>{{ row.effectDate || '长期有效' }}</span>
+        <span class="stored-card-panel-hint">详情可查看接口原始数据，充值/赠送将调用真实万达接口</span>
+      </header>
+
+      <div v-if="cardDisplayMode === 'table'" class="stored-card-table-wrapper">
+        <el-table v-loading="loading" :data="cardRows" height="100%" :empty-text="cardsMessage || '暂无数据'">
+          <el-table-column prop="holder" label="持有人" width="132" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span class="stored-card-holder">{{ row.ownerPhone || row.holder || '-' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="卡信息" min-width="360">
+            <template #default="{ row }">
+              <div class="stored-card-primary-cell">
+                <strong class="stored-card-primary-title">{{ row.name || '储值卡' }}</strong>
+                <span class="stored-card-primary-meta">{{ row.cardNo || '-' }}</span>
+                <span class="stored-card-primary-meta">{{ row.categoryName || '未分类' }} · {{ row.effectDate || '长期有效' }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="余额" width="118" align="right">
+            <template #default="{ row }">
+              <span class="stored-card-amount">{{ formatMoney(row.balance + row.presentBalance) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="本金" width="108" align="right">
+            <template #default="{ row }">{{ formatMoney(row.balance) }}</template>
+          </el-table-column>
+          <el-table-column label="赠送" width="108" align="right">
+            <template #default="{ row }">{{ formatMoney(row.presentBalance) }}</template>
+          </el-table-column>
+          <el-table-column label="状态" width="108" align="center">
+            <template #default="{ row }">
+              <el-tag size="small" :type="row.available ? 'success' : 'info'">{{ row.statusDesc || row.status || '-' }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="176" align="right" fixed="right">
+            <template #default="{ row }">
+              <div class="stored-card-action-group">
+                <el-button link type="primary" size="small" @click="showCardDetail(row)">详情</el-button>
+                <el-button link type="success" size="small" @click="openRechargeDialog(row)">充值</el-button>
+                <el-button link size="small" @click="openTransferDialog(row)">赠送</el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+
+      <div v-else v-loading="loading" class="stored-card-grid-panel">
+        <el-empty v-if="cardRows.length === 0" :description="cardsMessage || '暂无数据'" />
+        <div v-else class="stored-card-grid">
+          <article v-for="row in cardRows" :key="row.cardNo || row.name" class="stored-card stored-card-item">
+            <div class="stored-card-top">
+              <strong>{{ row.name || '储值卡' }}</strong>
+              <el-tag size="small" :type="row.available ? 'success' : 'info'">{{ row.statusDesc || row.status || '-' }}</el-tag>
+            </div>
+            <div class="stored-card-no">{{ row.cardNo || '-' }}</div>
+            <div class="stored-card-money">{{ formatMoney(row.balance + row.presentBalance) }}</div>
+            <div class="stored-card-meta">
+              <span>{{ row.ownerPhone || row.holder || '-' }}</span>
+              <span>{{ row.effectDate || '长期有效' }}</span>
+            </div>
+            <div class="stored-card-actions">
+              <el-button link type="primary" @click="showCardDetail(row)">详情</el-button>
+              <el-button link type="success" @click="openRechargeDialog(row)">充值</el-button>
+              <el-button link @click="openTransferDialog(row)">赠送</el-button>
+            </div>
+          </article>
         </div>
-        <div class="stored-card-actions">
-          <el-button link type="primary" @click="showCardDetail(row)">详情</el-button>
-          <el-button link type="success" @click="openRechargeDialog(row)">充值</el-button>
-          <el-button link @click="openTransferDialog(row)">赠送</el-button>
-        </div>
-      </article>
+      </div>
     </section>
 
     <el-dialog v-model="detailDialogVisible" title="储值卡详情" width="680px">
@@ -637,67 +696,220 @@ watch(cardDisplayMode, (mode) => {
 </template>
 
 <style scoped>
-.table-page {
-  min-width: 980px;
+.stored-card-page {
+  min-width: 0;
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-rows: 50px minmax(0, 1fr);
+  grid-template-rows: 86px auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  overflow: hidden;
+  background: var(--bg-page, var(--app-bg));
+}
+
+.stored-card-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.stored-summary-card {
+  min-width: 0;
+  height: 86px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 16px;
+  border: 1px solid #d8e8ff;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.stored-summary-card span,
+.stored-summary-card em {
+  overflow: hidden;
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 13px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stored-summary-card strong {
+  overflow: hidden;
+  color: var(--text-primary, var(--app-text));
+  font-size: 21px;
+  line-height: 1.12;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stored-summary-card--blue {
+  border-color: #bfdbfe;
+  background: #f0f7ff;
+}
+
+.stored-summary-card--green {
+  border-color: #bbf7d0;
+  background: #f3fcf6;
+}
+
+.stored-summary-card--amber {
+  border-color: #fed7aa;
+  background: #fff8ed;
+}
+
+.stored-card-action-panel {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 16px;
+  padding: 10px 14px;
   overflow: hidden;
 }
 
-.page-toolbar {
+.stored-card-action-left,
+.stored-card-action-right,
+.stored-card-action-group {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
-.page-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--app-text);
-  font-size: 16px;
+.stored-card-view-toggle {
+  flex-shrink: 0;
 }
 
-.page-title :deep(.el-icon),
-.total-text {
-  color: var(--app-accent);
+.stored-card-account {
+  overflow: hidden;
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.toolbar-spacer {
-  flex: 1;
-}
-
-.total-text {
-  font-weight: 700;
-}
-
-.table-panel,
-.card-grid-panel {
+.stored-card-content-panel {
   min-height: 0;
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: var(--app-surface);
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
-.card-grid-panel {
-  padding: 16px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  align-content: start;
-  gap: 14px;
+.stored-card-panel-header {
+  min-height: 50px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border-light, var(--app-border));
+}
+
+.stored-card-panel-title {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.stored-card-panel-title span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary, var(--app-text));
+  font-size: 15px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stored-card-panel-title .el-icon {
+  color: var(--app-accent);
+}
+
+.stored-card-panel-title em,
+.stored-card-panel-hint {
+  overflow: hidden;
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 12px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stored-card-table-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.stored-card-table-wrapper :deep(.el-table) {
+  height: 100%;
+}
+
+.stored-card-table-wrapper :deep(.el-table__cell) {
+  vertical-align: top;
+}
+
+.stored-card-primary-cell {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  line-height: 1.35;
+}
+
+.stored-card-primary-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary, var(--app-text));
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.stored-card-primary-meta,
+.stored-card-holder {
+  overflow: hidden;
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stored-card-amount {
+  color: var(--app-accent);
+  font-weight: 700;
+}
+
+.stored-card-grid-panel {
+  flex: 1;
+  min-height: 0;
+  padding: 14px;
   overflow: auto;
 }
 
+.stored-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  align-content: start;
+  gap: 12px;
+}
+
 .stored-card {
+  min-width: 0;
   border: 1px solid var(--app-border);
   border-radius: 8px;
-  padding: 16px;
-  background: linear-gradient(135deg, #ffffff 0%, #f6fbff 100%);
-  box-shadow: 0 8px 20px rgb(15 23 42 / 6%);
+  padding: 14px;
+  background: #fbfdff;
 }
 
 .stored-card-top,
@@ -723,8 +935,8 @@ watch(cardDisplayMode, (mode) => {
 
 .stored-card-money {
   margin-top: 16px;
-  color: #2f91ff;
-  font-size: 28px;
+  color: var(--app-accent);
+  font-size: 24px;
   font-weight: 700;
 }
 
@@ -762,5 +974,37 @@ watch(cardDisplayMode, (mode) => {
   border: 1px solid var(--app-border);
   border-radius: 6px;
   color: var(--app-muted);
+}
+
+@media (max-width: 1360px) {
+  .stored-card-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: 82px;
+  }
+
+  .stored-card-page {
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .stored-card-action-panel {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-height: 720px) {
+  .stored-card-page {
+    grid-template-rows: 72px auto minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .stored-summary-card {
+    height: 72px;
+  }
+
+  .stored-summary-card strong {
+    font-size: 19px;
+  }
 }
 </style>
