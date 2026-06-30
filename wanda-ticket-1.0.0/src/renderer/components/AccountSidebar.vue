@@ -36,6 +36,8 @@ const importAccountsPlaceholder =
 
 function handleRowClick(row: WandaAccount): void {
   accountsStore.setCurrentAccount(row.id)
+  activeAccountTab.value = 'current'
+  ElMessage.success('切换账号成功')
 }
 
 function handleCancelSelection(): void {

@@ -34,6 +34,8 @@ assertIncludes('src/renderer/App.vue', app, 'class="workspace-content"')
 assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, 'useAccountsStore')
 assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, 'handleImportAccounts')
 assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, 'accountsStore.loginWandaAccount')
+assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, "activeAccountTab.value = 'current'")
+assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, "ElMessage.success('切换账号成功')")
 
 for (const text of [
   'accountAgeDays',
