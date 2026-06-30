@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Refresh, Search } from '@element-plus/icons-vue'
+import { Present, Refresh, Search, Tickets } from '@element-plus/icons-vue'
 
 import {
   createActivityGiftOrder,
@@ -69,6 +69,14 @@ const activityRows = computed(() => {
   })
 })
 const giftOrderRows = computed(() => giftOrders.value)
+const currentAccountPhone = computed(() => accountsStore.currentAccount?.phone || '-')
+const selectedCityName = computed(
+  () => cityOptions.value.find((city) => city.value === settingsStore.activity.city)?.label || '未选择'
+)
+const selectedCinemaName = computed(
+  () => cinemaOptions.value.find((cinema) => cinema.value === settingsStore.activity.cinema)?.label || '未选择影院'
+)
+const payableGiftOrderCount = computed(() => giftOrderRows.value.filter(canPayGiftOrder).length)
 const paymentResultText = computed(() => {
   if (!paymentResult.value) {
     return ''
@@ -578,154 +586,210 @@ watch(
 
 <template>
   <section class="activity-page">
-    <header class="activity-toolbar">
-      <span>选择城市/影院：</span>
-      <el-select
-        v-model="settingsStore.activity.city"
-        filterable
-        default-first-option
-        placeholder="城市"
-      >
-        <el-option v-for="city in cityOptions" :key="city.value" :label="city.label" :value="city.value" />
-      </el-select>
-      <el-select
-        v-model="settingsStore.activity.cinema"
-        filterable
-        default-first-option
-        placeholder="影院"
-      >
-        <el-option v-for="cinema in cinemaOptions" :key="cinema.value" :label="cinema.label" :value="cinema.value" />
-      </el-select>
-      <el-button type="primary" :icon="Refresh" :loading="loading || loadingOrders" @click="loadActivities">刷新</el-button>
-      <el-input v-model="settingsStore.activity.activityCode" placeholder="输入礼包ID/activityCode" />
-      <el-button
-        type="success"
-        :icon="Search"
-        :disabled="!settingsStore.activity.activityCode"
-        :loading="loading"
-        @click="handleAppendActivityByCode"
-      >
-        获取详情
-      </el-button>
-    </header>
-
-    <section class="panel gifts-panel">
-      <header class="panel-title">
+    <section class="activity-summary-grid" aria-label="活动摘要">
+      <article class="activity-summary-card activity-summary-card--blue">
+        <span>当前账号</span>
+        <strong>{{ currentAccountPhone }}</strong>
+        <em>{{ accountsStore.currentAccount?.statusText || '登录成功' }}</em>
+      </article>
+      <article class="activity-summary-card activity-summary-card--green">
+        <span>当前影院</span>
+        <strong>{{ selectedCityName }}</strong>
+        <em>{{ selectedCinemaName }}</em>
+      </article>
+      <article class="activity-summary-card activity-summary-card--amber">
         <span>可购买礼包</span>
-        <div class="proxy-row">
-          <span class="proxy-label">代理提取API</span>
-          <el-input
-            v-model="settingsStore.proxyApi"
-            size="small"
-            placeholder="推荐使用快代理和小象代理，代理提取api在服务设置每次提取一个IP，txt文本返回。"
-          />
-          <div class="proxy-links">
-            <a href="https://www.kuaidaili.com/" target="_blank" rel="noreferrer">快代理</a>
-            <span>/</span>
-            <a href="https://www.xiaoxiangdaili.com/" target="_blank" rel="noreferrer">小象代理</a>
-          </div>
-          <el-checkbox v-model="settingsStore.useProxyIp">使用代理IP</el-checkbox>
-        </div>
-      </header>
-      <div v-loading="loading" class="panel-body">
-        <div v-if="activityRows.length > 0" class="activity-list">
-          <article
-            v-for="row in activityRows"
-            :key="getActivityCode(row)"
-            class="activity-card"
+        <strong>{{ activityRows.length }}</strong>
+        <em>手动添加 {{ manualActivities.length }} 个</em>
+      </article>
+      <article class="activity-summary-card">
+        <span>礼包订单</span>
+        <strong>{{ giftOrderTotal }}</strong>
+        <em>待支付 {{ payableGiftOrderCount }} 单</em>
+      </article>
+    </section>
+
+    <section class="activity-toolbar panel">
+      <div class="activity-toolbar-main">
+        <label class="activity-field">
+          <span>城市</span>
+          <el-select
+            v-model="settingsStore.activity.city"
+            class="activity-select"
+            filterable
+            default-first-option
+            placeholder="选择城市"
           >
-            <img v-if="getActivityImage(row)" :src="getActivityImage(row)" class="activity-card__image" alt="礼包图片" />
-            <div class="activity-card__body">
-              <div class="activity-card__title">{{ row.name }}</div>
-              <div v-if="getActivityDescription(row)" class="activity-card__desc">{{ getActivityDescription(row) }}</div>
-              <div v-if="getActivityTimeRange(row)" class="activity-card__meta">{{ getActivityTimeRange(row) }}</div>
-            </div>
-            <div class="activity-card__actions">
-              <el-button
-                size="small"
-                type="primary"
-                :loading="detailLoadingCode === getActivityCode(row)"
-                @click="loadActivityDetail(getActivityCode(row))"
-              >
-                查看详情
-              </el-button>
-              <el-input-number
-                class="quantity-input"
-                :model-value="getGiftQuantity(row)"
-                :min="1"
-                :max="getActivityLimit(row)"
-                size="small"
-                @change="setGiftQuantity(row, $event)"
-              />
-              <span class="activity-card__price">{{ getActivityDisplayPrice(row) }}</span>
-              <el-popconfirm
-                width="240"
-                title="将创建真实礼包订单，确认购买？"
-                confirm-button-text="确认购买"
-                cancel-button-text="取消"
-                @confirm="handleBuyGift(row)"
-              >
-                <template #reference>
-                  <el-button
-                    link
-                    type="success"
-                    :disabled="!settingsStore.activity.cinema"
-                    :loading="buyingActivityCode === getActivityCode(row)"
-                  >
-                    购买
-                  </el-button>
-                </template>
-              </el-popconfirm>
-            </div>
-          </article>
+            <el-option v-for="city in cityOptions" :key="city.value" :label="city.label" :value="city.value" />
+          </el-select>
+        </label>
+        <label class="activity-field activity-field--cinema">
+          <span>影院</span>
+          <el-select
+            v-model="settingsStore.activity.cinema"
+            class="activity-select"
+            filterable
+            default-first-option
+            placeholder="选择影院"
+          >
+            <el-option v-for="cinema in cinemaOptions" :key="cinema.value" :label="cinema.label" :value="cinema.value" />
+          </el-select>
+        </label>
+        <el-button type="primary" :icon="Refresh" :loading="loading || loadingOrders" @click="loadActivities">刷新礼包</el-button>
+      </div>
+
+      <div class="activity-toolbar-extra">
+        <el-input v-model="settingsStore.activity.activityCode" placeholder="输入礼包ID/activityCode" />
+        <el-button
+          type="success"
+          :icon="Search"
+          :disabled="!settingsStore.activity.activityCode"
+          :loading="loading"
+          @click="handleAppendActivityByCode"
+        >
+          添加礼包
+        </el-button>
+      </div>
+
+      <div class="proxy-row">
+        <span class="proxy-label">代理提取API</span>
+        <el-input
+          v-model="settingsStore.proxyApi"
+          size="small"
+          placeholder="推荐使用快代理和小象代理，代理提取api在服务设置每次提取一个IP，txt文本返回。"
+        />
+        <div class="proxy-links">
+          <a href="https://www.kuaidaili.com/" target="_blank" rel="noreferrer">快代理</a>
+          <span>/</span>
+          <a href="https://www.xiaoxiangdaili.com/" target="_blank" rel="noreferrer">小象代理</a>
         </div>
-        <div v-else class="panel-empty">
-          <el-empty :description="activityMessage || '暂无活动'" />
-        </div>
+        <el-checkbox v-model="settingsStore.useProxyIp">使用代理IP</el-checkbox>
       </div>
     </section>
 
-    <section class="panel order-panel">
-      <header class="panel-title">
-        <span>我的礼包订单（共 {{ giftOrderTotal }} 单）</span>
-        <el-button size="small" :icon="Refresh" :loading="loadingOrders" @click="loadGiftOrders">
-          刷新订单
-        </el-button>
-      </header>
-      <div v-loading="loadingOrders" class="panel-body">
-        <div v-if="giftOrderRows.length > 0" class="order-list">
-          <article v-for="row in giftOrderRows" :key="row.orderId" class="order-card">
-            <div class="order-card__title">{{ row.subject }}</div>
-            <div class="order-card__meta">
-              <span>#{{ row.orderId }}</span>
-              <span
-                v-if="row.activityCode"
-                class="order-card__code"
-                title="双击复制礼包ID"
-                @dblclick="copyText(row.activityCode, `已复制：${row.activityCode}`)"
-              >
-                礼包ID：{{ row.activityCode }}
-              </span>
-              <span v-if="row.createdAt">{{ row.createdAt }}</span>
-              <span>x{{ row.quantity }}</span>
-              <span>¥{{ row.totalPrice.toFixed(2) }}</span>
-              <el-tag :type="getGiftOrderStatusType(row)" size="small">{{ row.status }}</el-tag>
-              <el-button
-                v-if="canPayGiftOrder(row)"
-                size="small"
-                type="primary"
-                :loading="buyingPaymentOrderId === row.orderId"
-                @click="handleOrderPayment(row)"
-              >
-                支付
-              </el-button>
-            </div>
-          </article>
+    <section class="activity-workspace">
+      <section class="panel gifts-panel">
+        <header class="panel-title">
+          <span>
+            <el-icon><Present /></el-icon>
+            可购买礼包
+          </span>
+          <em>{{ activityRows.length }} 个礼包</em>
+        </header>
+        <div v-loading="loading" class="panel-body">
+          <div v-if="activityRows.length > 0" class="activity-list">
+            <article
+              v-for="row in activityRows"
+              :key="getActivityCode(row)"
+              class="activity-card"
+            >
+              <img v-if="getActivityImage(row)" :src="getActivityImage(row)" class="activity-card__image" alt="礼包图片" />
+              <div v-else class="activity-card__image activity-card__image--empty">
+                <el-icon><Present /></el-icon>
+              </div>
+              <div class="activity-card__body">
+                <div class="activity-card__title">{{ row.name }}</div>
+                <div v-if="getActivityDescription(row)" class="activity-card__desc">{{ getActivityDescription(row) }}</div>
+                <div v-if="getActivityTimeRange(row)" class="activity-card__meta">{{ getActivityTimeRange(row) }}</div>
+              </div>
+              <div class="activity-card__actions">
+                <el-button
+                  size="small"
+                  type="primary"
+                  plain
+                  :loading="detailLoadingCode === getActivityCode(row)"
+                  @click="loadActivityDetail(getActivityCode(row))"
+                >
+                  查看详情
+                </el-button>
+                <el-input-number
+                  class="quantity-input"
+                  :model-value="getGiftQuantity(row)"
+                  :min="1"
+                  :max="getActivityLimit(row)"
+                  size="small"
+                  @change="setGiftQuantity(row, $event)"
+                />
+                <span class="activity-card__price">{{ getActivityDisplayPrice(row) }}</span>
+                <el-popconfirm
+                  width="240"
+                  title="将创建真实礼包订单，确认购买？"
+                  confirm-button-text="确认购买"
+                  cancel-button-text="取消"
+                  @confirm="handleBuyGift(row)"
+                >
+                  <template #reference>
+                    <el-button
+                      type="success"
+                      size="small"
+                      :disabled="!settingsStore.activity.cinema"
+                      :loading="buyingActivityCode === getActivityCode(row)"
+                    >
+                      购买
+                    </el-button>
+                  </template>
+                </el-popconfirm>
+              </div>
+            </article>
+          </div>
+          <div v-else class="panel-empty">
+            <el-empty :description="activityMessage || '暂无活动'" />
+          </div>
         </div>
-        <div v-else class="panel-empty">
-          <el-empty :description="giftOrderMessage || '暂无订单'" />
+      </section>
+
+      <section class="panel order-panel">
+        <header class="panel-title">
+          <span>
+            <el-icon><Tickets /></el-icon>
+            我的礼包订单
+          </span>
+          <div class="order-title-actions">
+            <em>共 {{ giftOrderTotal }} 单</em>
+            <el-button size="small" :icon="Refresh" :loading="loadingOrders" @click="loadGiftOrders">
+              刷新订单
+            </el-button>
+          </div>
+        </header>
+        <div v-loading="loadingOrders" class="panel-body">
+          <div v-if="giftOrderRows.length > 0" class="order-list">
+            <article v-for="row in giftOrderRows" :key="row.orderId" class="order-card">
+              <div class="order-card__header">
+                <div class="order-card__title">{{ row.subject }}</div>
+                <el-tag :type="getGiftOrderStatusType(row)" size="small">{{ row.status }}</el-tag>
+              </div>
+              <div class="order-card__meta">
+                <span>#{{ row.orderId }}</span>
+                <span
+                  v-if="row.activityCode"
+                  class="order-card__code"
+                  title="双击复制礼包ID"
+                  @dblclick="copyText(row.activityCode, `已复制：${row.activityCode}`)"
+                >
+                  礼包ID：{{ row.activityCode }}
+                </span>
+                <span v-if="row.createdAt">{{ row.createdAt }}</span>
+                <span>x{{ row.quantity }}</span>
+              </div>
+              <div class="order-card__footer">
+                <strong>¥{{ row.totalPrice.toFixed(2) }}</strong>
+                <el-button
+                  v-if="canPayGiftOrder(row)"
+                  size="small"
+                  type="primary"
+                  :loading="buyingPaymentOrderId === row.orderId"
+                  @click="handleOrderPayment(row)"
+                >
+                  支付
+                </el-button>
+              </div>
+            </article>
+          </div>
+          <div v-else class="panel-empty">
+            <el-empty :description="giftOrderMessage || '暂无订单'" />
+          </div>
         </div>
-      </div>
+      </section>
     </section>
 
     <el-dialog v-model="detailDialogVisible" title="活动详情" width="680px">
@@ -761,44 +825,145 @@ watch(
 
 <style scoped>
 .activity-page {
-  flex: 1;
+  min-width: 0;
   height: 100%;
-  min-width: 980px;
   min-height: 0;
+  display: grid;
+  grid-template-rows: 100px auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  overflow: hidden;
+  background: var(--bg-page, var(--app-bg));
+}
+
+.activity-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.activity-summary-card {
+  min-width: 0;
+  height: 100px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  justify-content: center;
+  gap: 7px;
+  padding: 14px 16px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--bg-primary, var(--app-surface));
+  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+}
+
+.activity-summary-card span,
+.activity-summary-card em {
   overflow: hidden;
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 13px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-summary-card strong {
+  overflow: hidden;
+  color: var(--text-primary, var(--app-text));
+  font-size: 22px;
+  line-height: 1.18;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-summary-card--blue {
+  border-color: #bfdbfe;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
+}
+
+.activity-summary-card--green {
+  border-color: #bbf7d0;
+  background: linear-gradient(180deg, #fbfffd 0%, #f0fdf4 100%);
+}
+
+.activity-summary-card--amber {
+  border-color: #fed7aa;
+  background: linear-gradient(180deg, #fffdf8 0%, #fff7ed 100%);
 }
 
 .activity-toolbar {
+  min-width: 0;
   display: grid;
-  grid-template-columns: auto 180px minmax(240px, 360px) 88px minmax(220px, 280px) 108px;
+  grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.9fr);
   gap: 10px;
   align-items: center;
+  padding: 12px;
+}
+
+.activity-toolbar-main,
+.activity-toolbar-extra {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.activity-toolbar-main {
+  flex-wrap: nowrap;
+}
+
+.activity-toolbar-extra {
+  justify-content: flex-end;
+}
+
+.activity-field {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.activity-field--cinema {
+  flex: 1;
+}
+
+.activity-select {
+  min-width: 150px;
+}
+
+.activity-field--cinema .activity-select {
+  width: 100%;
+}
+
+.activity-workspace {
+  min-width: 0;
   min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.36fr);
+  gap: 12px;
 }
 
 .panel {
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--app-border);
   border-radius: 8px;
-  background: var(--app-surface);
+  background: var(--bg-primary, var(--app-surface));
   box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
   overflow: hidden;
 }
 
 .gifts-panel {
-  max-height: 720px;
-  min-height: 260px;
-  flex-shrink: 0;
+  min-height: 0;
 }
 
 .order-panel {
-  min-height: 120px;
-  flex: 1;
+  min-height: 0;
 }
 
 .panel-title {
@@ -813,12 +978,40 @@ watch(
   font-weight: 700;
 }
 
-.proxy-row {
-  flex: 1;
-  display: grid;
-  grid-template-columns: auto minmax(320px, 1fr) auto auto;
-  gap: 12px;
+.panel-title > span {
+  min-width: 0;
+  display: inline-flex;
   align-items: center;
+  gap: 6px;
+}
+
+.panel-title .el-icon {
+  color: var(--wanda-primary);
+}
+
+.panel-title em,
+.order-title-actions em {
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.order-title-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.proxy-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto minmax(260px, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding-top: 10px;
+  border-top: 1px solid var(--app-border);
   color: var(--app-subtle);
   font-weight: 400;
 }
@@ -849,11 +1042,12 @@ watch(
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
+  background: #fff;
 }
 
 .panel-empty {
   height: 100%;
-  min-height: 0;
+  min-height: 220px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -864,27 +1058,36 @@ watch(
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
+  gap: 10px;
+  padding: 12px;
 }
 
 .activity-card,
 .order-card {
   display: flex;
-  gap: 14px;
-  padding: 14px 16px;
+  gap: 12px;
+  padding: 12px;
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: linear-gradient(135deg, #fff 0%, #f8fbff 100%);
+  box-shadow: 0 2px 8px rgb(31 42 68 / 4%);
 }
 
 .activity-card__image {
-  width: 120px;
-  height: 120px;
+  width: 104px;
+  height: 104px;
   border-radius: 8px;
   object-fit: cover;
   flex-shrink: 0;
   background: #f3f6fb;
+}
+
+.activity-card__image--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 28px;
 }
 
 .activity-card__body {
@@ -897,15 +1100,21 @@ watch(
 
 .activity-card__title,
 .order-card__title {
+  overflow: hidden;
   color: var(--app-text);
   font-size: 16px;
   font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .activity-card__desc {
+  overflow: hidden;
   color: var(--app-subtle);
   line-height: 1.6;
-  white-space: pre-wrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .activity-card__meta,
@@ -919,22 +1128,44 @@ watch(
 }
 
 .activity-card__actions {
+  width: 148px;
   display: flex;
   align-items: center;
+  justify-content: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   align-self: center;
 }
 
 .activity-card__price {
+  width: 100%;
   color: var(--el-color-danger);
   font-size: 18px;
   font-weight: 700;
+  text-align: center;
   white-space: nowrap;
 }
 
 .order-card {
   flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: #fff;
+}
+
+.order-card__header,
+.order-card__footer {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.order-card__footer strong {
+  color: var(--el-color-danger);
+  font-size: 16px;
+  line-height: 1;
 }
 
 .order-card__code {
@@ -946,7 +1177,7 @@ watch(
 }
 
 .quantity-input {
-  width: 86px;
+  width: 96px;
 }
 
 .detail-json {
@@ -963,5 +1194,88 @@ watch(
 
 .raw-json {
   margin-top: 14px;
+}
+
+@media (max-width: 1480px) {
+  .activity-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .activity-page {
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .activity-toolbar,
+  .activity-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .order-panel {
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 1080px) {
+  .activity-summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .activity-toolbar-main,
+  .activity-toolbar-extra,
+  .proxy-row {
+    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr);
+    flex-direction: column;
+  }
+
+  .activity-field {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .activity-select,
+  .activity-field--cinema .activity-select,
+  .activity-toolbar-extra .el-button {
+    width: 100%;
+  }
+
+  .activity-card {
+    flex-direction: column;
+  }
+
+  .activity-card__image {
+    width: 100%;
+    height: 160px;
+  }
+
+  .activity-card__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .activity-card__price {
+    width: auto;
+  }
+}
+
+@media (max-height: 720px) {
+  .activity-page {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .activity-summary-card {
+    height: 88px;
+    padding: 12px 14px;
+  }
+
+  .activity-summary-card strong {
+    font-size: 20px;
+  }
+
+  .activity-card__image {
+    width: 88px;
+    height: 88px;
+  }
 }
 </style>

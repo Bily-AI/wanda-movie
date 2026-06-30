@@ -24,6 +24,7 @@
     "check:payment-submit": "node tools/check-payment-submit-contract.mjs",
     "check:wanda-diagnostics": "node tools/check-wanda-diagnostics-contract.mjs",
     "check:activity-gift": "node tools/check-activity-gift-contract.mjs",
+    "check:activity-layout": "node tools/check-activity-layout-contract.mjs",
     "check:coupon-present": "node tools/check-coupon-present-contract.mjs",
     "check:coupon-category": "node tools/check-coupon-category-contract.mjs",
     "check:coupon-layout": "node tools/check-coupon-layout-contract.mjs",
