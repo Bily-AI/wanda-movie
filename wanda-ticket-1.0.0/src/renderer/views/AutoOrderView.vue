@@ -72,6 +72,9 @@ const enabledPlatforms = computed(() => {
   return platforms
 })
 
+const enabledPlatformText = computed(() => (enabledPlatforms.value.length > 0 ? enabledPlatforms.value.join('、') : '未配置'))
+const serviceStateText = computed(() => (running.value ? (loading.value ? '刷新中' : '运行中') : '已停止'))
+
 function saveConfig(): void {
   localStorage.setItem('auto_order_mahua_enabled', String(mahuaConfig.value.enabled))
   localStorage.setItem('auto_order_mahua_token', mahuaConfig.value.token)
@@ -582,276 +585,544 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="auto-order-page">
-    <header class="auto-order-header">
-      <div>
-        <h2 class="auto-order-title">自动接单服务</h2>
-        <p class="auto-order-subtitle">平台接单 → 自动购票</p>
-      </div>
-      <el-button :type="running ? 'danger' : 'primary'" :icon="running ? VideoPause : VideoPlay" @click="toggleService">
-        {{ running ? '停止服务' : '启动服务' }}
-      </el-button>
-    </header>
+  <section class="auto-order-workbench">
+    <section class="auto-status-grid" aria-label="自动接单状态摘要">
+      <article class="auto-status-card auto-status-card--blue">
+        <span>服务状态</span>
+        <strong>{{ serviceStateText }}</strong>
+      </article>
+      <article class="auto-status-card auto-status-card--green">
+        <span>启用平台</span>
+        <strong>{{ enabledPlatforms.length }}</strong>
+        <em>{{ enabledPlatformText }}</em>
+      </article>
+      <article class="auto-status-card">
+        <span>竞价中</span>
+        <strong>{{ biddingOrders.length }}</strong>
+      </article>
+      <article class="auto-status-card auto-status-card--amber">
+        <span>待提交</span>
+        <strong>{{ pendingOrders.length }}</strong>
+      </article>
+      <article class="auto-status-card auto-status-card--red">
+        <span>已完成</span>
+        <strong>{{ finishedOrders.length }}</strong>
+      </article>
+    </section>
 
-    <section class="platform-config">
-      <div class="platform-item">
-        <el-switch v-model="mahuaConfig.enabled" size="small" active-text="麻花" @change="saveConfig" />
-        <span class="platform-label">Token</span>
-        <el-input v-model="mahuaConfig.token" size="small" clearable placeholder="麻花 Token" @change="saveConfig" />
-        <span class="platform-label">Cookie</span>
-        <el-input v-model="mahuaConfig.cookie" size="small" clearable placeholder="麻花 Cookie" @change="saveConfig" />
-      </div>
+    <section class="auto-config-panel panel">
+      <header class="auto-panel-header">
+        <span class="auto-panel-title">
+          <el-icon><Connection /></el-icon>
+          平台配置
+        </span>
+        <em>已启用：{{ enabledPlatformText }}</em>
+      </header>
 
-      <div class="platform-item">
-        <el-switch v-model="hahaConfig.enabled" size="small" active-text="哈哈" @change="saveConfig" />
-        <span class="platform-label">Token</span>
-        <el-input v-model="hahaConfig.token" size="small" clearable placeholder="哈哈 Token" @change="saveConfig" />
-        <span class="platform-label">Cookie</span>
-        <el-input v-model="hahaConfig.cookie" size="small" clearable placeholder="哈哈 Cookie（含 PHPSESSID）" @change="saveConfig" />
+      <div class="platform-config-grid">
+        <div class="platform-item">
+          <div class="platform-switch-row">
+            <el-switch v-model="mahuaConfig.enabled" size="small" active-text="麻花" @change="saveConfig" />
+            <span>{{ isPlatformReady(mahuaConfig) ? '配置完整' : '待补全' }}</span>
+          </div>
+          <label class="platform-field">
+            <span>Token</span>
+            <el-input v-model="mahuaConfig.token" size="small" clearable placeholder="麻花 Token" @change="saveConfig" />
+          </label>
+          <label class="platform-field">
+            <span>Cookie</span>
+            <el-input v-model="mahuaConfig.cookie" size="small" clearable placeholder="麻花 Cookie" @change="saveConfig" />
+          </label>
+        </div>
+
+        <div class="platform-item">
+          <div class="platform-switch-row">
+            <el-switch v-model="hahaConfig.enabled" size="small" active-text="哈哈" @change="saveConfig" />
+            <span>{{ isPlatformReady(hahaConfig) ? '配置完整' : '待补全' }}</span>
+          </div>
+          <label class="platform-field">
+            <span>Token</span>
+            <el-input v-model="hahaConfig.token" size="small" clearable placeholder="哈哈 Token" @change="saveConfig" />
+          </label>
+          <label class="platform-field">
+            <span>Cookie</span>
+            <el-input v-model="hahaConfig.cookie" size="small" clearable placeholder="哈哈 Cookie（含 PHPSESSID）" @change="saveConfig" />
+          </label>
+        </div>
       </div>
     </section>
 
-    <section class="control-bar">
-      <el-button size="small" plain :icon="Refresh" :loading="loading" :disabled="!running" @click="refreshOrders">
-        立即刷新
-      </el-button>
-      <div class="control-bar__info">
-        <el-icon :class="{ 'is-loading': running }"><Connection /></el-icon>
-        <span class="polling-badge">轮询中 ({{ pollIntervalMs / 1000 }}s)</span>
+    <section class="auto-control-panel panel">
+      <div class="auto-control-actions">
+        <el-button :type="running ? 'danger' : 'primary'" :icon="running ? VideoPause : VideoPlay" @click="toggleService">
+          {{ running ? '停止服务' : '启动服务' }}
+        </el-button>
+        <el-button plain :icon="Refresh" :loading="loading" :disabled="!running" @click="refreshOrders">
+          立即刷新
+        </el-button>
+      </div>
+      <div class="auto-control-info">
+        <span>
+          <el-icon :class="{ 'is-loading': running }"><Connection /></el-icon>
+          轮询 {{ pollIntervalMs / 1000 }}s
+        </span>
         <span>上次查询：{{ lastQueryTime || '--' }}</span>
       </div>
     </section>
 
-    <section class="bidding-panel">
-      <div class="panel-header">
-        <span class="panel-header__title">竞价中列表</span>
-        <span class="panel-header__count">({{ biddingOrders.length }})</span>
-      </div>
-      <el-table :data="biddingOrders" stripe size="small" empty-text="暂无竞价中订单">
-        <el-table-column prop="platform" label="平台" width="70" />
-        <el-table-column prop="orderId" label="订单号" width="170" show-overflow-tooltip />
-        <el-table-column prop="movieName" label="影片" min-width="120" show-overflow-tooltip />
-        <el-table-column prop="cinemaName" label="影院" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="city" label="城市" width="80" show-overflow-tooltip />
-        <el-table-column prop="showDate" label="日期" width="110" />
-        <el-table-column prop="showTime" label="场次" width="80" />
-        <el-table-column prop="seats" label="座位" width="100" show-overflow-tooltip />
-      </el-table>
-    </section>
-
-    <section class="dual-order-lists">
-      <section class="order-list-panel">
-        <div class="panel-header">
-          <span class="panel-header__title">待提交列表</span>
-          <span class="panel-header__count">({{ pendingOrders.length }})</span>
+    <section class="auto-board">
+      <section class="auto-order-table-panel panel bidding-panel">
+        <header class="auto-table-header">
+          <div>
+            <strong>竞价中订单</strong>
+            <span>等待平台确认的订单</span>
+          </div>
+          <em>{{ biddingOrders.length }} 单</em>
+        </header>
+        <div class="auto-table-body">
+          <el-table :data="biddingOrders" height="100%" stripe size="small" empty-text="暂无竞价中订单">
+            <el-table-column prop="platform" label="平台" width="82">
+              <template #default="{ row }">
+                <el-tag size="small" effect="plain">{{ row.platform }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="orderId" label="订单号" width="168" show-overflow-tooltip />
+            <el-table-column label="订单信息" min-width="320">
+              <template #default="{ row }">
+                <div class="auto-order-primary-cell">
+                  <strong class="auto-order-primary-title">{{ row.movieName || '-' }}</strong>
+                  <span class="auto-order-primary-meta">{{ row.cinemaName || '-' }}</span>
+                  <span class="auto-order-primary-meta">{{ row.showDate || '-' }} {{ row.showTime || '' }} · {{ row.seats || '-' }}</span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="city" label="城市" width="92" show-overflow-tooltip />
+            <el-table-column prop="price" label="金额" width="96" show-overflow-tooltip />
+            <el-table-column prop="createTime" label="创建时间" width="150" show-overflow-tooltip />
+          </el-table>
         </div>
-        <el-table :data="pendingOrders" stripe size="small" empty-text="暂无待处理订单">
-          <el-table-column prop="platform" label="平台" width="70" />
-          <el-table-column prop="orderId" label="订单号" width="170" show-overflow-tooltip />
-          <el-table-column prop="movieName" label="影片" min-width="110" show-overflow-tooltip />
-          <el-table-column prop="cinemaName" label="影院" min-width="140" show-overflow-tooltip />
-          <el-table-column prop="showDate" label="日期" width="105" />
-          <el-table-column prop="showTime" label="场次" width="75" />
-          <el-table-column prop="seats" label="座位" width="90" show-overflow-tooltip />
-          <el-table-column label="进度" width="110">
-            <template #default="{ row }">
-              <el-tag :type="statusTagType(row)" size="small">{{ row.step || '-' }}</el-tag>
-            </template>
-          </el-table-column>
-        </el-table>
       </section>
 
-      <div class="order-list-divider" />
+      <section class="auto-list-grid">
+        <section class="auto-order-table-panel panel">
+          <header class="auto-table-header">
+            <div>
+              <strong>待提交订单</strong>
+              <span>已接入购票流程</span>
+            </div>
+            <em>{{ pendingOrders.length }} 单</em>
+          </header>
+          <div class="auto-table-body">
+            <el-table :data="pendingOrders" height="100%" stripe size="small" empty-text="暂无待处理订单">
+              <el-table-column prop="platform" label="平台" width="82">
+                <template #default="{ row }">
+                  <el-tag size="small" effect="plain">{{ row.platform }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="orderId" label="订单号" width="160" show-overflow-tooltip />
+              <el-table-column label="订单信息" min-width="280">
+                <template #default="{ row }">
+                  <div class="auto-order-primary-cell">
+                    <strong class="auto-order-primary-title">{{ row.movieName || '-' }}</strong>
+                    <span class="auto-order-primary-meta">{{ row.cinemaName || '-' }}</span>
+                    <span class="auto-order-primary-meta">{{ row.showDate || '-' }} {{ row.showTime || '' }} · {{ row.seats || '-' }}</span>
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column prop="price" label="金额" width="88" show-overflow-tooltip />
+              <el-table-column label="进度" width="118">
+                <template #default="{ row }">
+                  <el-tag :type="statusTagType(row)" size="small">{{ row.step || '-' }}</el-tag>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </section>
 
-      <section class="order-list-panel">
-        <div class="panel-header">
-          <span class="panel-header__title">已完成列表</span>
-          <span class="panel-header__count">({{ finishedOrders.length }})</span>
-        </div>
-        <el-table :data="finishedOrders" stripe size="small" empty-text="暂无已完成记录">
-          <el-table-column prop="platform" label="平台" width="70" />
-          <el-table-column prop="orderId" label="订单号" width="170" show-overflow-tooltip />
-          <el-table-column prop="movieName" label="影片" min-width="110" show-overflow-tooltip />
-          <el-table-column prop="cinemaName" label="影院" min-width="140" show-overflow-tooltip />
-          <el-table-column prop="showDate" label="日期" width="105" />
-          <el-table-column prop="showTime" label="场次" width="75" />
-          <el-table-column prop="seats" label="座位" width="90" show-overflow-tooltip />
-          <el-table-column prop="processTime" label="处理时间" width="150" show-overflow-tooltip />
-          <el-table-column label="状态" width="90">
-            <template #default="{ row }">
-              <el-tag :type="statusTagType(row)" size="small">{{ row.status === 'failed' ? '失败' : '成功' }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="remark" label="备注" min-width="160" show-overflow-tooltip />
-        </el-table>
+        <section class="auto-order-table-panel panel">
+          <header class="auto-table-header">
+            <div>
+              <strong>完成记录</strong>
+              <span>最近 100 条处理结果</span>
+            </div>
+            <em>{{ finishedOrders.length }} 条</em>
+          </header>
+          <div class="auto-table-body">
+            <el-table :data="finishedOrders" height="100%" stripe size="small" empty-text="暂无已完成记录">
+              <el-table-column prop="platform" label="平台" width="82">
+                <template #default="{ row }">
+                  <el-tag size="small" effect="plain">{{ row.platform }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="orderId" label="订单号" width="160" show-overflow-tooltip />
+              <el-table-column label="订单信息" min-width="280">
+                <template #default="{ row }">
+                  <div class="auto-order-primary-cell">
+                    <strong class="auto-order-primary-title">{{ row.movieName || '-' }}</strong>
+                    <span class="auto-order-primary-meta">{{ row.cinemaName || '-' }}</span>
+                    <span class="auto-order-primary-meta">{{ row.showDate || '-' }} {{ row.showTime || '' }} · {{ row.seats || '-' }}</span>
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column prop="processTime" label="处理时间" width="150" show-overflow-tooltip />
+              <el-table-column label="状态" width="92">
+                <template #default="{ row }">
+                  <el-tag :type="statusTagType(row)" size="small">{{ row.status === 'failed' ? '失败' : '成功' }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="remark" label="备注" min-width="150" show-overflow-tooltip />
+            </el-table>
+          </div>
+        </section>
       </section>
     </section>
   </section>
 </template>
 
 <style scoped>
-.auto-order-page {
-  width: 100%;
+.auto-order-workbench {
+  min-width: 0;
   height: 100%;
-  display: flex;
-  flex-direction: column;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 86px auto auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
   background: var(--bg-page, var(--app-bg));
   overflow: hidden;
 }
 
-.auto-order-header {
+.auto-status-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.auto-status-card {
+  min-width: 0;
+  height: 86px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 28px 16px;
-  border-bottom: 1px solid var(--border-light, var(--app-border));
-  flex-shrink: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 16px;
+  border: 1px solid #d8e8ff;
+  border-radius: 8px;
+  background: #f8fbff;
 }
 
-.auto-order-title {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text-primary, var(--app-text));
-}
-
-.auto-order-subtitle {
-  margin: 4px 0 0;
-  font-size: var(--font-size-sm, 13px);
+.auto-status-card span,
+.auto-status-card em {
+  overflow: hidden;
   color: var(--text-secondary, var(--app-muted));
-}
-
-.platform-config {
-  padding: 12px 28px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 24px;
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--border-light, var(--app-border));
-  background: var(--bg-card, var(--app-surface));
-}
-
-.platform-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.platform-item :deep(.el-input) {
-  width: 200px;
-}
-
-.platform-label {
-  color: var(--text-secondary, var(--app-subtle));
   font-size: 13px;
-  font-weight: 500;
+  font-style: normal;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.control-bar {
-  padding: 14px 28px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--border-light, var(--app-border));
-  background: var(--bg-card, var(--app-surface));
+.auto-status-card strong {
+  overflow: hidden;
+  color: var(--text-primary, var(--app-text));
+  font-size: 22px;
+  line-height: 1.12;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.control-bar__info {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-left: auto;
-  color: var(--text-secondary, var(--app-subtle));
-  font-size: var(--font-size-xs, 12px);
+.auto-status-card--blue {
+  border-color: #bfdbfe;
+  background: #f0f7ff;
 }
 
-.polling-badge {
+.auto-status-card--green {
+  border-color: #bbf7d0;
+  background: #f3fcf6;
+}
+
+.auto-status-card--amber {
+  border-color: #fed7aa;
+  background: #fff8ed;
+}
+
+.auto-status-card--red {
+  border-color: #fecaca;
+  background: #fff6f6;
+}
+
+.auto-config-panel {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px;
+  overflow: hidden;
+}
+
+.auto-panel-header,
+.auto-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.auto-panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text-primary, var(--app-text));
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.auto-panel-title .el-icon {
+  color: var(--app-accent);
+}
+
+.auto-panel-header em {
+  overflow: hidden;
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 13px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.platform-config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.platform-item {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 120px minmax(150px, 0.7fr) minmax(220px, 1.3fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border-light, var(--app-border));
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.platform-switch-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.platform-switch-row span {
+  overflow: hidden;
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.platform-field {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.platform-field span {
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.platform-field :deep(.el-input) {
+  min-width: 0;
+}
+
+.auto-control-panel {
+  min-width: 0;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 14px;
+  overflow: hidden;
+}
+
+.auto-control-actions,
+.auto-control-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.auto-control-info {
+  justify-content: flex-end;
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 13px;
+}
+
+.auto-control-info span {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #67c23a;
-  font-size: var(--font-size-sm, 13px);
-}
-
-.bidding-panel {
-  flex: 0 1 40%;
-  min-height: 120px;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
-  border-bottom: 2px solid var(--border-light, var(--app-border));
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.bidding-panel .panel-header,
-.order-list-panel .panel-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--border-light, var(--app-border));
-  background: var(--bg-card, var(--app-surface));
+.auto-control-info .el-icon {
+  color: #22c55e;
 }
 
-.bidding-panel .panel-header {
-  padding: 12px 28px 10px;
-}
-
-.order-list-panel .panel-header {
-  padding: 12px 16px 10px;
-}
-
-.panel-header__title {
-  color: var(--text-primary, var(--app-text));
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.panel-header__count {
-  color: var(--text-secondary, var(--app-subtle));
-  font-size: var(--font-size-sm, 13px);
-}
-
-.bidding-panel :deep(.el-table),
-.order-list-panel :deep(.el-table) {
-  flex: 1;
-  overflow-y: auto;
-}
-
-.dual-order-lists {
-  flex: 1 1 60%;
+.auto-board {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(160px, 0.82fr) minmax(220px, 1fr);
+  gap: 12px;
   min-width: 0;
+  overflow: hidden;
+}
+
+.auto-list-grid {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.auto-order-table-panel {
   min-height: 0;
   display: flex;
-  overflow: hidden;
-}
-
-.order-list-panel {
-  flex: 1;
-  min-width: 0;
-  display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-.order-list-divider {
-  width: 1px;
+.auto-table-header {
+  min-height: 50px;
   flex-shrink: 0;
-  background: var(--border-light, var(--app-border));
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border-light, var(--app-border));
 }
 
-@media (max-height: 680px) {
-  .bidding-panel {
-    flex: 0 0 25%;
+.auto-table-header div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.auto-table-header strong {
+  overflow: hidden;
+  color: var(--text-primary, var(--app-text));
+  font-size: 15px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auto-table-header span,
+.auto-table-header em {
+  overflow: hidden;
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 12px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auto-table-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.auto-table-body :deep(.el-table) {
+  height: 100%;
+}
+
+.auto-table-body :deep(.el-table__cell) {
+  vertical-align: top;
+}
+
+.auto-order-primary-cell {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  line-height: 1.35;
+}
+
+.auto-order-primary-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary, var(--app-text));
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.auto-order-primary-meta {
+  overflow: hidden;
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1480px) {
+  .auto-status-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: 82px;
+  }
+
+  .auto-order-workbench {
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+  }
+
+  .platform-config-grid,
+  .auto-list-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
-@media (max-height: 550px) {
-  .bidding-panel {
-    min-height: 0;
-    flex: 0 0 0%;
+@media (max-height: 760px) {
+  .auto-order-workbench {
+    grid-template-rows: 72px auto 54px minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .auto-status-card {
+    height: 72px;
+  }
+
+  .auto-status-card strong {
+    font-size: 20px;
+  }
+
+  .auto-config-panel {
+    gap: 8px;
+  }
+
+  .platform-item {
+    padding: 8px 10px;
+  }
+
+  .auto-board {
+    grid-template-rows: minmax(120px, 0.72fr) minmax(170px, 1fr);
   }
 }
 </style>
