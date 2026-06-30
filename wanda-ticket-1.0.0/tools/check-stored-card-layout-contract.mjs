@@ -39,8 +39,9 @@ for (const marker of [
 
 for (const marker of [
   '.stored-card-page {\n  min-width: 0;\n  height: 100%;\n  min-height: 0;\n  display: grid;\n  grid-template-rows: 86px auto minmax(0, 1fr);',
+  '.panel {\n  min-width: 0;',
   '.stored-card-summary-grid {\n  display: grid;\n  grid-template-columns: repeat(4, minmax(0, 1fr));',
-  '.stored-card-action-panel {\n  min-width: 0;\n  display: flex;',
+  '.stored-card-action-panel {\n  min-width: 0;',
   '.stored-card-content-panel {\n  min-height: 0;\n  display: flex;\n  flex-direction: column;\n  overflow: hidden;',
   '.stored-card-table-wrapper {\n  flex: 1;\n  min-height: 0;',
   '.stored-card-primary-title {\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;',

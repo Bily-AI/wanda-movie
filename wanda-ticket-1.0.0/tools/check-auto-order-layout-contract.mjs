@@ -42,6 +42,7 @@ for (const marker of [
 
 for (const marker of [
   '.auto-order-workbench {\n  min-width: 0;\n  height: 100%;\n  min-height: 0;\n  display: grid;\n  grid-template-rows: 86px auto auto minmax(0, 1fr);',
+  '.panel {\n  min-width: 0;',
   '.auto-status-grid {\n  display: grid;\n  grid-template-columns: repeat(5, minmax(0, 1fr));',
   '.auto-config-panel {\n  min-width: 0;',
   '.auto-control-panel {\n  min-width: 0;',

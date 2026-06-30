@@ -40,8 +40,9 @@ for (const marker of [
 
 for (const marker of [
   '.coupon-page {\n  min-width: 0;\n  height: 100%;\n  min-height: 0;\n  display: grid;\n  grid-template-rows: 86px auto minmax(0, 1fr);',
+  '.panel {\n  min-width: 0;',
   '.coupon-summary-grid {\n  display: grid;\n  grid-template-columns: repeat(4, minmax(0, 1fr));',
-  '.coupon-filter-panel {\n  min-width: 0;\n  display: flex;',
+  '.coupon-filter-panel {\n  min-width: 0;',
   '.coupon-table-panel {\n  min-height: 0;\n  display: flex;\n  flex-direction: column;\n  overflow: hidden;',
   '.coupon-table-wrapper {\n  flex: 1;\n  min-height: 0;',
   '.coupon-primary-title {\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;',

@@ -800,6 +800,14 @@ onBeforeUnmount(() => {
   min-height: 0;
 }
 
+.panel {
+  min-width: 0;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface);
+  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+}
+
 .auto-status-card {
   min-width: 0;
   height: 86px;
@@ -808,9 +816,10 @@ onBeforeUnmount(() => {
   justify-content: center;
   gap: 6px;
   padding: 12px 16px;
-  border: 1px solid #d8e8ff;
+  border: 1px solid var(--app-border);
   border-radius: 8px;
-  background: #f8fbff;
+  background: var(--app-surface);
+  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
 }
 
 .auto-status-card span,
@@ -833,31 +842,31 @@ onBeforeUnmount(() => {
 }
 
 .auto-status-card--blue {
-  border-color: #bfdbfe;
-  background: #f0f7ff;
+  border-color: #c8def8;
+  background: #f7fbff;
 }
 
 .auto-status-card--green {
-  border-color: #bbf7d0;
-  background: #f3fcf6;
+  border-color: #c8ead3;
+  background: #f6fdf8;
 }
 
 .auto-status-card--amber {
-  border-color: #fed7aa;
-  background: #fff8ed;
+  border-color: #f2d9b3;
+  background: #fffaf2;
 }
 
 .auto-status-card--red {
-  border-color: #fecaca;
-  background: #fff6f6;
+  border-color: #efc5c5;
+  background: #fff8f8;
 }
 
 .auto-config-panel {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 12px 14px 14px;
   overflow: hidden;
 }
 
@@ -906,10 +915,10 @@ onBeforeUnmount(() => {
   grid-template-columns: 120px minmax(150px, 0.7fr) minmax(220px, 1.3fr);
   align-items: center;
   gap: 10px;
-  padding: 10px;
+  padding: 10px 12px;
   border: 1px solid var(--border-light, var(--app-border));
   border-radius: 8px;
-  background: #fbfdff;
+  background: #f8fbff;
 }
 
 .platform-switch-row {
@@ -948,7 +957,7 @@ onBeforeUnmount(() => {
 
 .auto-control-panel {
   min-width: 0;
-  min-height: 58px;
+  min-height: 54px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1008,10 +1017,11 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: var(--app-surface);
 }
 
 .auto-table-header {
-  min-height: 50px;
+  min-height: 52px;
   flex-shrink: 0;
   padding: 0 14px;
   border-bottom: 1px solid var(--border-light, var(--app-border));

@@ -514,7 +514,14 @@ watch(cardDisplayMode, (mode) => {
       </header>
 
       <div v-if="cardDisplayMode === 'table'" class="stored-card-table-wrapper">
-        <el-table v-loading="loading" :data="cardRows" height="100%" :empty-text="cardsMessage || '暂无数据'">
+        <el-table
+          v-loading="loading"
+          :data="cardRows"
+          height="100%"
+          stripe
+          highlight-current-row
+          :empty-text="cardsMessage || '暂无数据'"
+        >
           <el-table-column prop="holder" label="持有人" width="132" show-overflow-tooltip>
             <template #default="{ row }">
               <span class="stored-card-holder">{{ row.ownerPhone || row.holder || '-' }}</span>
@@ -708,6 +715,14 @@ watch(cardDisplayMode, (mode) => {
   background: var(--bg-page, var(--app-bg));
 }
 
+.panel {
+  min-width: 0;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface);
+  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+}
+
 .stored-card-summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -723,9 +738,10 @@ watch(cardDisplayMode, (mode) => {
   justify-content: center;
   gap: 6px;
   padding: 12px 16px;
-  border: 1px solid #d8e8ff;
+  border: 1px solid var(--app-border);
   border-radius: 8px;
-  background: #f8fbff;
+  background: var(--app-surface);
+  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
 }
 
 .stored-summary-card span,
@@ -748,22 +764,23 @@ watch(cardDisplayMode, (mode) => {
 }
 
 .stored-summary-card--blue {
-  border-color: #bfdbfe;
-  background: #f0f7ff;
+  border-color: #c8def8;
+  background: #f7fbff;
 }
 
 .stored-summary-card--green {
-  border-color: #bbf7d0;
-  background: #f3fcf6;
+  border-color: #c8ead3;
+  background: #f6fdf8;
 }
 
 .stored-summary-card--amber {
-  border-color: #fed7aa;
-  background: #fff8ed;
+  border-color: #f2d9b3;
+  background: #fffaf2;
 }
 
 .stored-card-action-panel {
   min-width: 0;
+  min-height: 54px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -801,7 +818,7 @@ watch(cardDisplayMode, (mode) => {
 }
 
 .stored-card-panel-header {
-  min-height: 50px;
+  min-height: 52px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -853,6 +870,12 @@ watch(cardDisplayMode, (mode) => {
 
 .stored-card-table-wrapper :deep(.el-table) {
   height: 100%;
+}
+
+.stored-card-table-wrapper :deep(.el-table th.el-table__cell) {
+  background: #f8fafc;
+  color: var(--text-primary, var(--app-text));
+  font-weight: 700;
 }
 
 .stored-card-table-wrapper :deep(.el-table__cell) {
@@ -909,7 +932,8 @@ watch(cardDisplayMode, (mode) => {
   border: 1px solid var(--app-border);
   border-radius: 8px;
   padding: 14px;
-  background: #fbfdff;
+  background: var(--app-surface);
+  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
 }
 
 .stored-card-top,
