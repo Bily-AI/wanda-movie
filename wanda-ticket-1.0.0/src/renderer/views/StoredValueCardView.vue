@@ -488,8 +488,8 @@ watch(cardDisplayMode, (mode) => {
     <section class="stored-card-action-panel panel">
       <div class="stored-card-action-left">
         <el-radio-group v-model="cardDisplayMode" class="stored-card-view-toggle" size="small">
-          <el-radio-button label="table">列表</el-radio-button>
-          <el-radio-button label="card">卡片</el-radio-button>
+          <el-radio-button value="table">列表</el-radio-button>
+          <el-radio-button value="card">卡片</el-radio-button>
         </el-radio-group>
         <span class="stored-card-account">当前账号：{{ accountsStore.currentAccount?.phone || '-' }}</span>
       </div>

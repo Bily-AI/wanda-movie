@@ -209,6 +209,28 @@ const claimableWPlusRights = computed(() =>
 
 const hasClaimableWPlus = computed(() => claimableWPlusRights.value.length > 0)
 
+const totalClaimableMemberRights = computed(() => claimableRtimeRows.value.length + claimableWPlusRights.value.length)
+
+const wplusStatusText = computed(() => {
+  if (wplusProfileLoading.value) {
+    return '检测中'
+  }
+
+  if (!wplusProfile.value) {
+    return '未检测'
+  }
+
+  return wplusProfile.value.isPayMember ? '已开通' : '未开通'
+})
+
+const wplusStatusHint = computed(() => {
+  if (wplusProfile.value?.expireAt) {
+    return `到期 ${wplusProfile.value.expireAt}`
+  }
+
+  return wplusProfile.value?.isPayMember ? '权益待刷新' : '可激活兑换'
+})
+
 const wplusEmptyDescription = computed(() => {
   if (wplusError.value) {
     return '获取W+会员信息失败'
@@ -895,20 +917,57 @@ onMounted(() => {
     </section>
 
     <template v-else>
+      <section class="member-summary-grid" aria-label="会员摘要">
+        <article class="member-summary-card member-summary-card--blue">
+          <span>当前账号</span>
+          <strong>{{ currentAccount?.phone || '-' }}</strong>
+          <em>{{ currentAccount?.statusText || '登录成功' }}</em>
+        </article>
+        <article class="member-summary-card member-summary-card--green">
+          <span>Rtime等级</span>
+          <strong>{{ currentGrade?.gradeName || '-' }}</strong>
+          <em>成长值 {{ currentGrowthValue }}</em>
+        </article>
+        <article class="member-summary-card member-summary-card--amber">
+          <span>待领取权益</span>
+          <strong>{{ totalClaimableMemberRights }}</strong>
+          <em>Rtime {{ claimableRtimeRows.length }} / W+ {{ claimableWPlusRights.length }}</em>
+        </article>
+        <article class="member-summary-card">
+          <span>W+状态</span>
+          <strong>{{ wplusStatusText }}</strong>
+          <em>{{ wplusStatusHint }}</em>
+        </article>
+      </section>
+
       <div class="vip-subtabs">
-        <div
-          :class="['vip-subtab', { 'vip-subtab--active': activeTab === 'rtime' }]"
-          @click="activeTab = 'rtime'"
-        >
-          <el-icon><Medal /></el-icon>
-          <span>Rtime会员</span>
+        <div class="vip-subtab-list">
+          <div
+            :class="['vip-subtab', { 'vip-subtab--active': activeTab === 'rtime' }]"
+            @click="activeTab = 'rtime'"
+          >
+            <el-icon><Medal /></el-icon>
+            <span>Rtime会员</span>
+          </div>
+          <div
+            :class="['vip-subtab', { 'vip-subtab--active': activeTab === 'wplus' }]"
+            @click="activeTab = 'wplus'"
+          >
+            <el-icon><Trophy /></el-icon>
+            <span>W+会员</span>
+          </div>
         </div>
-        <div
-          :class="['vip-subtab', { 'vip-subtab--active': activeTab === 'wplus' }]"
-          @click="activeTab = 'wplus'"
-        >
-          <el-icon><Trophy /></el-icon>
-          <span>W+会员</span>
+
+        <div class="vip-subtab-meta">
+          <span>当前账号：{{ currentAccount?.phone || '-' }}</span>
+          <el-button
+            size="small"
+            :icon="Refresh"
+            :loading="activeTab === 'rtime' ? rtimeLoading : wplusProfileLoading || wplusRightsLoading"
+            @click="refreshCurrentTab"
+          >
+            刷新当前
+          </el-button>
         </div>
       </div>
 
@@ -1377,99 +1436,193 @@ onMounted(() => {
 
 <style scoped>
 .page-container {
+  min-width: 0;
   height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  overflow: hidden;
+  background: var(--bg-page, var(--app-bg));
 }
 
 .no-account-hint {
+  grid-row: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: center;
   height: 100%;
+  min-height: 0;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--bg-primary, var(--app-surface));
+  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+}
+
+.member-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.member-summary-card {
+  min-width: 0;
+  height: 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  padding: 14px 16px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--bg-primary, var(--app-surface));
+  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+}
+
+.member-summary-card span,
+.member-summary-card em {
+  overflow: hidden;
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 13px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-summary-card strong {
+  overflow: hidden;
+  color: var(--text-primary, var(--app-text));
+  font-size: 22px;
+  line-height: 1.18;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-summary-card--blue {
+  border-color: #bfdbfe;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
+}
+
+.member-summary-card--green {
+  border-color: #bbf7d0;
+  background: linear-gradient(180deg, #fbfffd 0%, #f0fdf4 100%);
+}
+
+.member-summary-card--amber {
+  border-color: #fed7aa;
+  background: linear-gradient(180deg, #fffdf8 0%, #fff7ed 100%);
 }
 
 .vip-subtabs {
   display: flex;
-  gap: 0;
-  border-bottom: 2px solid var(--border-light);
-  margin: var(--spacing-md) var(--spacing-md) 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--bg-primary, var(--app-surface));
+  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
   flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  z-index: 11;
-  background: var(--bg-primary);
+}
+
+.vip-subtab-list {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .vip-subtab {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 10px 24px;
+  height: 36px;
+  min-width: 118px;
+  padding: 0 16px;
   cursor: pointer;
   color: var(--text-secondary);
-  font-size: var(--font-size-base);
-  font-weight: 500;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -2px;
-  transition: color 0.2s, border-color 0.2s;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  background: var(--bg-secondary, #f8fafc);
+  transition: color 0.2s, border-color 0.2s, background 0.2s, box-shadow 0.2s;
   user-select: none;
 }
 
 .vip-subtab:hover {
   color: var(--wanda-primary);
+  border-color: #bfdbfe;
+  background: #f8fbff;
 }
 
 .vip-subtab--active {
   color: var(--wanda-primary);
-  border-bottom-color: var(--wanda-primary);
+  border-color: #93c5fd;
+  background: #eaf3ff;
+  box-shadow: inset 0 0 0 1px rgb(45 127 249 / 16%);
+}
+
+.vip-subtab-meta {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.vip-subtab-meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .vip-panel {
-  flex: 1;
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: var(--spacing-md);
-}
-
-.vip-panel--rtime,
-.vip-panel--wplus {
+  gap: 12px;
+  padding: 0;
   overflow-y: auto;
 }
 
 .vip-exchange-card {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: var(--bg-primary);
-  border-radius: var(--radius-base);
-  border: 1px solid var(--border-light);
-  padding: var(--spacing-lg);
-  margin-bottom: var(--spacing-md);
+  min-width: 0;
+  background: var(--bg-primary, var(--app-surface));
+  border-radius: 8px;
+  border: 1px solid var(--app-border);
+  padding: 16px;
   flex-shrink: 0;
+  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
 }
 
 .vip-info-card {
-  background: var(--bg-primary);
-  border-radius: var(--radius-base);
-  border: 1px solid var(--border-light);
-  padding: var(--spacing-lg);
-  margin-bottom: var(--spacing-md);
-}
-
-.vip-panel--rtime .vip-info-card {
-  position: sticky;
-  top: 0;
-  z-index: 9;
+  min-width: 0;
+  background: var(--bg-primary, var(--app-surface));
+  border-radius: 8px;
+  border: 1px solid var(--app-border);
+  padding: 16px;
+  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
 }
 
 .vip-info-header {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
-  margin-bottom: var(--spacing-lg);
+  min-height: 34px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--app-border);
   color: var(--wanda-primary);
 }
 
@@ -1480,10 +1633,25 @@ onMounted(() => {
 .vip-title {
   font-size: var(--font-size-lg);
   font-weight: 600;
+  color: var(--text-primary, var(--app-text));
 }
 
 .base-desc {
-  margin-bottom: var(--spacing-lg);
+  margin-bottom: 14px;
+}
+
+.base-desc :deep(.el-descriptions__body) {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.base-desc :deep(.el-descriptions__label.el-descriptions__cell) {
+  color: var(--text-secondary, var(--app-muted));
+  background: #f8fbff;
+}
+
+.base-desc :deep(.el-descriptions__content.el-descriptions__cell) {
+  color: var(--text-primary, var(--app-text));
 }
 
 .growth-val {
@@ -1499,37 +1667,37 @@ onMounted(() => {
 
 .refresh-btn-inline {
   margin-left: auto;
-  background-color: #e6a23c !important;
-  border-color: #e6a23c !important;
-  color: #fff !important;
 }
 
 .grade-cards {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md);
+  gap: 12px;
 }
 
 .grade-card {
-  background: var(--bg-primary);
-  border-radius: var(--radius-base);
-  border: 1px solid var(--border-light);
-  padding: var(--spacing-lg);
+  background: var(--bg-primary, var(--app-surface));
+  border-radius: 8px;
+  border: 1px solid var(--app-border);
+  padding: 16px;
+  box-shadow: 0 2px 10px rgb(31 42 68 / 4%);
 }
 
 .grade-card--current {
-  border-color: var(--wanda-primary);
-  box-shadow: 0 0 0 1px var(--wanda-primary);
+  border-color: #93c5fd;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 0 0 1px rgb(45 127 249 / 12%), 0 4px 14px rgb(45 127 249 / 8%);
 }
 
 .grade-card--passed {
-  opacity: 0.7;
+  background: #fbfcfe;
 }
 
 .grade-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   margin-bottom: 8px;
 }
 
@@ -1555,8 +1723,10 @@ onMounted(() => {
 .grade-guiding {
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
-  margin-bottom: var(--spacing-md);
-  padding: 4px 0;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #f8fafc;
 }
 
 .equity-table-wrap,
@@ -1571,18 +1741,19 @@ onMounted(() => {
   font-size: var(--font-size-base);
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: var(--spacing-md);
+  margin-bottom: 12px;
 }
 
 .wplus-actions {
-  margin-top: var(--spacing-lg);
+  margin-top: 14px;
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
 }
 
 .exchange-form {
-  display: flex;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 10px;
   align-items: center;
 }
 
@@ -1594,8 +1765,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 10px;
-  padding: 8px 12px;
+  margin-top: 12px;
+  padding: 9px 12px;
   border-radius: 6px;
   font-size: 13px;
   font-weight: 500;
@@ -1614,18 +1785,18 @@ onMounted(() => {
 }
 
 .wplus-section {
-  margin-top: var(--spacing-md);
+  min-width: 0;
 }
 
 .wplus-activity-section {
-  margin-top: var(--spacing-md);
+  min-width: 0;
 }
 
 .right-group-card {
-  background: linear-gradient(135deg, #fdf6ec 0%, #fef9f0 100%);
-  border: 1px solid #f0d9a0;
-  border-radius: var(--radius-base);
-  padding: 12px 16px;
+  background: #fffaf0;
+  border: 1px solid #fde7bd;
+  border-radius: 8px;
+  padding: 14px;
   margin-bottom: 12px;
 }
 
@@ -1633,9 +1804,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px dashed #e8d5a0;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f6dfb5;
 }
 
 .right-group-icon {
@@ -1648,23 +1819,26 @@ onMounted(() => {
 .right-group-name {
   font-size: var(--font-size-base);
   font-weight: 600;
-  color: #c0882c;
+  color: #9a6700;
 }
 
 .right-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
 }
 
 .right-item {
+  min-width: 0;
+  min-height: 74px;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   background: #fff;
   border-radius: 8px;
   border: 1px solid #f5e6c8;
+  box-shadow: 0 2px 8px rgb(154 103 0 / 5%);
 }
 
 .right-item-icon {
@@ -1691,9 +1865,12 @@ onMounted(() => {
 }
 
 .right-item-name {
+  overflow: hidden;
   font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .right-item-top {
@@ -1707,18 +1884,27 @@ onMounted(() => {
 }
 
 .right-item-subtitle {
+  overflow: hidden;
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .right-item-deadline {
+  overflow: hidden;
   font-size: var(--font-size-xs);
   color: var(--el-color-warning);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .right-item-action {
+  width: 72px;
   flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .loading-wrapper {
@@ -1728,22 +1914,27 @@ onMounted(() => {
 .error-card {
   text-align: center;
   padding: var(--spacing-xl);
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--bg-primary, var(--app-surface));
 }
 
 .growth-stage-progress {
-  padding: 0 4px;
+  padding: 4px 4px 0;
 }
 
 .stage-labels {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   margin-bottom: 8px;
   padding: 0 4px;
+  overflow-x: auto;
 }
 
 .stage-label {
-  font-size: var(--font-size-base);
+  font-size: 13px;
   color: var(--text-secondary);
   font-weight: 600;
   white-space: nowrap;
@@ -1752,8 +1943,6 @@ onMounted(() => {
 
 .stage-label--current {
   font-weight: 800;
-  font-size: 15px;
-  transform: scale(1.05);
   color: var(--wanda-primary) !important;
 }
 
@@ -1784,6 +1973,7 @@ onMounted(() => {
   display: flex;
   align-items: baseline;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 8px;
 }
@@ -1816,11 +2006,11 @@ onMounted(() => {
 }
 
 .signin-section {
-  background: linear-gradient(135deg, #fff9f0 0%, #fff5e6 100%);
-  border: 1px solid #f0d9a0;
-  border-radius: var(--radius-base);
+  background: linear-gradient(180deg, #fffdf8 0%, #fff7ed 100%);
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
   padding: 14px 16px;
-  margin-bottom: var(--spacing-lg);
+  margin-bottom: 14px;
 }
 
 .signin-header {
@@ -1847,22 +2037,27 @@ onMounted(() => {
 }
 
 .signin-days {
-  display: flex;
-  justify-content: space-between;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 8px;
 }
 
 .signin-day {
-  flex: 1;
   text-align: center;
 }
 
 .signin-day-inner {
+  min-height: 76px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   position: relative;
+  padding: 8px 6px;
+  border: 1px solid #fde7bd;
+  border-radius: 8px;
+  background: #fff;
 }
 
 .signin-icon {
@@ -1905,6 +2100,95 @@ onMounted(() => {
   top: -4px;
   right: 2px;
   font-size: 14px;
+}
+
+.vip-info-card :deep(.el-table) {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.vip-info-card :deep(.el-table th.el-table__cell) {
+  color: var(--text-secondary, var(--app-muted));
+  background: #f8fbff;
+}
+
+.vip-info-card :deep(.el-table__cell) {
+  padding: 9px 0;
+}
+
+@media (max-width: 1360px) {
+  .member-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .member-summary-card {
+    height: 96px;
+  }
+
+  .vip-subtabs {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .vip-subtab-meta {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .exchange-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .exchange-form .el-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 980px) {
+  .member-summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .vip-subtab-list,
+  .vip-subtab {
+    width: 100%;
+  }
+
+  .vip-info-header {
+    align-items: flex-start;
+  }
+
+  .grade-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-height: 720px) {
+  .page-container {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .member-summary-card {
+    height: 88px;
+    padding: 12px 14px;
+  }
+
+  .member-summary-card strong {
+    font-size: 20px;
+  }
+
+  .vip-info-card,
+  .vip-exchange-card,
+  .grade-card {
+    padding: 14px;
+  }
+
+  .signin-icon {
+    width: 32px;
+    height: 32px;
+  }
 }
 </style>
 
