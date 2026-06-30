@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { Lock, Refresh, Search, UserFilled, Edit, Delete, DocumentCopy, Upload, FolderAdd, Sort } from '@element-plus/icons-vue'
+import { computed, ref } from 'vue'
+import { Delete, DocumentCopy, Edit, FolderAdd, Lock, Refresh, Search, Sort, Upload, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import type { TableInstance } from 'element-plus'
 
 import {
   fetchMemberCoupons,
@@ -20,29 +19,27 @@ const DEFAULT_WANDA_USER_IDENTIFIER = 'YYDDJDKYHA'
 const accountsStore = useAccountsStore()
 const logsStore = useLogsStore()
 
-const accountTableRef = ref<TableInstance>()
+const hasNoAccounts = computed(() => accountsStore.accounts.length === 0)
+const activeAccountTab = ref<'list' | 'current'>('list')
+const loginCardExpanded = ref(false)
 const refreshingAccountSummaries = ref(false)
-
-function handleAccountSelectionChange(rows: WandaAccount[]): void {
-  accountsStore.setSelectedAccountIds(rows.map((row) => row.id))
-}
-
-function handleCancelSelection() {
-  accountTableRef.value?.clearSelection()
-  accountsStore.cancelSelection()
-}
-
 const contextMenuVisible = ref(false)
 const contextMenuX = ref(0)
 const contextMenuY = ref(0)
 const contextMenuAccount = ref<WandaAccount | null>(null)
+const moveGroupDialogVisible = ref(false)
+const targetGroupId = ref('')
+const importAccountsDialogVisible = ref(false)
+const importAccountsText = ref('')
+const importAccountsPlaceholder =
+  '支持格式：手机号---ck、备注---ck---手机号---登录时间、JSON 数组\n[{"phone":"13800138000","ck":"..."}]'
 
-function handleRowClick(row: WandaAccount) {
+function handleRowClick(row: WandaAccount): void {
   accountsStore.setCurrentAccount(row.id)
 }
 
-function tableRowClassName({ row }: { row: WandaAccount }) {
-  return row.id === accountsStore.currentAccountId ? 'is-current-row' : ''
+function handleCancelSelection(): void {
+  accountsStore.cancelSelection()
 }
 
 function formatLoginDate(row: WandaAccount): string {
@@ -63,6 +60,30 @@ function formatAccountNumber(value: number | null | undefined): string {
 
 function formatWPlusExpire(row: WandaAccount): string {
   return row.wplusExpireAt || (row.isPayMember ? 'W+' : '-')
+}
+
+function maskPhone(phone: string): string {
+  return phone.replace(/^(\d{3})\d{4}(\d{4})$/, '$1****$2')
+}
+
+function isCurrentAccount(account: WandaAccount): boolean {
+  return account.id === accountsStore.currentAccountId
+}
+
+function isSelectedAccount(account: WandaAccount): boolean {
+  return accountsStore.selectedAccountIds.includes(account.id)
+}
+
+function handleAccountCheckedChange(account: WandaAccount, checked: string | number | boolean): void {
+  const ids = new Set(accountsStore.selectedAccountIds)
+
+  if (checked) {
+    ids.add(account.id)
+  } else {
+    ids.delete(account.id)
+  }
+
+  accountsStore.setSelectedAccountIds([...ids])
 }
 
 function getCurrentGradeSummary(groups: MemberGradeGroup[]): { memberGradeName: string; growthValue: number | null } {
@@ -159,13 +180,13 @@ async function handleRefreshAccountSummaries(): Promise<void> {
   ElMessage.success(`账号摘要刷新完成：成功 ${successCount} 个，失败 ${failCount} 个`)
 }
 
-function handleRowContextMenu(row: WandaAccount, column: any, event: MouseEvent) {
+function handleRowContextMenu(row: WandaAccount, _column: unknown, event: MouseEvent): void {
   event.preventDefault()
   contextMenuAccount.value = row
   contextMenuX.value = event.clientX
   contextMenuY.value = event.clientY
   contextMenuVisible.value = true
-  
+
   const closeMenu = () => {
     contextMenuVisible.value = false
     document.removeEventListener('click', closeMenu)
@@ -173,7 +194,7 @@ function handleRowContextMenu(row: WandaAccount, column: any, event: MouseEvent)
   document.addEventListener('click', closeMenu)
 }
 
-async function handleEditRemark() {
+async function handleEditRemark(): Promise<void> {
   const account = contextMenuAccount.value
   if (!account) return
   contextMenuVisible.value = false
@@ -187,7 +208,7 @@ async function handleEditRemark() {
   } catch {}
 }
 
-async function handleDeleteAccount() {
+async function handleDeleteAccount(): Promise<void> {
   const account = contextMenuAccount.value
   if (!account) return
   contextMenuVisible.value = false
@@ -201,7 +222,7 @@ async function handleDeleteAccount() {
   } catch {}
 }
 
-async function handleCopyPhone() {
+async function handleCopyPhone(): Promise<void> {
   const account = contextMenuAccount.value
   if (!account) return
   contextMenuVisible.value = false
@@ -213,7 +234,7 @@ async function handleCopyPhone() {
   }
 }
 
-async function handleCreateGroup() {
+async function handleCreateGroup(): Promise<void> {
   contextMenuVisible.value = false
   try {
     const { value } = await ElMessageBox.prompt('请输入分组名称', '创建分组', {
@@ -226,19 +247,12 @@ async function handleCreateGroup() {
   } catch {}
 }
 
-async function handleMoveToGroup(groupId: string) {
+async function handleMoveToGroup(groupId: string): Promise<void> {
   const account = contextMenuAccount.value
   if (!account) return
   contextMenuVisible.value = false
   await accountsStore.moveAccountToGroup(account.id, groupId)
 }
-
-const moveGroupDialogVisible = ref(false)
-const targetGroupId = ref('')
-const importAccountsDialogVisible = ref(false)
-const importAccountsText = ref('')
-const importAccountsPlaceholder =
-  '支持格式：手机号---ck、备注---ck---手机号---登录时间、JSON数组\n[{"phone":"13800138000","ck":"..."}]'
 
 function handleMoveSelectedToGroup(): void {
   targetGroupId.value = accountsStore.groups[0]?.id || ''
@@ -247,7 +261,7 @@ function handleMoveSelectedToGroup(): void {
 
 async function confirmMoveSelectedToGroup(): Promise<void> {
   if (!targetGroupId.value) return
-  
+
   const movedCount = await accountsStore.moveSelectedToGroup(targetGroupId.value)
   if (movedCount > 0) {
     ElMessage.success(accountsStore.loginForm.message)
@@ -282,9 +296,16 @@ async function confirmImportAccounts(): Promise<void> {
 
 <template>
   <aside class="account-sidebar">
-    <section class="panel account-panel">
+    <section class="panel account-pool-card account-current-card account-list-card">
+      <header class="account-section-header">
+        <span>
+          <el-icon><UserFilled /></el-icon>
+          账号池
+        </span>
+        <span class="account-section-count">{{ accountsStore.filteredAccounts.length }} 个账号</span>
+      </header>
+
       <div class="account-toolbar">
-        <el-icon class="toolbar-icon"><UserFilled /></el-icon>
         <el-select v-model="accountsStore.selectedGroupId" size="small" placeholder="分组">
           <el-option
             v-for="group in accountsStore.groups"
@@ -293,154 +314,218 @@ async function confirmImportAccounts(): Promise<void> {
             :value="group.id"
           />
         </el-select>
+        <el-input
+          v-model="accountsStore.searchKeyword"
+          size="small"
+          placeholder="搜索账号/手机号"
+          :prefix-icon="Search"
+        />
         <el-button
           size="small"
           :icon="Refresh"
           :loading="refreshingAccountSummaries"
+          aria-label="刷新账号摘要"
           @click="handleRefreshAccountSummaries"
         />
-        <el-input
-          v-model="accountsStore.searchKeyword"
-          size="small"
-          placeholder="搜索..."
-          :prefix-icon="Search"
-        />
       </div>
 
-      <div v-if="accountsStore.currentAccount" class="current-account-info">
-        当前使用：{{ accountsStore.currentAccount.phone }}
-        <span
-          v-if="accountsStore.currentAccount.statusText"
-          class="status-badge status-badge--active"
+      <div class="account-tabs" role="tablist" aria-label="账号池切换">
+        <button
+          type="button"
+          class="account-tab-button"
+          :class="{ 'account-tab-button--active': activeAccountTab === 'list' }"
+          role="tab"
+          :aria-selected="activeAccountTab === 'list'"
+          aria-controls="account-list-panel"
+          @click="activeAccountTab = 'list'"
         >
-          {{ accountsStore.currentAccount.statusText }}
-        </span>
-        ({{ accountsStore.currentAccount.remark }})
+          <span>账号列表</span>
+          <span class="account-tab-count">已选 {{ accountsStore.selectedCount }}</span>
+        </button>
+        <button
+          type="button"
+          class="account-tab-button"
+          :class="{ 'account-tab-button--active': activeAccountTab === 'current' }"
+          role="tab"
+          :aria-selected="activeAccountTab === 'current'"
+          aria-controls="account-current-panel"
+          @click="activeAccountTab = 'current'"
+        >
+          <span>当前账号</span>
+          <span class="account-tab-count">{{ accountsStore.currentAccount ? '已选' : '未选' }}</span>
+        </button>
       </div>
 
-      <el-table
-        ref="accountTableRef"
-        class="account-table"
-        :data="accountsStore.filteredAccounts"
-        height="100%"
-        row-key="id"
-        empty-text="暂无数据"
-        :row-class-name="tableRowClassName"
-        @row-click="handleRowClick"
-        @row-contextmenu="handleRowContextMenu"
-        @selection-change="handleAccountSelectionChange"
+      <div
+        v-show="activeAccountTab === 'list'"
+        id="account-list-panel"
+        class="account-tab-panel account-list-panel"
+        role="tabpanel"
       >
-        <el-table-column type="selection" width="40" />
-        <el-table-column prop="phone" label="手机号" min-width="122" show-overflow-tooltip />
-        <el-table-column prop="statusText" label="状态" width="62" align="center" />
-        <el-table-column label="登录日期" width="96" align="center">
-          <template #default="{ row }">
-            <span class="login-date-cell">{{ formatLoginDate(row) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="CK" width="48" align="center">
-          <template #default="{ row }">
-            <span :class="['ck-badge', row.ck ? 'ck-badge--active' : '']">
-              {{ row.ck ? '有' : '无' }}
+        <div class="account-row-list">
+          <button
+            v-for="account in accountsStore.filteredAccounts"
+            :key="account.id"
+            type="button"
+            class="account-row"
+            :class="{ 'account-row--active': isCurrentAccount(account) }"
+            @click="handleRowClick(account)"
+            @contextmenu.prevent="handleRowContextMenu(account, null, $event)"
+          >
+            <el-checkbox
+              :model-value="isSelectedAccount(account)"
+              :aria-label="`选择账号 ${account.phone}`"
+              @click.stop
+              @change="handleAccountCheckedChange(account, $event)"
+            />
+            <span class="row-avatar">
+              <el-icon><UserFilled /></el-icon>
             </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="入库" width="64" align="center">
-          <template #default="{ row }">
-            <span class="summary-cell">{{ formatAccountAgeDays(row) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="积分" width="70" align="center">
-          <template #default="{ row }">
-            <span class="summary-cell">{{ formatAccountNumber(row.pointsBalance) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="W+到期" width="96" align="center" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span class="summary-cell">{{ formatWPlusExpire(row) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="储值卡" width="70" align="center">
-          <template #default="{ row }">
-            <span class="summary-cell">{{ formatAccountNumber(row.storedCardCount) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="可用券" width="70" align="center">
-          <template #default="{ row }">
-            <span class="summary-cell">{{ formatAccountNumber(row.couponCount) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="等级" width="78" align="center" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span class="summary-cell">{{ row.memberGradeName || '-' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="成长值" width="78" align="center">
-          <template #default="{ row }">
-            <span class="summary-cell">{{ formatAccountNumber(row.growthValue) }}</span>
-          </template>
-        </el-table-column>
-      </el-table>
+            <span class="row-main">
+              <strong>{{ maskPhone(account.phone) }}</strong>
+              <em>{{ formatLoginDate(account) }}</em>
+            </span>
+            <span class="row-meta">
+              <strong>{{ formatAccountNumber(account.pointsBalance) }}</strong>
+              <em>{{ account.isPayMember ? 'W+' : account.statusText || '-' }}</em>
+            </span>
+          </button>
 
-      <div class="account-actions">
-        <span>已选 {{ accountsStore.selectedCount }} 项</span>
-        <el-button size="small" :disabled="accountsStore.selectedCount === 0" @click="handleMoveSelectedToGroup">
-          移动到分组
-        </el-button>
-        <el-button size="small" :disabled="accountsStore.selectedCount === 0" @click="handleCancelSelection">
-          取消选择
-        </el-button>
+          <div v-if="accountsStore.filteredAccounts.length === 0" class="account-empty">暂无账号</div>
+        </div>
+
+        <div class="account-management-actions">
+          <el-button size="small" :disabled="accountsStore.selectedCount === 0" @click="handleMoveSelectedToGroup">
+            移动分组
+          </el-button>
+          <el-button size="small" :disabled="accountsStore.selectedCount === 0" @click="handleCancelSelection">
+            取消选择
+          </el-button>
+        </div>
+      </div>
+
+      <div
+        v-show="activeAccountTab === 'current'"
+        id="account-current-panel"
+        class="account-tab-panel account-current-panel"
+        role="tabpanel"
+      >
+        <div v-if="accountsStore.currentAccount" class="current-account-card">
+          <div class="current-account-top">
+            <span class="current-avatar">
+              <el-icon><UserFilled /></el-icon>
+            </span>
+            <div class="current-account-main">
+              <strong>{{ maskPhone(accountsStore.currentAccount.phone) }}</strong>
+              <span>{{ accountsStore.currentAccount.remark || '当前账号' }}</span>
+            </div>
+            <span :class="['status-badge', accountsStore.currentAccount.ck ? 'status-badge--active' : '']">
+              {{ accountsStore.currentAccount.statusText || (accountsStore.currentAccount.ck ? '在线' : '未登录') }}
+            </span>
+          </div>
+
+          <div class="account-metric-grid">
+            <div class="account-metric">
+              <span>积分</span>
+              <strong>{{ formatAccountNumber(accountsStore.currentAccount.pointsBalance) }}</strong>
+            </div>
+            <div class="account-metric">
+              <span>W+到期</span>
+              <strong>{{ formatWPlusExpire(accountsStore.currentAccount) }}</strong>
+            </div>
+            <div class="account-metric">
+              <span>可用券</span>
+              <strong>{{ formatAccountNumber(accountsStore.currentAccount.couponCount) }}</strong>
+            </div>
+            <div class="account-metric">
+              <span>储值卡</span>
+              <strong>{{ formatAccountNumber(accountsStore.currentAccount.storedCardCount) }}</strong>
+            </div>
+            <div class="account-metric">
+              <span>入库</span>
+              <strong>{{ formatAccountAgeDays(accountsStore.currentAccount) }}</strong>
+            </div>
+            <div class="account-metric">
+              <span>等级</span>
+              <strong>{{ accountsStore.currentAccount.memberGradeName || '-' }}</strong>
+            </div>
+            <div class="account-metric">
+              <span>成长值</span>
+              <strong>{{ formatAccountNumber(accountsStore.currentAccount.growthValue) }}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div v-else class="account-empty">请选择或登录万达账号</div>
       </div>
     </section>
 
-    <section class="panel wanda-login-panel">
-      <header class="panel-header">
+    <section class="panel account-login-card">
+      <header class="account-section-header">
         <span>
           <el-icon><Lock /></el-icon>
           万达账号登录
         </span>
-        <el-button size="small" text @click="handleImportAccounts">导入账号</el-button>
+        <div class="login-card-actions">
+          <el-button size="small" text @click="handleImportAccounts">导入账号</el-button>
+          <el-button
+            v-if="!hasNoAccounts"
+            class="login-toggle-button"
+            size="small"
+            type="primary"
+            @click="loginCardExpanded = !loginCardExpanded"
+          >
+            {{ loginCardExpanded ? '收起' : '登录' }}
+          </el-button>
+        </div>
       </header>
 
-      <div class="login-form">
-        <el-input v-model="accountsStore.loginForm.phone" placeholder="请输入手机号">
-          <template #prepend>+86</template>
-        </el-input>
-        <div class="login-code-row">
-          <el-input v-model="accountsStore.loginForm.code" placeholder="验证码" />
+      <div v-if="loginCardExpanded || hasNoAccounts" class="login-panel-body">
+        <div class="login-form">
+          <el-input v-model="accountsStore.loginForm.phone" placeholder="请输入手机号">
+            <template #prepend>+86</template>
+          </el-input>
+          <div class="login-code-row">
+            <el-input v-model="accountsStore.loginForm.code" placeholder="验证码" />
+            <el-button
+              type="primary"
+              :loading="accountsStore.loginForm.sending"
+              :disabled="
+                accountsStore.loginForm.sending ||
+                accountsStore.loginForm.loggingIn ||
+                accountsStore.loginForm.countdown > 0 ||
+                !accountsStore.loginForm.phone
+              "
+              @click="accountsStore.sendLoginCode"
+            >
+              {{ accountsStore.loginForm.countdown > 0 ? `${accountsStore.loginForm.countdown}秒` : '获取验证码' }}
+            </el-button>
+          </div>
           <el-button
+            class="full-button"
             type="primary"
-            :loading="accountsStore.loginForm.sending"
+            :loading="accountsStore.loginForm.loggingIn"
             :disabled="
               accountsStore.loginForm.sending ||
               accountsStore.loginForm.loggingIn ||
-              accountsStore.loginForm.countdown > 0 ||
-              !accountsStore.loginForm.phone
+              !accountsStore.loginForm.phone ||
+              !accountsStore.loginForm.code
             "
-            @click="accountsStore.sendLoginCode"
+            @click="accountsStore.loginWandaAccount"
           >
-            {{ accountsStore.loginForm.countdown > 0 ? `${accountsStore.loginForm.countdown}秒后获取` : '获取验证码' }}
+            登录
           </el-button>
         </div>
-        <el-button
-          class="full-button"
-          type="primary"
-          :loading="accountsStore.loginForm.loggingIn"
-          :disabled="
-            accountsStore.loginForm.sending ||
-            accountsStore.loginForm.loggingIn ||
-            !accountsStore.loginForm.phone ||
-            !accountsStore.loginForm.code
-          "
-          @click="accountsStore.loginWandaAccount"
-        >
-          登录
-        </el-button>
+
+        <div class="login-status">
+          <span class="status-dot" />
+          {{ accountsStore.loginStatusText }}
+        </div>
       </div>
 
-      <div class="login-status">
+      <div v-else class="login-compact-row">
         <span class="status-dot" />
-        {{ accountsStore.loginStatusText }}
+        <span>{{ accountsStore.loginStatusText }}</span>
       </div>
     </section>
 
@@ -456,7 +541,7 @@ async function confirmImportAccounts(): Promise<void> {
             <el-icon><Edit /></el-icon>
             <span>修改备注</span>
           </el-menu-item>
-          <el-menu-item @click="handleDeleteAccount" class="danger-item">
+          <el-menu-item class="danger-item" @click="handleDeleteAccount">
             <el-icon><Delete /></el-icon>
             <span>删除账号</span>
           </el-menu-item>
@@ -464,7 +549,7 @@ async function confirmImportAccounts(): Promise<void> {
             <el-icon><DocumentCopy /></el-icon>
             <span>复制手机号</span>
           </el-menu-item>
-          <div class="el-menu-item-divider"></div>
+          <div class="el-menu-item-divider" />
           <el-menu-item @click="handleImportAccounts">
             <el-icon><Upload /></el-icon>
             <span>导入账号</span>
@@ -539,148 +624,325 @@ async function confirmImportAccounts(): Promise<void> {
 .account-sidebar {
   min-width: 0;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  display: grid;
+  grid-template-rows: minmax(480px, 1fr) auto;
+  gap: 12px;
 }
 
 .panel {
+  min-width: 0;
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
   box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
 }
 
-.panel-header {
-  min-height: 44px;
+.account-section-header {
+  min-height: 46px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 0 16px;
+  padding: 0 14px;
   border-bottom: 1px solid var(--app-border);
   color: var(--app-text);
   font-weight: 700;
 }
 
-.panel-header span {
+.account-section-header span:first-child {
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: 8px;
 }
 
-.panel-header :deep(.el-icon) {
+.account-section-header :deep(.el-icon) {
   color: var(--app-accent);
 }
 
-.account-panel {
-  flex: 1;
-  min-height: 360px;
-  display: flex;
-  flex-direction: column;
-  padding: 12px;
+.account-section-count {
+  color: var(--app-muted);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .account-toolbar {
   display: grid;
-  grid-template-columns: 28px 110px 40px minmax(0, 1fr);
+  grid-template-columns: 94px minmax(0, 1fr) 36px;
   gap: 8px;
-  align-items: center;
-  margin-bottom: 12px;
+  padding: 12px 14px;
 }
 
-.toolbar-icon {
-  color: var(--app-text);
-  font-size: 20px;
-}
-
-.account-table {
-  flex: 1;
-}
-
-.account-actions {
-  min-height: 44px;
+.account-pool-card {
+  min-height: 0;
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.account-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0 14px 12px;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.account-tab-button {
+  min-width: 0;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
+  padding: 0 10px;
+  border: 1px solid #e0e8f3;
+  border-radius: 7px;
+  background: #f8fbff;
   color: var(--app-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
 }
 
-.wanda-login-form :deep(.el-input-group__append) {
-  padding: 0;
+.account-tab-button:hover {
+  border-color: #b9d6ff;
+  color: var(--app-text);
 }
 
-.account-table :deep(.is-current-row) > td.el-table__cell {
-  background-color: var(--app-accent-soft) !important;
+.account-tab-button--active {
+  border-color: #91bfff;
+  background: var(--app-accent-soft);
+  color: var(--app-accent);
 }
 
-.login-date-cell {
+.account-tab-count {
   color: var(--app-muted);
   font-size: 12px;
+  font-weight: 500;
   white-space: nowrap;
 }
 
-.ck-badge {
+.account-tab-panel {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.account-current-panel {
+  overflow: auto;
+  padding: 12px 14px 14px;
+}
+
+.current-account-card {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #bdd7ff;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #f8fbff 0%, #fff 100%);
+}
+
+.current-account-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.current-avatar,
+.row-avatar {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--app-accent-soft);
+  color: var(--app-accent);
+}
+
+.current-avatar {
+  width: 34px;
+  height: 34px;
+  font-size: 19px;
+}
+
+.current-account-main,
+.row-main,
+.row-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.current-account-main {
+  flex: 1;
+  gap: 2px;
+}
+
+.current-account-main strong,
+.row-main strong {
+  color: var(--app-text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.current-account-main span,
+.row-main em,
+.row-meta em {
+  color: var(--app-muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.status-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 24px;
-  height: 22px;
-  padding: 0 6px;
-  border: 1px solid #e4e7ed;
-  border-radius: 4px;
-  background: #f4f4f5;
-  color: #909399;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: var(--app-muted);
   font-size: 12px;
-  line-height: 1;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
-.ck-badge--active {
-  border-color: #e1f3d8;
-  background: #f0f9eb;
-  color: #67c23a;
+.status-badge--active {
+  background: #e9f8ef;
+  color: #168a3d;
 }
 
-.summary-cell {
+.account-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.account-metric {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid #e1eaf5;
+  border-radius: 7px;
+  background: #f8fbff;
+}
+
+.account-metric span {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.account-metric strong {
+  display: block;
+  min-width: 0;
+  color: var(--app-text);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-list-card {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.account-row-list {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 10px 10px 6px;
+  scrollbar-width: thin;
+}
+
+.account-row {
+  width: 100%;
+  min-height: 54px;
+  display: grid;
+  grid-template-columns: 24px 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+
+.account-row:hover {
+  border-color: #d5e4f6;
+  background: #f8fbff;
+}
+
+.account-row--active {
+  border-color: #9fc7ff;
+  background: var(--app-accent-soft);
+}
+
+.row-avatar {
+  width: 34px;
+  height: 34px;
+  font-size: 19px;
+}
+
+.row-main strong {
+  font-size: 14px;
+}
+
+.row-meta {
+  align-items: flex-end;
+  gap: 2px;
   color: var(--app-muted);
   font-size: 12px;
   white-space: nowrap;
 }
 
-.custom-context-menu {
-  position: fixed;
-  z-index: 9999;
-  border-radius: 4px;
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
-  background: white;
-  min-width: 160px;
-  padding: 4px 0;
-}
-.context-menu-list {
-  border-right: none;
-}
-.context-menu-list .el-menu-item {
-  height: 36px;
-  line-height: 36px;
-}
-.context-menu-list :deep(.el-sub-menu__title) {
-  height: 36px;
-  line-height: 36px;
-}
-.danger-item {
-  color: #f56c6c !important;
-}
-.danger-item .el-icon {
-  color: #f56c6c !important;
-}
-.el-menu-item-divider {
-  height: 1px;
-  background-color: #ebeef5;
-  margin: 4px 0;
+.row-meta strong {
+  color: var(--app-subtle);
+  font-size: 12px;
 }
 
-.wanda-login-panel {
+.account-management-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 10px 14px 14px;
+  border-top: 1px solid var(--app-border);
+}
+
+.account-login-card {
+  overflow: hidden;
+}
+
+.login-card-actions {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.login-toggle-button {
+  min-width: 62px;
+  font-weight: 700;
+  box-shadow: 0 4px 10px rgb(32 126 255 / 18%);
+}
+
+.login-panel-body {
   padding-bottom: 12px;
 }
 
@@ -688,12 +950,12 @@ async function confirmImportAccounts(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 12px;
+  padding: 12px 14px;
 }
 
 .login-code-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 120px;
+  grid-template-columns: minmax(0, 1fr) 104px;
   gap: 8px;
 }
 
@@ -701,51 +963,76 @@ async function confirmImportAccounts(): Promise<void> {
   width: 100%;
 }
 
+.login-status,
+.account-empty {
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
 .login-status {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 0 14px;
+}
+
+.login-compact-row {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px 12px;
   color: var(--app-muted);
+  font-size: 12px;
+}
+
+.account-empty {
+  min-height: 84px;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  text-align: center;
 }
 
 .status-dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: #c7d0dd;
 }
 
-.current-account-info {
-  margin-bottom: 12px;
-  padding: 8px 12px;
-  border: 1px solid #d9ecff;
-  border-radius: 4px;
-  background-color: #ecf5ff;
-  color: #409eff;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
+.custom-context-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 160px;
+  padding: 4px 0;
+  border-radius: 6px;
+  background: var(--app-surface);
+  box-shadow: 0 8px 22px rgb(31 42 68 / 18%);
 }
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 6px;
-  height: 20px;
-  font-size: 11px;
-  font-weight: 700;
-  border-radius: 3px;
-  background-color: #e4e7ed;
-  color: #909399;
-  line-height: 1;
+
+.context-menu-list {
+  border-right: none;
 }
-.status-badge--active {
-  background-color: #f0f9eb;
-  color: #67c23a;
-  border: 1px solid #e1f3d8;
+
+.context-menu-list .el-menu-item,
+.context-menu-list :deep(.el-sub-menu__title) {
+  height: 36px;
+  line-height: 36px;
+}
+
+.danger-item {
+  color: #f56c6c !important;
+}
+
+.danger-item .el-icon {
+  color: #f56c6c !important;
+}
+
+.el-menu-item-divider {
+  height: 1px;
+  margin: 4px 0;
+  background-color: var(--app-border);
 }
 
 :global(.legacy-account-import-dialog .el-dialog__header) {

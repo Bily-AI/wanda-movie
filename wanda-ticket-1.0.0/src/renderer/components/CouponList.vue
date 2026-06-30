@@ -48,10 +48,13 @@ const emit = defineEmits<{
 
 <style scoped>
 .side-panel-body {
+  min-width: 0;
   min-height: 112px;
+  overflow: hidden;
 }
 
 .side-panel-header {
+  min-width: 0;
   min-height: 52px;
   display: flex;
   align-items: center;
@@ -63,9 +66,20 @@ const emit = defineEmits<{
   font-weight: 700;
 }
 
+.side-panel-header > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .side-panel-count {
+  min-width: 0;
   color: var(--app-muted);
   font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .side-empty {
@@ -77,6 +91,7 @@ const emit = defineEmits<{
 }
 
 .mini-list {
+  min-width: 0;
   max-height: 156px;
   overflow: auto;
   padding: 8px 12px 12px;
@@ -88,21 +103,30 @@ const emit = defineEmits<{
 }
 
 .mini-list-item {
+  min-width: 0;
   min-height: 32px;
   color: var(--app-text);
 }
 
 .mini-list-checkbox {
+  min-width: 0;
   width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.mini-list-checkbox :deep(.el-checkbox__input) {
+  flex: 0 0 auto;
 }
 
 .mini-list-checkbox :deep(.el-checkbox__label) {
   min-width: 0;
-  width: 100%;
+  width: auto;
+  flex: 1 1 auto;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) max-content;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   color: var(--app-text);
 }
 
@@ -115,6 +139,7 @@ const emit = defineEmits<{
 
 .mini-list-meta {
   color: var(--app-muted);
+  font-size: 12px;
   font-style: normal;
 }
 </style>

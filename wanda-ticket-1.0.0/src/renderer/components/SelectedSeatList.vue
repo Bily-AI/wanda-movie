@@ -50,6 +50,7 @@ const showDiscount = computed(() => props.discountPriceCent > 0)
         </div>
 
         <div class="seat-summary-calc">
+          <span class="seat-summary-times">×</span>
           <input
             :value="discountRate"
             type="text"
@@ -66,6 +67,8 @@ const showDiscount = computed(() => props.discountPriceCent > 0)
 
 <style scoped>
 .selected-seat-list {
+  min-width: 0;
+  overflow: hidden;
   min-height: 72px;
   padding: 10px 12px 12px;
 }
@@ -78,12 +81,15 @@ const showDiscount = computed(() => props.discountPriceCent > 0)
 }
 
 .seat-chip-list {
+  max-height: 72px;
+  overflow: auto;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
 .seat-chip {
+  max-width: 100%;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -97,11 +103,20 @@ const showDiscount = computed(() => props.discountPriceCent > 0)
   cursor: pointer;
 }
 
+.seat-chip span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .seat-chip-close {
+  flex: 0 0 auto;
   color: #b7d7a6;
 }
 
 .seat-summary {
+  flex-wrap: wrap;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -113,6 +128,7 @@ const showDiscount = computed(() => props.discountPriceCent > 0)
 }
 
 .seat-summary-main {
+  flex: 1 1 152px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -135,13 +151,20 @@ const showDiscount = computed(() => props.discountPriceCent > 0)
 .seat-summary-payable {
   color: #4caf50;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .seat-summary-calc {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   color: #5a97db;
+}
+
+.seat-summary-times {
+  color: var(--app-muted);
+  font-weight: 600;
 }
 
 .seat-summary-input {

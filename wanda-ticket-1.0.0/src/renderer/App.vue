@@ -331,9 +331,9 @@ function registerAutoOrderListener(): void {
   height: 24px;
   display: grid;
   place-items: center;
-  border-radius: 6px;
-  background: linear-gradient(135deg, #d9363e 0%, #f06d35 100%);
-  color: #fff;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--app-accent) 10%, transparent);
+  color: var(--app-accent);
   font-size: 15px;
   font-weight: 700;
 }
@@ -464,18 +464,18 @@ function registerAutoOrderListener(): void {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  padding: 16px;
+  padding: 14px;
   overflow: hidden;
   background:
     linear-gradient(180deg, var(--app-bg) 0%, var(--app-bg-soft) 100%);
 }
 
 .workspace-layout {
-  min-width: 1280px;
+  min-width: 0;
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-columns: 392px minmax(0, 1fr);
+  grid-template-columns: 340px minmax(0, 1fr);
   gap: 12px;
 }
 

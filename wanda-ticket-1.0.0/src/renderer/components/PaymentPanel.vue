@@ -82,10 +82,13 @@ function handleActivityEnabledChange(value: boolean): void {
 
 <style scoped>
 .side-panel-body {
+  min-width: 0;
+  overflow: hidden;
   padding: 0 0 12px;
 }
 
 .side-panel-header {
+  min-width: 0;
   min-height: 52px;
   display: flex;
   align-items: center;
@@ -97,17 +100,30 @@ function handleActivityEnabledChange(value: boolean): void {
   font-weight: 700;
 }
 
+.side-panel-header > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .panel-toggle {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
 }
 
 .side-line {
+  min-width: 0;
   display: grid;
   grid-template-columns: 64px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   padding: 14px 16px 0;
+}
+
+.side-line :deep(.el-select) {
+  min-width: 0;
 }
 
 .side-line span {

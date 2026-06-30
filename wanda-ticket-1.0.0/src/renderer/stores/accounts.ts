@@ -318,6 +318,55 @@ export const useAccountsStore = defineStore('accounts', {
       const result = await getWandaApp()?.readLocalData('accounts')
 
       if (!result?.ok) {
+        if (import.meta.env.DEV && !getWandaApp()) {
+          this.groups = [{ id: 'default', name: '默认分组' }]
+          this.accounts = [
+            normalizeAccount({
+              id: 'preview-18688888888',
+              phone: '18688888888',
+              remark: '预览账号',
+              status: 'normal',
+              statusText: '在线',
+              groupId: 'default',
+              ck: 'preview-ck',
+              userIdentifier: DEFAULT_WANDA_USER_IDENTIFIER,
+              loginDate: '2026-06-30',
+              loginTime: '10:15:30',
+              createdAt: '2026-06-30T10:15:30.000Z',
+              isPayMember: true,
+              accountAgeDays: 0,
+              pointsBalance: 2860,
+              wplusExpireAt: '2026-06-30',
+              storedCardCount: 2,
+              couponCount: 12,
+              memberGradeName: 'W+',
+              growthValue: 1200
+            }),
+            normalizeAccount({
+              id: 'preview-13956785678',
+              phone: '13956785678',
+              remark: '备用账号',
+              status: 'unknown',
+              statusText: '离线',
+              groupId: 'default',
+              ck: '',
+              userIdentifier: DEFAULT_WANDA_USER_IDENTIFIER,
+              loginDate: '2026-06-24',
+              loginTime: '09:30:12',
+              createdAt: '2026-06-24T09:30:12.000Z',
+              isPayMember: false,
+              accountAgeDays: 0,
+              pointsBalance: 1230,
+              wplusExpireAt: '',
+              storedCardCount: 0,
+              couponCount: 3,
+              memberGradeName: 'R1',
+              growthValue: 460
+            })
+          ]
+          this.currentAccountId = this.accounts[0]?.id || ''
+          this.selectedAccountIds = [this.currentAccountId].filter(Boolean)
+        }
         return
       }
 

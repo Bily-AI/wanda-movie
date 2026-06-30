@@ -1808,10 +1808,146 @@ export const useTicketStore = defineStore('ticket', {
         raw: item
       })
     },
+    applyPreviewTicketData() {
+      const city: CityRecord = { id: 'preview-city-beijing', name: '北京', raw: {} }
+      const cinema: CinemaRecord = {
+        id: 'preview-cinema-cbd',
+        cityId: city.id,
+        name: '北京CBD万达影城',
+        address: '北京CBD',
+        raw: {}
+      }
+      const showtime: ShowtimeItem = {
+        dId: 'preview-showtime-1930',
+        label: '19:30 中文2D',
+        startTime: '19:30',
+        hallName: 'IMAX厅',
+        filmId: 'preview-movie-kowloon',
+        date: '2026-06-30',
+        raw: {}
+      }
+      const seats: SeatNode[] = []
+
+      for (let row = 1; row <= 9; row += 1) {
+        for (let column = 1; column <= 16; column += 1) {
+          const occupied = row <= 2 && column >= 4 && column <= 7
+          const zone: SeatZone =
+            row === 4 && [4, 5, 12, 13].includes(column)
+              ? 'vip'
+              : row === 6 && [3, 4, 5, 12, 13].includes(column)
+                ? 'preferred'
+                : 'normal'
+
+          seats.push({
+            id: `preview-${row}-${column}`,
+            rowLabel: String(row),
+            columnLabel: String(column),
+            coordx: column - 1,
+            coordy: row - 1,
+            status: occupied ? 'occupied' : 'available',
+            zone,
+            price: 60,
+            seatId: `preview-seat-${row}-${column}`,
+            areaId: zone,
+            raw: {
+              row,
+              column,
+              coordx: column - 1,
+              coordy: row - 1,
+              status: occupied ? 0 : 1,
+              seatId: `preview-seat-${row}-${column}`,
+              areaId: zone
+            }
+          })
+        }
+      }
+
+      const selectedSeats = seats.filter((seat) => seat.rowLabel === '5' && ['7', '8'].includes(seat.columnLabel))
+
+      this.query = {
+        keyword: '北京CBD万达影城',
+        city: city.id,
+        cinema: cinema.id,
+        movie: 'preview-movie-kowloon',
+        date: '2026-06-30',
+        showtime: showtime.dId
+      }
+      this.cityRecords = [city]
+      this.cinemaRecords = [cinema]
+      this.cities = [{ label: city.name, value: city.id }]
+      this.cinemas = [{ label: cinema.name, value: cinema.id }]
+      this.movies = [{ label: '九龙城寨之围城', value: 'preview-movie-kowloon' }]
+      this.dates = [{ label: '2026-06-30 今天', value: '2026-06-30' }]
+      this.showtimes = [{ label: showtime.label, value: showtime.dId }]
+      this.showtimeItems = [showtime]
+      this.currentShowtime = showtime
+      this.seatNodes = seats
+      this.selectedSeatNodes = selectedSeats
+      this.selectedSeats = selectedSeats.map((seat) => ({
+        id: seat.id,
+        rowName: seat.rowLabel,
+        columnName: seat.columnLabel,
+        areaName: seat.zone
+      }))
+      this.paymentActivities = [
+        {
+          code: 'preview-activity',
+          name: '满减活动',
+          price: 0,
+          channelPrice: 0,
+          able: true,
+          groupName: '预览活动',
+          groupType: 'preview',
+          note: '',
+          typeCode: 'stored-card',
+          detailType: '',
+          allotSeat: null,
+          allotSeatRaw: '',
+          raw: {}
+        }
+      ]
+      this.paymentCards = [
+        {
+          cardNo: 'preview-card',
+          cardName: '储值卡',
+          cardTypeName: '万达储值卡',
+          cardTypeCode: 'stored-card',
+          balance: 300,
+          available: true,
+          statusDesc: '可用',
+          raw: {}
+        }
+      ]
+      this.coupons = [
+        {
+          code: 'preview-coupon-1',
+          name: '兑换券',
+          couponNo: 'preview-coupon-1',
+          voucherNo: 'preview-voucher-1',
+          couponTypeName: '影票券',
+          typeCode: 'ticket',
+          able: true,
+          amount: 0,
+          validity: '2025-12-31',
+          detailTypeName: '通用券',
+          couponCategoryName: '影票',
+          raw: {}
+        }
+      ]
+      this.showtimeError = 'OCR 已匹配：影院、影片、日期、场次、座位 2 个'
+      this.seatError = ''
+      this.paymentDataMessage = ''
+      this.paymentPrerequisiteError = ''
+    },
     async loadCityData() {
       const result = await window.wandaApp?.readLocalData('city')
 
       if (!result?.ok) {
+        if (import.meta.env.DEV && !window.wandaApp) {
+          this.applyPreviewTicketData()
+          return
+        }
+
         this.showtimeError = '缺少真实城市/影院数据'
         return
       }

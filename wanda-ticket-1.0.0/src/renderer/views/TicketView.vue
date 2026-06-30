@@ -215,18 +215,63 @@ function buildCouponLabel(coupon: (typeof ticketStore.coupons)[number]): string 
   )
 }
 
+function formatCouponExpiryMeta(...values: unknown[]): string {
+  for (const value of values) {
+    const text = firstText(value)
+
+    if (!text) {
+      continue
+    }
+
+    const timestamp = text.match(/^\d{10,13}$/)?.[0]
+
+    if (timestamp) {
+      const time = Number(timestamp.length === 10 ? `${timestamp}000` : timestamp)
+      const date = new Date(time)
+
+      if (!Number.isNaN(date.getTime())) {
+        return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 过期`
+      }
+    }
+
+    const dateMatch = text.match(/(\d{4})[-/.年]?\s*(\d{1,2})[-/.月]?\s*(\d{1,2})/)
+
+    if (!dateMatch) {
+      continue
+    }
+
+    const year = Number(dateMatch[1])
+    const month = Number(dateMatch[2])
+    const day = Number(dateMatch[3])
+
+    if (year >= 2000 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return `${year}年${month}月${day}日 过期`
+    }
+  }
+
+  return ''
+}
+
 function buildCouponMeta(coupon: (typeof ticketStore.coupons)[number]): string {
   const raw = asRecord(coupon.raw)
-  const amountText = coupon.amount > 0 ? `￥${coupon.amount.toFixed(2)}` : ''
-
-  return firstText(
+  const expiryText = formatCouponExpiryMeta(
     coupon.validity,
-    coupon.couponCategoryName,
-    coupon.detailTypeName,
-    amountText,
     raw.validityDateShowMsg,
     raw.validity,
     raw.expireTime,
+    raw.expireDate,
+    raw.endTime
+  )
+  const amountText = coupon.amount > 0 ? `￥${coupon.amount.toFixed(2)}` : ''
+
+  if (expiryText) {
+    return expiryText
+  }
+
+  return firstText(
+    coupon.couponCategoryName,
+    coupon.detailTypeName,
+    amountText,
     raw.couponCategoryName,
     raw.typeName,
     raw.detailTypeName,
@@ -262,6 +307,43 @@ const ticketCodeSeatText = computed(() =>
   ticketStore.currentOrder?.seats.map((seat) => `${seat.rowName}排${seat.columnName}座`).join('、') || '-'
 )
 const ticketCodeAmount = computed(() => `¥${((ticketStore.currentOrder?.amountCent ?? 0) / 100).toFixed(2)}`)
+
+function formatCentAmount(value: number): string {
+  return `¥${(Math.max(0, value) / 100).toFixed(2)}`
+}
+
+const statusTiles = computed(() => [
+  {
+    key: 'flow',
+    label: '当前流程',
+    value: ticketStore.selectedSeatCount > 0 ? '选座中' : ticketStore.currentOrder ? '待支付' : '待查询',
+    tone: 'blue'
+  },
+  {
+    key: 'ocr',
+    label: 'OCR 匹配',
+    value: ticketStore.showtimeError ? '已匹配' : '待识别',
+    tone: ticketStore.showtimeError ? 'green' : 'blue'
+  },
+  {
+    key: 'assets',
+    label: '可用资产',
+    value: `${couponItems.value.length} 券 / ${paymentCardItems.value.length} 卡`,
+    tone: 'blue'
+  },
+  {
+    key: 'order',
+    label: '当前订单',
+    value: ticketStore.currentOrderFinalized ? '已完成' : ticketStore.currentOrder ? '待提交' : '未创建',
+    tone: ticketStore.currentOrder ? 'orange' : 'blue'
+  },
+  {
+    key: 'risk',
+    label: '风险提示',
+    value: ticketStore.paymentPrerequisiteError || ticketStore.currentOrderMessage || '0 条',
+    tone: ticketStore.paymentPrerequisiteError || ticketStore.currentOrderMessage ? 'red' : 'green'
+  }
+])
 
 function isImageQrCode(value: string): boolean {
   return /^data:image\//.test(value) || /^[A-Za-z0-9+/]+={0,2}$/.test(value)
@@ -490,7 +572,19 @@ watch(
 </script>
 
 <template>
-  <section class="ticket-page">
+  <section class="ticket-workbench">
+    <section class="ticket-status-grid" aria-label="购票状态摘要">
+      <article
+        v-for="item in statusTiles"
+        :key="item.key"
+        class="status-tile"
+        :class="`status-tile--${item.tone}`"
+      >
+        <span>{{ item.label }}</span>
+        <strong>{{ item.value }}</strong>
+      </article>
+    </section>
+
     <section class="ticket-center">
       <section class="panel query-panel">
         <header class="panel-header">
@@ -498,6 +592,7 @@ watch(
             <el-icon><Search /></el-icon>
             购票查询
           </span>
+          <span class="ocr-state">{{ ticketStore.showtimeError || '等待 OCR 匹配' }}</span>
         </header>
 
         <div class="query-layout">
@@ -636,7 +731,7 @@ watch(
           </div>
         </div>
 
-        <div class="seat-legend">
+        <div class="seat-toolbar">
           <span><i class="legend-normal" />普通区</span>
           <span><i class="legend-prime" />优选区</span>
           <span><i class="legend-vip" />VIP区</span>
@@ -647,8 +742,8 @@ watch(
       </section>
     </section>
 
-    <aside class="order-column">
-      <section class="panel side-panel">
+    <aside class="ticket-context-column order-column">
+      <section class="context-card panel side-panel">
         <header class="panel-header">
           <span>
             <el-icon><Connection /></el-icon>
@@ -697,7 +792,7 @@ watch(
         <div v-else class="side-empty">{{ ticketStore.currentOrderMessage || '暂无订单' }}</div>
       </section>
 
-      <section class="panel side-panel">
+      <section class="context-panel panel side-panel">
         <PaymentPanel
           :activities="paymentActivityOptions"
           :selected-activity="ticketStore.paymentActivity"
@@ -706,7 +801,7 @@ watch(
         />
       </section>
 
-      <section class="panel side-panel">
+      <section class="context-panel panel side-panel">
         <PayCardList
           :items="paymentCardItems"
           :selected-values="ticketStore.selectedPaymentCards"
@@ -715,7 +810,7 @@ watch(
         />
       </section>
 
-      <section class="panel side-panel">
+      <section class="context-panel panel side-panel">
         <CouponList
           :items="couponItems"
           :selected-values="ticketStore.selectedCoupons"
@@ -725,7 +820,7 @@ watch(
         />
       </section>
 
-      <section class="panel side-panel">
+      <section class="context-card panel side-panel">
         <header class="panel-header">
           <span>已选座位</span>
           <span>{{ ticketStore.selectedSeatCount }} / {{ ticketStore.maxSeatCount }}</span>
@@ -888,23 +983,63 @@ watch(
 </template>
 
 <style scoped>
-.ticket-page {
-  min-width: 1080px;
+.ticket-workbench {
+  min-width: 0;
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(560px, 1fr) 288px;
-  grid-template-rows: minmax(0, 1fr) 56px;
+  grid-template-columns: minmax(620px, 1fr) 330px;
+  grid-template-rows: 86px minmax(0, 1fr) 64px;
   gap: 12px;
   overflow: hidden;
 }
+
+.ticket-status-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.status-tile {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  padding: 13px 16px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface);
+  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+}
+
+.status-tile span {
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.status-tile strong {
+  min-width: 0;
+  color: var(--app-text);
+  font-size: 18px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-tile--blue { border-color: #c8def8; background: #f7fbff; }
+.status-tile--green { border-color: #c8ead3; background: #f6fdf8; }
+.status-tile--orange { border-color: #f2d9b3; background: #fffaf2; }
+.status-tile--red { border-color: #f1c9c9; background: #fff8f8; }
 
 .ticket-center,
 .order-column {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .ticket-center {
@@ -912,7 +1047,15 @@ watch(
 }
 
 .order-column {
+  overflow: hidden;
+}
+
+.ticket-context-column {
+  min-width: 0;
+  padding-right: 8px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
 }
 
 .panel {
@@ -948,14 +1091,25 @@ watch(
 }
 
 .query-panel {
-  padding-bottom: 16px;
+  padding-bottom: 12px;
+}
+
+.ocr-state {
+  max-width: 54%;
+  justify-content: flex-end;
+  color: #168a3d;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .query-layout {
   display: grid;
-  grid-template-columns: minmax(360px, 540px) minmax(240px, 1fr);
-  gap: 16px;
-  padding: 16px;
+  grid-template-columns: minmax(420px, 1fr) 240px;
+  gap: 14px;
+  padding: 14px;
 }
 
 .query-form {
@@ -988,15 +1142,16 @@ watch(
 }
 
 .poster-panel {
-  min-height: 232px;
+  min-height: 208px;
   border: 1px solid var(--app-border);
   border-radius: 6px;
-  background: #fbfcfe;
+  background:
+    linear-gradient(135deg, #f8fbff 0%, #fff 52%, #f4f8fd 100%);
 }
 
 .seat-panel {
   flex: 1;
-  min-height: 440px;
+  min-height: 420px;
   display: flex;
   flex-direction: column;
 }
@@ -1027,7 +1182,7 @@ watch(
   overflow: auto;
 }
 
-.seat-legend {
+.seat-toolbar {
   min-height: 48px;
   display: flex;
   flex-wrap: wrap;
@@ -1038,7 +1193,7 @@ watch(
   font-size: 13px;
 }
 
-.seat-legend i {
+.seat-toolbar i {
   width: 14px;
   height: 14px;
   display: inline-block;
@@ -1055,7 +1210,14 @@ watch(
 .legend-special { border: 2px solid #49b45f; }
 
 .side-panel {
-  min-height: 92px;
+  min-width: 0;
+  min-height: 86px;
+  overflow: hidden;
+}
+
+.context-card,
+.context-panel {
+  box-shadow: none;
 }
 
 .side-empty {
@@ -1067,6 +1229,8 @@ watch(
 }
 
 .order-summary {
+  max-height: 224px;
+  overflow: auto;
   padding: 12px 16px;
   color: var(--app-text);
   line-height: 1.8;
@@ -1157,7 +1321,11 @@ watch(
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 0 4px;
+  padding: 0 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface);
+  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
 }
 
 .bottom-spacer {
