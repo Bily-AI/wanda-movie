@@ -24,13 +24,16 @@ assert.equal(packageJson.scripts?.['check:activity-layout'], 'node tools/check-a
 for (const text of [
   'activity-summary-grid',
   'activity-summary-card',
-  'activity-toolbar-main',
-  'activity-toolbar-extra',
+  'activity-toolbar-section',
+  'activity-toolbar-row',
+  'activity-toolbar-title',
+  'activity-toolbar-section--proxy',
   'activity-workspace',
   'payableGiftOrderCount',
   'selectedCinemaName',
   'grid-template-rows: 100px auto minmax(0, 1fr);',
   'grid-template-columns: repeat(4, minmax(0, 1fr));',
+  'grid-template-columns: minmax(460px, 1.25fr) minmax(300px, 0.7fr) minmax(420px, 1fr);',
   'grid-template-columns: minmax(0, 1fr) minmax(360px, 0.36fr);'
 ]) {
   assertIncludes('src/renderer/views/ActivityView.vue', activityView, text)
@@ -39,7 +42,11 @@ for (const text of [
 for (const text of [
   'min-width: 980px;',
   'display: flex;\n  flex-direction: column;\n  gap: 16px;',
-  'max-height: 720px;'
+  'max-height: 720px;',
+  'grid-column: 1 / -1;',
+  'proxy-label',
+  'activity-toolbar-main',
+  'activity-toolbar-extra'
 ]) {
   assertNotIncludes('src/renderer/views/ActivityView.vue', activityView, text)
 }

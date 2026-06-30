@@ -610,60 +610,68 @@ watch(
     </section>
 
     <section class="activity-toolbar panel">
-      <div class="activity-toolbar-main">
-        <label class="activity-field">
-          <span>城市</span>
-          <el-select
-            v-model="settingsStore.activity.city"
-            class="activity-select"
-            filterable
-            default-first-option
-            placeholder="选择城市"
-          >
-            <el-option v-for="city in cityOptions" :key="city.value" :label="city.label" :value="city.value" />
-          </el-select>
-        </label>
-        <label class="activity-field activity-field--cinema">
-          <span>影院</span>
-          <el-select
-            v-model="settingsStore.activity.cinema"
-            class="activity-select"
-            filterable
-            default-first-option
-            placeholder="选择影院"
-          >
-            <el-option v-for="cinema in cinemaOptions" :key="cinema.value" :label="cinema.label" :value="cinema.value" />
-          </el-select>
-        </label>
-        <el-button type="primary" :icon="Refresh" :loading="loading || loadingOrders" @click="loadActivities">刷新礼包</el-button>
-      </div>
-
-      <div class="activity-toolbar-extra">
-        <el-input v-model="settingsStore.activity.activityCode" placeholder="输入礼包ID/activityCode" />
-        <el-button
-          type="success"
-          :icon="Search"
-          :disabled="!settingsStore.activity.activityCode"
-          :loading="loading"
-          @click="handleAppendActivityByCode"
-        >
-          添加礼包
-        </el-button>
-      </div>
-
-      <div class="proxy-row">
-        <span class="proxy-label">代理提取API</span>
-        <el-input
-          v-model="settingsStore.proxyApi"
-          size="small"
-          placeholder="推荐使用快代理和小象代理，代理提取api在服务设置每次提取一个IP，txt文本返回。"
-        />
-        <div class="proxy-links">
-          <a href="https://www.kuaidaili.com/" target="_blank" rel="noreferrer">快代理</a>
-          <span>/</span>
-          <a href="https://www.xiaoxiangdaili.com/" target="_blank" rel="noreferrer">小象代理</a>
+      <div class="activity-toolbar-section activity-toolbar-section--location">
+        <span class="activity-toolbar-title">影院范围</span>
+        <div class="activity-toolbar-row">
+          <label class="activity-field">
+            <span>城市</span>
+            <el-select
+              v-model="settingsStore.activity.city"
+              class="activity-select activity-select--city"
+              filterable
+              default-first-option
+              placeholder="选择城市"
+            >
+              <el-option v-for="city in cityOptions" :key="city.value" :label="city.label" :value="city.value" />
+            </el-select>
+          </label>
+          <label class="activity-field activity-field--cinema">
+            <span>影院</span>
+            <el-select
+              v-model="settingsStore.activity.cinema"
+              class="activity-select"
+              filterable
+              default-first-option
+              placeholder="选择影院"
+            >
+              <el-option v-for="cinema in cinemaOptions" :key="cinema.value" :label="cinema.label" :value="cinema.value" />
+            </el-select>
+          </label>
+          <el-button type="primary" :icon="Refresh" :loading="loading || loadingOrders" @click="loadActivities">刷新礼包</el-button>
         </div>
-        <el-checkbox v-model="settingsStore.useProxyIp">使用代理IP</el-checkbox>
+      </div>
+
+      <div class="activity-toolbar-section activity-toolbar-section--manual">
+        <span class="activity-toolbar-title">手动礼包</span>
+        <div class="activity-toolbar-row">
+          <el-input v-model="settingsStore.activity.activityCode" placeholder="输入礼包ID/activityCode" />
+          <el-button
+            type="success"
+            :icon="Search"
+            :disabled="!settingsStore.activity.activityCode"
+            :loading="loading"
+            @click="handleAppendActivityByCode"
+          >
+            添加礼包
+          </el-button>
+        </div>
+      </div>
+
+      <div class="activity-toolbar-section activity-toolbar-section--proxy">
+        <span class="activity-toolbar-title">代理设置</span>
+        <div class="activity-toolbar-row">
+          <el-input
+            v-model="settingsStore.proxyApi"
+            size="small"
+            placeholder="代理提取 API，每次提取 1 个 IP，TXT 返回"
+          />
+          <div class="proxy-links">
+            <a href="https://www.kuaidaili.com/" target="_blank" rel="noreferrer">快代理</a>
+            <span>/</span>
+            <a href="https://www.xiaoxiangdaili.com/" target="_blank" rel="noreferrer">小象代理</a>
+          </div>
+          <el-checkbox v-model="settingsStore.useProxyIp">使用代理IP</el-checkbox>
+        </div>
       </div>
     </section>
 
@@ -894,26 +902,47 @@ watch(
 .activity-toolbar {
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.9fr);
-  gap: 10px;
-  align-items: center;
-  padding: 12px;
+  grid-template-columns: minmax(460px, 1.25fr) minmax(300px, 0.7fr) minmax(420px, 1fr);
+  gap: 12px;
+  align-items: end;
+  padding: 12px 14px;
 }
 
-.activity-toolbar-main,
-.activity-toolbar-extra {
+.activity-toolbar-section {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.activity-toolbar-section + .activity-toolbar-section {
+  padding-left: 12px;
+  border-left: 1px solid var(--app-border);
+}
+
+.activity-toolbar-title {
+  overflow: hidden;
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 12px;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-toolbar-row {
   min-width: 0;
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.activity-toolbar-main {
-  flex-wrap: nowrap;
+.activity-toolbar-section--manual .activity-toolbar-row,
+.activity-toolbar-section--proxy .activity-toolbar-row {
+  justify-content: flex-start;
 }
 
-.activity-toolbar-extra {
-  justify-content: flex-end;
+.activity-toolbar-row :deep(.el-input) {
+  min-width: 0;
 }
 
 .activity-field {
@@ -931,7 +960,12 @@ watch(
 }
 
 .activity-select {
-  min-width: 150px;
+  min-width: 0;
+  width: 100%;
+}
+
+.activity-select--city {
+  width: 220px;
 }
 
 .activity-field--cinema .activity-select {
@@ -1002,23 +1036,6 @@ watch(
   display: inline-flex;
   align-items: center;
   gap: 10px;
-}
-
-.proxy-row {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: auto minmax(260px, 1fr) auto auto;
-  gap: 10px;
-  align-items: center;
-  padding-top: 10px;
-  border-top: 1px solid var(--app-border);
-  color: var(--app-subtle);
-  font-weight: 400;
-}
-
-.proxy-label {
-  color: var(--app-subtle);
-  white-space: nowrap;
 }
 
 .proxy-links {
@@ -1210,6 +1227,13 @@ watch(
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .activity-toolbar-section + .activity-toolbar-section {
+    padding-top: 12px;
+    padding-left: 0;
+    border-top: 1px solid var(--app-border);
+    border-left: 0;
+  }
+
   .order-panel {
     min-height: 300px;
   }
@@ -1220,11 +1244,8 @@ watch(
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .activity-toolbar-main,
-  .activity-toolbar-extra,
-  .proxy-row {
+  .activity-toolbar-row {
     align-items: stretch;
-    grid-template-columns: minmax(0, 1fr);
     flex-direction: column;
   }
 
@@ -1235,7 +1256,8 @@ watch(
 
   .activity-select,
   .activity-field--cinema .activity-select,
-  .activity-toolbar-extra .el-button {
+  .activity-select--city,
+  .activity-toolbar-row .el-button {
     width: 100%;
   }
 
