@@ -12,6 +12,10 @@ function assertIncludes(file, source, text) {
   assert.ok(source.includes(text), `${file} should include ${text}`)
 }
 
+function assertNotIncludes(file, source, text) {
+  assert.ok(!source.includes(text), `${file} should not include ${text}`)
+}
+
 const packageJson = JSON.parse(read('package.json'))
 const exchangeView = read('src/renderer/views/ExchangeCouponView.vue')
 
@@ -32,6 +36,11 @@ for (const marker of [
   'class="coupon-primary-title"',
   'class="coupon-primary-meta"',
   'class="coupon-action-group"',
+  'class="coupon-detail-dialog"',
+  'class="coupon-detail-panel"',
+  'class="coupon-detail-grid"',
+  'class="coupon-json-section"',
+  'copyCouponDetailText',
   'presentableCouponCount',
   'formatCouponValidity'
 ]) {
@@ -46,9 +55,19 @@ for (const marker of [
   '.coupon-table-panel {\n  min-height: 0;\n  display: flex;\n  flex-direction: column;\n  overflow: hidden;',
   '.coupon-table-wrapper {\n  flex: 1;\n  min-height: 0;',
   '.coupon-primary-title {\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;',
-  '.coupon-action-group {\n  display: inline-flex;'
+  '.coupon-action-group {\n  display: inline-flex;',
+  '.coupon-detail-grid {\n  display: grid;\n  grid-template-columns: repeat(2, minmax(0, 1fr));',
+  '.coupon-detail-field strong {\n  min-width: 0;',
+  '.detail-json {\n  max-height: 220px;'
 ]) {
   assertIncludes('src/renderer/views/ExchangeCouponView.vue', exchangeView, marker)
+}
+
+for (const marker of [
+  'title="券信息" width="460px"',
+  'background: var(--app-muted);'
+]) {
+  assertNotIncludes('src/renderer/views/ExchangeCouponView.vue', exchangeView, marker)
 }
 
 console.log('Coupon layout contract passed')

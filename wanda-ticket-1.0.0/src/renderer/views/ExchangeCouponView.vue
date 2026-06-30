@@ -84,6 +84,20 @@ function copyCouponName(value: string) {
   void navigator.clipboard.writeText(value || '-')
 }
 
+function copyCouponDetailText(value: string, label: string) {
+  const text = String(value || '').trim()
+
+  if (!text || text === '-') {
+    ElMessage.warning(`暂无${label}`)
+    return
+  }
+
+  void navigator.clipboard
+    .writeText(text)
+    .then(() => ElMessage.success(`${label}已复制`))
+    .catch(() => ElMessage.error(`${label}复制失败`))
+}
+
 function createCategoryId(): string {
   return `cat_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
 }
@@ -1095,15 +1109,77 @@ watch(
       </div>
     </el-dialog>
 
-    <el-dialog v-model="couponDetailDialogVisible" title="券信息" width="460px" :close-on-click-modal="false">
-      <el-descriptions v-if="currentCouponDetail" :column="1" border>
-        <el-descriptions-item label="券号">{{ currentCouponDetail.couponId || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="couponNo">{{ currentCouponDetail.couponNo || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="券名称">{{ currentCouponDetail.couponTypeName || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="类型">{{ currentCouponDetail.couponCategoryName || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="有效期">{{ currentCouponDetail.validityDateShowMsg || '-' }}</el-descriptions-item>
-      </el-descriptions>
-      <pre class="detail-json">{{ currentCouponJson }}</pre>
+    <el-dialog
+      v-model="couponDetailDialogVisible"
+      title="券详情"
+      width="720px"
+      class="coupon-detail-dialog"
+      :close-on-click-modal="false"
+    >
+      <div v-if="currentCouponDetail" class="coupon-detail-panel">
+        <section class="coupon-detail-hero">
+          <div class="coupon-detail-icon">
+            <el-icon><Present /></el-icon>
+          </div>
+          <div class="coupon-detail-heading">
+            <span>{{ currentCouponDetail.couponCategoryName || currentCouponDetail.type || '兑换券' }}</span>
+            <strong>{{ currentCouponDetail.couponTypeName || currentCouponDetail.name || '-' }}</strong>
+            <em>{{ formatCouponValidity(currentCouponDetail) }}</em>
+          </div>
+          <el-tag :type="currentCouponDetail.giftStatus === 1 ? 'success' : 'info'" effect="light">
+            {{ currentCouponDetail.giftStatus === 1 ? '可赠送' : '不可赠送' }}
+          </el-tag>
+        </section>
+
+        <section class="coupon-detail-grid">
+          <div class="coupon-detail-field coupon-detail-field--wide">
+            <span>券号</span>
+            <strong class="coupon-detail-code">{{ currentCouponDetail.couponId || '-' }}</strong>
+          </div>
+          <div class="coupon-detail-field coupon-detail-field--wide">
+            <span>couponNo</span>
+            <strong class="coupon-detail-code">{{ currentCouponDetail.couponNo || '-' }}</strong>
+          </div>
+          <div class="coupon-detail-field">
+            <span>类型</span>
+            <strong>{{ currentCouponDetail.couponCategoryName || currentCouponDetail.type || '-' }}</strong>
+          </div>
+          <div class="coupon-detail-field">
+            <span>状态</span>
+            <strong>{{ currentCouponDetail.status || (currentCouponDetail.giftStatus === 1 ? '可赠送' : '不可赠送') }}</strong>
+          </div>
+          <div class="coupon-detail-field coupon-detail-field--wide">
+            <span>有效期</span>
+            <strong>{{ formatCouponValidity(currentCouponDetail) }}</strong>
+          </div>
+        </section>
+
+        <section class="coupon-json-section">
+          <div class="coupon-json-header">
+            <span>原始数据</span>
+            <el-button size="small" link @click="copyCouponDetailText(currentCouponJson, '原始数据')">复制</el-button>
+          </div>
+          <pre class="detail-json">{{ currentCouponJson }}</pre>
+        </section>
+      </div>
+      <template #footer>
+        <div class="coupon-detail-footer">
+          <el-button @click="couponDetailDialogVisible = false">关闭</el-button>
+          <el-button
+            :disabled="!currentCouponDetail?.couponId"
+            @click="copyCouponDetailText(currentCouponDetail?.couponId || '', '券号')"
+          >
+            复制券号
+          </el-button>
+          <el-button
+            type="primary"
+            :disabled="!currentCouponDetail?.couponNo"
+            @click="copyCouponDetailText(currentCouponDetail?.couponNo || '', 'couponNo')"
+          >
+            复制 couponNo
+          </el-button>
+        </div>
+      </template>
     </el-dialog>
 
     <div v-if="pointsInsufficient" class="points-lock-overlay">
@@ -1538,19 +1614,138 @@ watch(
   width: 100%;
 }
 
+.coupon-detail-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.coupon-detail-hero {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--app-accent) 22%, var(--app-border));
+  border-radius: 8px;
+  background: var(--panel-soft-bg);
+}
+
+.coupon-detail-icon {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--app-accent) 12%, var(--bg-primary, var(--app-surface)));
+  color: var(--app-accent);
+  font-size: 22px;
+}
+
+.coupon-detail-heading {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.coupon-detail-heading span,
+.coupon-detail-heading em {
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 12px;
+  font-style: normal;
+}
+
+.coupon-detail-heading strong {
+  overflow: hidden;
+  color: var(--text-primary, var(--app-text));
+  font-size: 18px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coupon-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.coupon-detail-field {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--bg-primary, var(--app-surface));
+}
+
+.coupon-detail-field--wide {
+  grid-column: 1 / -1;
+}
+
+.coupon-detail-field span {
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 12px;
+}
+
+.coupon-detail-field strong {
+  min-width: 0;
+  color: var(--text-primary, var(--app-text));
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.coupon-detail-code {
+  font-family: 'Courier New', monospace;
+  font-size: 12px !important;
+  user-select: text;
+}
+
+.coupon-json-section {
+  overflow: hidden;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--bg-primary, var(--app-surface));
+}
+
+.coupon-json-header {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--app-border);
+  color: var(--text-primary, var(--app-text));
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .detail-json {
-  max-height: 260px;
-  margin: 14px 0 0;
+  max-height: 220px;
+  margin: 0;
   padding: 12px;
   overflow: auto;
-  border: 1px solid var(--app-border);
-  border-radius: 6px;
-  background: var(--app-muted);
+  border: 0;
+  background: var(--panel-soft-bg);
   color: var(--app-text);
   font-size: 12px;
   line-height: 1.55;
   white-space: pre-wrap;
-  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
+.coupon-detail-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .points-lock-overlay {
