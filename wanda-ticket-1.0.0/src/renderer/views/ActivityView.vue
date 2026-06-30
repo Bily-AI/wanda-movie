@@ -901,36 +901,45 @@ watch(
 
 .activity-toolbar {
   min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(460px, 1.25fr) minmax(300px, 0.7fr) minmax(420px, 1fr);
-  gap: 12px;
-  align-items: end;
-  padding: 12px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 10px 14px;
 }
 
 .activity-toolbar-section {
   min-width: 0;
   display: flex;
-  flex-direction: column;
-  gap: 7px;
+  align-items: center;
+  gap: 8px;
 }
 
-.activity-toolbar-section + .activity-toolbar-section {
-  padding-left: 12px;
-  border-left: 1px solid var(--app-border);
+.activity-toolbar-section--location {
+  flex: 1 1 620px;
+}
+
+.activity-toolbar-section--manual {
+  flex: 0 1 350px;
+}
+
+.activity-toolbar-section--proxy {
+  flex: 1 1 425px;
 }
 
 .activity-toolbar-title {
+  flex: 0 0 auto;
   overflow: hidden;
   color: var(--text-secondary, var(--app-muted));
   font-size: 12px;
-  line-height: 1;
+  line-height: 32px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .activity-toolbar-row {
   min-width: 0;
+  flex: 1 1 auto;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -965,7 +974,7 @@ watch(
 }
 
 .activity-select--city {
-  width: 220px;
+  width: 160px;
 }
 
 .activity-field--cinema .activity-select {
@@ -1222,16 +1231,8 @@ watch(
     grid-template-rows: auto auto minmax(0, 1fr);
   }
 
-  .activity-toolbar,
   .activity-workspace {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .activity-toolbar-section + .activity-toolbar-section {
-    padding-top: 12px;
-    padding-left: 0;
-    border-top: 1px solid var(--app-border);
-    border-left: 0;
   }
 
   .order-panel {
@@ -1239,7 +1240,7 @@ watch(
   }
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 760px) {
   .activity-summary-grid {
     grid-template-columns: minmax(0, 1fr);
   }
