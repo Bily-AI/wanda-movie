@@ -1,7 +1,6 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
 
 import ActivityView from '../views/ActivityView.vue'
-import AutoOrderView from '../views/AutoOrderView.vue'
 import ExchangeCouponView from '../views/ExchangeCouponView.vue'
 import LogView from '../views/LogView.vue'
 import MemberView from '../views/MemberView.vue'
@@ -30,8 +29,8 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/auto-order',
     name: 'auto-order',
-    component: AutoOrderView,
-    meta: { title: '自动接单' }
+    redirect: '/ticket',
+    meta: { title: '自动接单', disabled: true }
   },
   {
     path: '/stored-card',

@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Close,
-  Connection,
   CreditCard,
   Document,
   FullScreen,
@@ -41,7 +40,6 @@ let autoOrderProcessing = false
 const navItems = [
   { path: '/ticket', label: '购票', icon: Ticket },
   { path: '/orders', label: '历史订单', icon: Tickets },
-  { path: '/auto-order', label: '自动接单', icon: Connection },
   { path: '/stored-card', label: '储值卡', icon: CreditCard },
   { path: '/voucher', label: '兑换券', icon: Wallet },
   { path: '/member', label: '会员', icon: User },

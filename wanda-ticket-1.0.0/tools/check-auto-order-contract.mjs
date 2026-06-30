@@ -10,6 +10,12 @@ function assertIncludes(file, content, marker) {
   }
 }
 
+function assertNotIncludes(file, content, marker) {
+  if (content.includes(marker)) {
+    throw new Error(`${file} 不应包含标记：${marker}`)
+  }
+}
+
 const ipc = read('src/shared/ipc.ts')
 const mainIndex = read('src/main/index.ts')
 const preload = read('src/preload/index.ts')
@@ -61,18 +67,36 @@ for (const marker of [
   assertIncludes('src/shared/wandaCore.ts', wandaCore, marker)
 }
 
-for (const marker of ['AutoOrderView', '/auto-order']) {
+for (const marker of [
+  "path: '/auto-order'",
+  "redirect: '/ticket'",
+  "meta: { title: '自动接单', disabled: true }"
+]) {
   assertIncludes('src/renderer/router/index.ts', router, marker)
 }
 
 for (const marker of [
-  '自动接单',
+  'AutoOrderView',
+  "component: AutoOrderView"
+]) {
+  assertNotIncludes('src/renderer/router/index.ts', router, marker)
+}
+
+for (const marker of [
   'onAutoOrderProcessTicket',
   'processAutoOrderTicket',
   'reportAutoOrderResult',
   'openAlipayPayment'
 ]) {
   assertIncludes('src/renderer/App.vue', app, marker)
+}
+
+for (const marker of [
+  "path: '/auto-order'",
+  "label: '自动接单'",
+  'Connection,'
+]) {
+  assertNotIncludes('src/renderer/App.vue', app, marker)
 }
 
 for (const marker of [
