@@ -708,7 +708,7 @@ watch(cardDisplayMode, (mode) => {
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-rows: 86px auto minmax(0, 1fr);
+  grid-template-rows: 100px auto minmax(0, 1fr);
   gap: 12px;
   padding: 14px;
   overflow: hidden;
@@ -732,12 +732,12 @@ watch(cardDisplayMode, (mode) => {
 
 .stored-summary-card {
   min-width: 0;
-  height: 86px;
+  height: 100px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 6px;
-  padding: 12px 16px;
+  gap: 7px;
+  padding: 14px 16px;
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
@@ -757,8 +757,8 @@ watch(cardDisplayMode, (mode) => {
 .stored-summary-card strong {
   overflow: hidden;
   color: var(--text-primary, var(--app-text));
-  font-size: 21px;
-  line-height: 1.12;
+  font-size: 22px;
+  line-height: 1.18;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1003,7 +1003,7 @@ watch(cardDisplayMode, (mode) => {
 @media (max-width: 1360px) {
   .stored-card-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-auto-rows: 82px;
+    grid-auto-rows: 96px;
   }
 
   .stored-card-page {
@@ -1018,17 +1018,17 @@ watch(cardDisplayMode, (mode) => {
 
 @media (max-height: 720px) {
   .stored-card-page {
-    grid-template-rows: 72px auto minmax(0, 1fr);
+    grid-template-rows: 88px auto minmax(0, 1fr);
     gap: 10px;
     padding: 12px;
   }
 
   .stored-summary-card {
-    height: 72px;
+    height: 88px;
   }
 
   .stored-summary-card strong {
-    font-size: 19px;
+    font-size: 20px;
   }
 }
 </style>

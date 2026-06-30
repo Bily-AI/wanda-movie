@@ -1122,7 +1122,7 @@ watch(
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-rows: 86px auto minmax(0, 1fr);
+  grid-template-rows: 100px auto minmax(0, 1fr);
   gap: 12px;
   padding: 14px;
   position: relative;
@@ -1147,12 +1147,12 @@ watch(
 
 .coupon-summary-card {
   min-width: 0;
-  height: 86px;
+  height: 100px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 6px;
-  padding: 12px 16px;
+  gap: 7px;
+  padding: 14px 16px;
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
@@ -1173,7 +1173,7 @@ watch(
   overflow: hidden;
   color: var(--text-primary, var(--app-text));
   font-size: 22px;
-  line-height: 1.12;
+  line-height: 1.18;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1548,7 +1548,7 @@ watch(
 @media (max-width: 1480px) {
   .coupon-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-auto-rows: 82px;
+    grid-auto-rows: 96px;
   }
 
   .coupon-page {
@@ -1567,13 +1567,13 @@ watch(
 
 @media (max-height: 720px) {
   .coupon-page {
-    grid-template-rows: 72px auto minmax(0, 1fr);
+    grid-template-rows: 88px auto minmax(0, 1fr);
     gap: 10px;
     padding: 12px;
   }
 
   .coupon-summary-card {
-    height: 72px;
+    height: 88px;
   }
 
   .coupon-summary-card strong {

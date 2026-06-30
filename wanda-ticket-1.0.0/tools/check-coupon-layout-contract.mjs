@@ -39,7 +39,7 @@ for (const marker of [
 }
 
 for (const marker of [
-  '.coupon-page {\n  min-width: 0;\n  height: 100%;\n  min-height: 0;\n  display: grid;\n  grid-template-rows: 86px auto minmax(0, 1fr);',
+  '.coupon-page {\n  min-width: 0;\n  height: 100%;\n  min-height: 0;\n  display: grid;\n  grid-template-rows: 100px auto minmax(0, 1fr);',
   '.panel {\n  min-width: 0;',
   '.coupon-summary-grid {\n  display: grid;\n  grid-template-columns: repeat(4, minmax(0, 1fr));',
   '.coupon-filter-panel {\n  min-width: 0;',

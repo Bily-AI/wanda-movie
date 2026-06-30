@@ -38,7 +38,7 @@ for (const marker of [
 }
 
 for (const marker of [
-  '.stored-card-page {\n  min-width: 0;\n  height: 100%;\n  min-height: 0;\n  display: grid;\n  grid-template-rows: 86px auto minmax(0, 1fr);',
+  '.stored-card-page {\n  min-width: 0;\n  height: 100%;\n  min-height: 0;\n  display: grid;\n  grid-template-rows: 100px auto minmax(0, 1fr);',
   '.panel {\n  min-width: 0;',
   '.stored-card-summary-grid {\n  display: grid;\n  grid-template-columns: repeat(4, minmax(0, 1fr));',
   '.stored-card-action-panel {\n  min-width: 0;',
