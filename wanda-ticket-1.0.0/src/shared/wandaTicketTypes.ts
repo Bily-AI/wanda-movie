@@ -14,6 +14,11 @@ export interface WandaLoginResult {
   userIdentifier: string
   mobile?: string
   isPayMember?: boolean
+  pointsBalance?: number
+  point?: number
+  points?: number
+  integral?: number
+  score?: number
 }
 
 export interface WandaLoginStatus {
@@ -22,6 +27,11 @@ export interface WandaLoginStatus {
     mobile?: string
     userIdentifier?: string
     isPayMember?: boolean
+    pointsBalance?: number
+    point?: number
+    points?: number
+    integral?: number
+    score?: number
   }
 }
 

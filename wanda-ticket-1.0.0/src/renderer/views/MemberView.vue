@@ -413,6 +413,12 @@ async function loadRtimeData() {
 
     if (gradeResult.status === 'fulfilled') {
       gradeGroups.value = gradeResult.value
+      await accountsStore.updateAccountProfileSummary(account.id, {
+        memberGradeName: currentGrade.value?.gradeName || '',
+        growthValue: currentGrade.value?.memberGrowthVal ?? currentGrowthValue.value
+      }).catch((error) => {
+        logsStore.addLog('会员', account.phone, `账号会员摘要保存失败：${getErrorMessage(error, '保存失败')}`)
+      })
       logsStore.addLog('会员', account.phone, `Rtime 会员数据加载完成，共 ${gradeResult.value.length} 个等级`)
     } else {
       gradeGroups.value = []
@@ -456,6 +462,12 @@ async function loadWPlusProfileData() {
     if (currentAccount.value) {
       currentAccount.value.isPayMember = profile.isPayMember
     }
+    await accountsStore.updateAccountProfileSummary(account.id, {
+      isPayMember: profile.isPayMember,
+      wplusExpireAt: profile.expireAt
+    }).catch((error) => {
+      logsStore.addLog('会员', account.phone, `账号W+摘要保存失败：${getErrorMessage(error, '保存失败')}`)
+    })
 
     logsStore.addLog('会员', account.phone, profile.isPayMember ? '当前账号是 W+ 会员' : '当前账号不是 W+ 会员')
   } catch (error) {
@@ -680,6 +692,12 @@ async function handleReceiveAllAccountsWPlusRights() {
           account.isPayMember = profile.isPayMember
           memberFlagChanged = true
         }
+        await accountsStore.updateAccountProfileSummary(account.id, {
+          isPayMember: profile.isPayMember,
+          wplusExpireAt: profile.expireAt
+        }).catch((error) => {
+          logsStore.addLog('会员', account.phone, `账号W+摘要保存失败：${getErrorMessage(error, '保存失败')}`)
+        })
 
         if (!profile.isPayMember) {
           skippedAccountCount += 1

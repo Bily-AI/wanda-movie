@@ -21,7 +21,8 @@ function getErrorMessage(error: unknown, fallback: string): string {
 function normalizeAccount(account: WandaAccount): WandaAccount {
   return {
     ...account,
-    userIdentifier: account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
+    userIdentifier: account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER,
+    accountAgeDays: calculateAccountAgeDays(account)
   }
 }
 
@@ -34,6 +35,27 @@ function toPlainGroup(group: AccountGroup): AccountGroup {
     id: String(group.id || ''),
     name: String(group.name || '')
   }
+}
+
+function toNullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null
+  }
+
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue) ? numberValue : null
+}
+
+function calculateAccountAgeDays(account: Pick<WandaAccount, 'createdAt' | 'loginDate'>): number {
+  const rawDate = account.createdAt || account.loginDate
+  const createdTime = rawDate ? new Date(rawDate).getTime() : NaN
+
+  if (!Number.isFinite(createdTime)) {
+    return 0
+  }
+
+  const diffDays = Math.floor((Date.now() - createdTime) / 86400000)
+  return Math.max(0, diffDays)
 }
 
 function toPlainAccount(account: WandaAccount): WandaAccount {
@@ -49,7 +71,14 @@ function toPlainAccount(account: WandaAccount): WandaAccount {
     loginDate: String(account.loginDate || ''),
     loginTime: String(account.loginTime || ''),
     createdAt: String(account.createdAt || ''),
-    isPayMember: Boolean(account.isPayMember)
+    isPayMember: Boolean(account.isPayMember),
+    accountAgeDays: calculateAccountAgeDays(account),
+    pointsBalance: toNullableNumber(account.pointsBalance),
+    wplusExpireAt: String(account.wplusExpireAt || ''),
+    storedCardCount: toNullableNumber(account.storedCardCount),
+    couponCount: toNullableNumber(account.couponCount),
+    memberGradeName: String(account.memberGradeName || ''),
+    growthValue: toNullableNumber(account.growthValue)
   }
 }
 
@@ -103,7 +132,14 @@ function normalizeImportedAccount(source: Partial<ImportedAccountSource>, groupI
     loginDate,
     loginTime,
     createdAt: now.toISOString(),
-    isPayMember: false
+    isPayMember: false,
+    accountAgeDays: 0,
+    pointsBalance: null,
+    wplusExpireAt: '',
+    storedCardCount: null,
+    couponCount: null,
+    memberGradeName: '',
+    growthValue: null
   }
 }
 
@@ -342,6 +378,23 @@ export const useAccountsStore = defineStore('accounts', {
         this.loginForm.message = '账号分组已更新'
       }
     },
+    async updateAccountProfileSummary(
+      accountId: string,
+      summary: Partial<Pick<WandaAccount, 'pointsBalance' | 'wplusExpireAt' | 'storedCardCount' | 'couponCount' | 'memberGradeName' | 'growthValue' | 'isPayMember'>>
+    ) {
+      const index = this.accounts.findIndex((acc) => acc.id === accountId)
+
+      if (index === -1) {
+        return
+      }
+
+      this.accounts[index] = {
+        ...this.accounts[index],
+        ...summary,
+        accountAgeDays: calculateAccountAgeDays(this.accounts[index])
+      }
+      await this.saveAccounts()
+    },
     setSelectedAccountIds(ids: string[]) {
       this.selectedAccountIds = ids
 
@@ -479,6 +532,9 @@ export const useAccountsStore = defineStore('accounts', {
         const result = await loginWithCode(phone, code, this.loginForm.requestId)
 
         const now = new Date()
+        const pointsBalance = toNullableNumber(
+          result.pointsBalance ?? result.point ?? result.points ?? result.integral ?? result.score
+        )
         const account: WandaAccount = {
           id: phone,
           phone: result.mobile || phone,
@@ -491,7 +547,14 @@ export const useAccountsStore = defineStore('accounts', {
           loginDate: now.toISOString().slice(0, 10),
           loginTime: now.toLocaleTimeString('zh-CN', { hour12: false }),
           createdAt: now.toISOString(),
-          isPayMember: Boolean(result.isPayMember)
+          isPayMember: Boolean(result.isPayMember),
+          accountAgeDays: 0,
+          pointsBalance,
+          wplusExpireAt: '',
+          storedCardCount: null,
+          couponCount: null,
+          memberGradeName: '',
+          growthValue: null
         }
         const index = this.accounts.findIndex((item) => item.id === account.id || item.phone === phone)
 
@@ -550,6 +613,18 @@ export const useAccountsStore = defineStore('accounts', {
       account.status = 'normal'
       account.statusText = '正常'
       account.isPayMember = Boolean(status.userInfo?.isPayMember)
+
+      const pointsBalance = toNullableNumber(
+        status.userInfo?.pointsBalance ??
+          status.userInfo?.point ??
+          status.userInfo?.points ??
+          status.userInfo?.integral ??
+          status.userInfo?.score
+      )
+
+      if (pointsBalance !== null) {
+        account.pointsBalance = pointsBalance
+      }
 
       if (status.userInfo?.mobile) {
         account.phone = status.userInfo.mobile

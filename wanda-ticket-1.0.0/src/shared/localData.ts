@@ -25,6 +25,13 @@ export interface WandaAccount {
   loginTime: string
   createdAt: string
   isPayMember: boolean
+  accountAgeDays: number
+  pointsBalance: number | null
+  wplusExpireAt: string
+  storedCardCount: number | null
+  couponCount: number | null
+  memberGradeName: string
+  growthValue: number | null
 }
 
 export interface AccountGroup {

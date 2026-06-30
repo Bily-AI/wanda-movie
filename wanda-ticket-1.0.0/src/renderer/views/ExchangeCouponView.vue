@@ -387,6 +387,11 @@ async function loadCoupons() {
     }
 
     coupons.value = rows
+    await accountsStore.updateAccountProfileSummary(account.id, {
+      couponCount: coupons.value.length
+    }).catch((error) => {
+      logsStore.addLog('兑换券', account.phone, `账号兑换券摘要保存失败：${getErrorMessage(error, '保存失败')}`)
+    })
     couponMessage.value = coupons.value.length > 0 ? '' : '暂无兑换券'
     logsStore.addLog('兑换券', account.phone, `兑换券加载成功：${coupons.value.length} 张`)
   } catch (error) {

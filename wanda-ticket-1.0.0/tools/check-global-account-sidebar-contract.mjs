@@ -20,6 +20,11 @@ const app = read('src/renderer/App.vue')
 const ticketViewFull = read('src/renderer/views/TicketView.vue')
 const ticketView = ticketViewFull.replace(/<!--[\s\S]*?-->/g, '')
 const accountSidebar = read('src/renderer/components/AccountSidebar.vue')
+const accountsStore = read('src/renderer/stores/accounts.ts')
+const localData = read('src/shared/localData.ts')
+const storedCardView = read('src/renderer/views/StoredValueCardView.vue')
+const couponView = read('src/renderer/views/ExchangeCouponView.vue')
+const memberView = read('src/renderer/views/MemberView.vue')
 
 assertIncludes('src/renderer/App.vue', app, "import AccountSidebar from './components/AccountSidebar.vue'")
 assertIncludes('src/renderer/App.vue', app, '<AccountSidebar />')
@@ -29,6 +34,44 @@ assertIncludes('src/renderer/App.vue', app, 'class="workspace-content"')
 assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, 'useAccountsStore')
 assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, 'handleImportAccounts')
 assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, 'accountsStore.loginWandaAccount')
+
+for (const text of [
+  'accountAgeDays',
+  'pointsBalance',
+  'wplusExpireAt',
+  'storedCardCount',
+  'couponCount',
+  'memberGradeName',
+  'growthValue'
+]) {
+  assertIncludes('src/shared/localData.ts', localData, text)
+  assertIncludes('src/renderer/stores/accounts.ts', accountsStore, text)
+}
+
+for (const text of [
+  'formatAccountAgeDays',
+  'formatAccountNumber',
+  'handleRefreshAccountSummaries',
+  'refreshingAccountSummaries',
+  'fetchStoredCardsWithBalance',
+  'fetchMemberCoupons',
+  'fetchMemberGradeEquityList',
+  'fetchWPlusProfile',
+  '入库',
+  '积分',
+  'W+到期',
+  '储值卡',
+  '可用券',
+  '等级',
+  '成长值'
+]) {
+  assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, text)
+}
+
+assertIncludes('src/renderer/stores/accounts.ts', accountsStore, 'updateAccountProfileSummary')
+assertIncludes('src/renderer/views/StoredValueCardView.vue', storedCardView, 'updateAccountProfileSummary(account.id')
+assertIncludes('src/renderer/views/ExchangeCouponView.vue', couponView, 'updateAccountProfileSummary(account.id')
+assertIncludes('src/renderer/views/MemberView.vue', memberView, 'updateAccountProfileSummary(account.id')
 
 assertNotIncludes('src/renderer/views/TicketView.vue', ticketView, '<aside class="account-column">')
 assertNotIncludes('src/renderer/views/TicketView.vue', ticketView, 'handleAccountSelectionChange')

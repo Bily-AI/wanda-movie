@@ -4,12 +4,24 @@ import { Lock, Refresh, Search, UserFilled, Edit, Delete, DocumentCopy, Upload, 
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { TableInstance } from 'element-plus'
 
+import {
+  fetchMemberCoupons,
+  fetchMemberGradeEquityList,
+  fetchStoredCardsWithBalance,
+  fetchWPlusProfile,
+  type MemberGradeGroup
+} from '@renderer/services/featureApi'
 import { useAccountsStore } from '@renderer/stores/accounts'
+import { useLogsStore } from '@renderer/stores/logs'
 import type { WandaAccount } from '@shared/localData'
 
+const DEFAULT_WANDA_USER_IDENTIFIER = 'YYDDJDKYHA'
+
 const accountsStore = useAccountsStore()
+const logsStore = useLogsStore()
 
 const accountTableRef = ref<TableInstance>()
+const refreshingAccountSummaries = ref(false)
 
 function handleAccountSelectionChange(rows: WandaAccount[]): void {
   accountsStore.setSelectedAccountIds(rows.map((row) => row.id))
@@ -35,6 +47,116 @@ function tableRowClassName({ row }: { row: WandaAccount }) {
 
 function formatLoginDate(row: WandaAccount): string {
   return row.loginDate || row.loginTime || '-'
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback
+}
+
+function formatAccountAgeDays(row: WandaAccount): string {
+  return `${Number(row.accountAgeDays || 0)}天`
+}
+
+function formatAccountNumber(value: number | null | undefined): string {
+  return value === null || value === undefined ? '-' : String(value)
+}
+
+function formatWPlusExpire(row: WandaAccount): string {
+  return row.wplusExpireAt || (row.isPayMember ? 'W+' : '-')
+}
+
+function getCurrentGradeSummary(groups: MemberGradeGroup[]): { memberGradeName: string; growthValue: number | null } {
+  if (groups.length === 0) {
+    return { memberGradeName: '', growthValue: null }
+  }
+
+  const explicitCurrent = groups.find((group) => group.isCurrent)
+  const memberGrowthGroup = groups.find((group) => group.memberGrowthVal)
+  const growthValue = explicitCurrent?.memberGrowthVal || memberGrowthGroup?.memberGrowthVal || groups[0]?.growthValue || 0
+  const sortedGroups = [...groups].sort((left, right) => left.growthMinVal - right.growthMinVal)
+  const currentGrade =
+    explicitCurrent ||
+    [...sortedGroups]
+      .reverse()
+      .find((group) => growthValue >= group.growthMinVal && (group.growthMaxVal === null || growthValue <= group.growthMaxVal)) ||
+    [...sortedGroups].reverse().find((group) => growthValue >= group.growthMinVal) ||
+    sortedGroups[0]
+
+  return {
+    memberGradeName: currentGrade?.gradeName || '',
+    growthValue
+  }
+}
+
+async function refreshAccountSummary(account: WandaAccount): Promise<void> {
+  const userIdentifier = account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
+  const [storedCardResult, couponResult, gradeResult, wplusResult] = await Promise.allSettled([
+    fetchStoredCardsWithBalance(account.ck, userIdentifier),
+    fetchMemberCoupons(account.ck, userIdentifier),
+    fetchMemberGradeEquityList(account.ck, userIdentifier),
+    fetchWPlusProfile(account.ck, userIdentifier)
+  ])
+  const summary: Partial<
+    Pick<
+      WandaAccount,
+      'storedCardCount' | 'couponCount' | 'memberGradeName' | 'growthValue' | 'isPayMember' | 'wplusExpireAt'
+    >
+  > = {}
+
+  if (storedCardResult.status === 'fulfilled') {
+    summary.storedCardCount = storedCardResult.value.cards.length
+  }
+
+  if (couponResult.status === 'fulfilled') {
+    summary.couponCount = couponResult.value.length
+  }
+
+  if (gradeResult.status === 'fulfilled') {
+    Object.assign(summary, getCurrentGradeSummary(gradeResult.value))
+  }
+
+  if (wplusResult.status === 'fulfilled') {
+    summary.isPayMember = wplusResult.value.isPayMember
+    summary.wplusExpireAt = wplusResult.value.expireAt
+  }
+
+  if (Object.keys(summary).length > 0) {
+    await accountsStore.updateAccountProfileSummary(account.id, summary)
+  }
+}
+
+async function handleRefreshAccountSummaries(): Promise<void> {
+  if (refreshingAccountSummaries.value) {
+    return
+  }
+
+  await accountsStore.loadAccounts()
+  const accounts = accountsStore.filteredAccounts.filter((account) => account.ck)
+
+  if (accounts.length === 0) {
+    ElMessage.warning('没有可刷新的已登录账号')
+    return
+  }
+
+  refreshingAccountSummaries.value = true
+  let successCount = 0
+  let failCount = 0
+
+  try {
+    for (const account of accounts) {
+      try {
+        await refreshAccountSummary(account)
+        successCount += 1
+      } catch (error) {
+        failCount += 1
+        logsStore.addLog('账号摘要', account.phone, `刷新失败：${getErrorMessage(error, '刷新失败')}`)
+      }
+    }
+  } finally {
+    refreshingAccountSummaries.value = false
+  }
+
+  ElMessage.success(`账号摘要刷新完成：成功 ${successCount} 个，失败 ${failCount} 个`)
 }
 
 function handleRowContextMenu(row: WandaAccount, column: any, event: MouseEvent) {
@@ -171,7 +293,12 @@ async function confirmImportAccounts(): Promise<void> {
             :value="group.id"
           />
         </el-select>
-        <el-button size="small" :icon="Refresh" @click="accountsStore.loadAccounts()" />
+        <el-button
+          size="small"
+          :icon="Refresh"
+          :loading="refreshingAccountSummaries"
+          @click="handleRefreshAccountSummaries"
+        />
         <el-input
           v-model="accountsStore.searchKeyword"
           size="small"
@@ -216,6 +343,41 @@ async function confirmImportAccounts(): Promise<void> {
             <span :class="['ck-badge', row.ck ? 'ck-badge--active' : '']">
               {{ row.ck ? '有' : '无' }}
             </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="入库" width="64" align="center">
+          <template #default="{ row }">
+            <span class="summary-cell">{{ formatAccountAgeDays(row) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="积分" width="70" align="center">
+          <template #default="{ row }">
+            <span class="summary-cell">{{ formatAccountNumber(row.pointsBalance) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="W+到期" width="96" align="center" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span class="summary-cell">{{ formatWPlusExpire(row) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="储值卡" width="70" align="center">
+          <template #default="{ row }">
+            <span class="summary-cell">{{ formatAccountNumber(row.storedCardCount) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="可用券" width="70" align="center">
+          <template #default="{ row }">
+            <span class="summary-cell">{{ formatAccountNumber(row.couponCount) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="等级" width="78" align="center" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span class="summary-cell">{{ row.memberGradeName || '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="成长值" width="78" align="center">
+          <template #default="{ row }">
+            <span class="summary-cell">{{ formatAccountNumber(row.growthValue) }}</span>
           </template>
         </el-table-column>
       </el-table>
@@ -478,6 +640,12 @@ async function confirmImportAccounts(): Promise<void> {
   border-color: #e1f3d8;
   background: #f0f9eb;
   color: #67c23a;
+}
+
+.summary-cell {
+  color: var(--app-muted);
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .custom-context-menu {

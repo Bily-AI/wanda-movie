@@ -106,6 +106,7 @@ export interface MemberGradeGroup {
 
 export interface MemberWPlusProfile {
   isPayMember: boolean
+  expireAt: string
   raw: unknown
 }
 
@@ -500,8 +501,28 @@ function normalizeSignInDay(item: unknown): MemberSignInDay {
 }
 
 function normalizeWPlusProfile(data: Record<string, unknown>, raw: unknown): MemberWPlusProfile {
+  const result = asRecord(data.res)
+  const member = asRecord(data.member ?? result.member)
+
   return {
     isPayMember: toBoolean(data.isPayMember),
+    expireAt: firstText(
+      data.expireAt,
+      data.expireTime,
+      data.endTime,
+      data.deadline,
+      data.validityDateShowMsg,
+      data.memberExpireTime,
+      data.plusExpireTime,
+      data.payMemberExpireTime,
+      result.expireAt,
+      result.expireTime,
+      result.endTime,
+      result.deadline,
+      member.expireAt,
+      member.expireTime,
+      member.endTime
+    ),
     raw
   }
 }

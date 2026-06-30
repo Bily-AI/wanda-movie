@@ -169,6 +169,11 @@ async function loadCards() {
 
     cards.value = result.cards.map((card) => withOwner(card, account.phone))
     balanceInfo.value = result.balanceInfo
+    await accountsStore.updateAccountProfileSummary(account.id, {
+      storedCardCount: cards.value.length
+    }).catch((error) => {
+      logsStore.addLog('储值卡', account.phone, `账号储值卡摘要保存失败：${getErrorMessage(error, '保存失败')}`)
+    })
     cardsMessage.value = cards.value.length > 0 ? '' : '暂无可用储值卡'
     logsStore.addLog('储值卡', account.phone, `储值卡加载成功：${cards.value.length} 张`)
   } catch (error) {
@@ -217,6 +222,11 @@ async function loadAllAccountsCards() {
         const result = await fetchStoredCardsWithBalance(account.ck, account.userIdentifier)
 
         mergedCards.push(...result.cards.map((card) => withOwner(card, account.phone)))
+        await accountsStore.updateAccountProfileSummary(account.id, {
+          storedCardCount: result.cards.length
+        }).catch((error) => {
+          logsStore.addLog('储值卡', account.phone, `账号储值卡摘要保存失败：${getErrorMessage(error, '保存失败')}`)
+        })
         balanceTotal += result.balanceInfo?.balance ?? result.cards.reduce((sum, card) => sum + card.balance, 0)
         presentTotal +=
           result.balanceInfo?.presentBalance ?? result.cards.reduce((sum, card) => sum + card.presentBalance, 0)
