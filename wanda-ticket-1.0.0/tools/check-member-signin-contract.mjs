@@ -52,10 +52,8 @@ for (const label of [
   'MemberSignInDay',
   'MemberSignInCalendar',
   'fetchMemberSignInCalendar',
-  'submitMemberSignIn',
   'normalizeSignInDay',
   'WANDA_API_PATHS.SIGN_IN_CALENDAR',
-  'WANDA_API_PATHS.MEMBER_GRADE_SIGN_IN',
   'JSON.stringify({ ruleScene: 1 })',
   "contentType: 'application/json'",
   "encodeURIComponent(jsonBody).replace(/%[0-9A-F]{2}/g",
@@ -70,9 +68,12 @@ for (const label of [
 
 for (const label of [
   "MEMBER_GRADE_SIGN_IN: '/member/grade/sign_in.api'",
-  'MEMBER_GRADE_SIGN_IN'
+  'MEMBER_GRADE_SIGN_IN',
+  '/member/grade/sign_in.api'
 ]) {
-  assertIncludes('src/shared/wandaCore.ts', wandaCore, label)
+  assertNotIncludes('src/shared/wandaCore.ts', wandaCore, label)
+  assertNotIncludes('src/renderer/services/featureApi.ts', featureApi, label)
+  assertNotIncludes('src/renderer/views/MemberView.vue', memberView, label)
 }
 
 assertMatches(
@@ -82,16 +83,8 @@ assertMatches(
   '会员签到必须使用旧包 JSON POST 调用'
 )
 
-assertMatches(
-  'src/renderer/services/featureApi.ts',
-  featureApi,
-  /submitMemberSignIn\([\s\S]*?wandaGet[\s\S]*?MEMBER_GRADE_SIGN_IN[\s\S]*?ruleScene: 1/,
-  'member sign-in submit must call member grade sign-in api'
-)
-
 for (const label of [
   'fetchMemberSignInCalendar',
-  'submitMemberSignIn',
   'type MemberSignInCalendar',
   'signInCalendar',
   'signInDays',
@@ -115,6 +108,16 @@ for (const label of [
 ]) {
   assertIncludes('src/renderer/views/MemberView.vue', memberView, label)
 }
+
+assertNotIncludes('src/renderer/services/featureApi.ts', featureApi, 'submitMemberSignIn')
+assertNotIncludes('src/renderer/views/MemberView.vue', memberView, 'submitMemberSignIn')
+
+assertMatches(
+  'src/renderer/views/MemberView.vue',
+  memberView,
+  /submitSignIn\([\s\S]*?signInSubmitting\.value = true[\s\S]*?await loadSignInCalendar\(\)[\s\S]*?ElMessage\.success/,
+  'member sign-in submit reuses the real sign-in calendar flow'
+)
 
 for (const label of [
   '<span>今日</span>',

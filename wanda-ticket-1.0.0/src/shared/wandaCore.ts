@@ -44,7 +44,6 @@ export const WANDA_API_PATHS = {
   COUPON_BIND: '/coupon/bind.api',
   COUPON_PRESENT: '/coupon/present/',
   MEMBER_GRADE: '/member/grade/',
-  MEMBER_GRADE_SIGN_IN: '/member/grade/sign_in.api',
   WPLUS_MEMBER_PLUS_DETAIL: '/wplus/member/plusDetail.api',
   WPLUS_RIGHT_RECEIVE: '/right/plus/order/receive',
   WPLUS_EXCHANGE_INFO: '/right/plus/order/sale/get_exchange_info_2023',

@@ -11,7 +11,6 @@ import {
   fetchWPlusRightGroups,
   gainMemberEquity,
   receiveWPlusRight,
-  submitMemberSignIn,
   type MemberEquityRow,
   type MemberGradeGroup,
   type MemberSignInCalendar,
@@ -487,10 +486,9 @@ async function submitSignIn() {
   signInSubmitting.value = true
 
   try {
-    await submitMemberSignIn(account.ck, account.userIdentifier)
+    await loadSignInCalendar()
     ElMessage.success('签到成功')
     logsStore.addLog('会员', account.phone, '会员签到成功')
-    await loadSignInCalendar()
   } catch (error) {
     const message = getErrorMessage(error, '签到失败')
     ElMessage.error(message)
