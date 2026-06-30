@@ -40,6 +40,7 @@
     "check:member-layout": "node tools/check-member-layout-contract.mjs",
     "check:global-account-sidebar": "node tools/check-global-account-sidebar-contract.mjs",
     "check:ui-workbench-layout": "node tools/check-ui-workbench-layout-contract.mjs",
+    "check:log-layout": "node tools/check-log-layout-contract.mjs",
     "check:interface-smoke": "node tools/check-interface-smoke-contract.mjs",
     "smoke:wanda": "node tools/smoke-wanda-api.mjs",
     "index:old": "node tools/old-package-index.mjs"
