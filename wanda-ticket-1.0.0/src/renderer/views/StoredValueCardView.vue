@@ -17,6 +17,7 @@ import { openAlipayPayment } from '@renderer/services/alipayBridge'
 import { useAccountsStore } from '@renderer/stores/accounts'
 import { useLogsStore } from '@renderer/stores/logs'
 import { useSettingsStore } from '@renderer/stores/settings'
+import type { WandaAccount } from '@shared/localData'
 
 const DEFAULT_WANDA_USER_IDENTIFIER = 'YYDDJDKYHA'
 const CARD_DISPLAY_MODE_KEY = 'setting_paycard_display_mode'
@@ -114,6 +115,17 @@ function maskPhone(value: string): string {
   return `${rawValue.slice(0, 3)}****${rawValue.slice(-4)}`
 }
 
+function normalizePhone(value: string): string {
+  return String(value || '').replace(/\s/g, '').trim()
+}
+
+function withRuntimeAccount(account: WandaAccount) {
+  return {
+    ...account,
+    userIdentifier: account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
+  }
+}
+
 function nextLoadSerial(): number {
   loadSerial += 1
   return loadSerial
@@ -133,10 +145,32 @@ function getCurrentAccount() {
     return null
   }
 
-  return {
-    ...account,
-    userIdentifier: account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
+  return withRuntimeAccount(account)
+}
+
+function getCardActionAccount(card: StoredCardRow) {
+  const ownerPhone = normalizePhone(card.ownerPhone || card.holder)
+  const ownerAccount = accountsStore.accounts.find(
+    (account) => ownerPhone && account.ck && normalizePhone(account.phone) === ownerPhone
+  )
+
+  if (ownerAccount) {
+    return withRuntimeAccount(ownerAccount)
   }
+
+  const currentAccount = accountsStore.currentAccount
+  const currentPhone = normalizePhone(currentAccount?.phone || '')
+
+  if (currentAccount?.ck && (!ownerPhone || currentPhone === ownerPhone)) {
+    return withRuntimeAccount(currentAccount)
+  }
+
+  if (ownerPhone) {
+    ElMessage.warning(`这张储值卡属于 ${maskPhone(ownerPhone)}，请先登录或导入对应账号`)
+    return null
+  }
+
+  return getCurrentAccount()
 }
 
 function withOwner(card: StoredCardRow, phone: string): StoredCardRow {
@@ -340,10 +374,15 @@ async function handleConfirmPurchase() {
 }
 
 async function handleConfirmRecharge() {
-  const account = getCurrentAccount()
   const card = selectedCard.value
 
-  if (!account || !card) {
+  if (!card) {
+    return
+  }
+
+  const account = getCardActionAccount(card)
+
+  if (!account) {
     return
   }
 
@@ -373,16 +412,21 @@ async function handleConfirmRecharge() {
 }
 
 async function handleConfirmTransfer() {
-  const account = getCurrentAccount()
   const card = selectedCard.value
   const mobile = transferMobile.value.trim()
 
-  if (!account || !card) {
+  if (!card) {
     return
   }
 
   if (!/^1\d{10}$/.test(mobile)) {
     ElMessage.warning('请输入正确的接收手机号')
+    return
+  }
+
+  const account = getCardActionAccount(card)
+
+  if (!account) {
     return
   }
 

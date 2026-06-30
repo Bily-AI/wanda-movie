@@ -125,6 +125,7 @@ for (const label of [
   'openPurchaseDialog',
   'openRechargeDialog',
   'openTransferDialog',
+  'getCardActionAccount',
   'handleConfirmPurchase',
   'handleConfirmRecharge',
   'handleConfirmTransfer',
@@ -139,6 +140,27 @@ for (const label of [
 ]) {
   assertIncludes('src/renderer/views/StoredValueCardView.vue', storedCardView, label)
 }
+
+assertMatches(
+  'src/renderer/views/StoredValueCardView.vue',
+  storedCardView,
+  /getCardActionAccount\([\s\S]*?accountsStore\.accounts\.find[\s\S]*?ownerPhone[\s\S]*?account\.ck/,
+  '储值卡充值/赠送必须按卡所属账号选择 CK'
+)
+
+assertMatches(
+  'src/renderer/views/StoredValueCardView.vue',
+  storedCardView,
+  /handleConfirmRecharge\([\s\S]*?const card = selectedCard\.value[\s\S]*?getCardActionAccount\(card\)[\s\S]*?createStoredCardRechargePayment/,
+  '储值卡充值必须使用卡所属账号调用接口'
+)
+
+assertMatches(
+  'src/renderer/views/StoredValueCardView.vue',
+  storedCardView,
+  /handleConfirmTransfer\([\s\S]*?const card = selectedCard\.value[\s\S]*?getCardActionAccount\(card\)[\s\S]*?transferStoredCard/,
+  '储值卡赠送必须使用卡所属账号调用接口'
+)
 
 for (const label of [
   'handlePaymentFeature',
