@@ -490,7 +490,7 @@ async function handleClearCacheData() {
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--bg-primary, var(--app-surface));
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
 }
 
 .settings-summary-card span,
@@ -513,18 +513,18 @@ async function handleClearCacheData() {
 }
 
 .settings-summary-card--blue {
-  border-color: #bfdbfe;
-  background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
+  border-color: var(--summary-blue-border);
+  background: var(--summary-blue-bg);
 }
 
 .settings-summary-card--green {
-  border-color: #bbf7d0;
-  background: linear-gradient(180deg, #fbfffd 0%, #f0fdf4 100%);
+  border-color: var(--summary-green-border);
+  background: var(--summary-green-bg);
 }
 
 .settings-summary-card--amber {
-  border-color: #fed7aa;
-  background: linear-gradient(180deg, #fffdf8 0%, #fff7ed 100%);
+  border-color: var(--summary-amber-border);
+  background: var(--summary-amber-bg);
 }
 
 .settings-workbench {
@@ -550,7 +550,7 @@ async function handleClearCacheData() {
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--bg-primary, var(--app-surface));
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
   overflow: hidden;
 }
 
@@ -661,9 +661,9 @@ async function handleClearCacheData() {
 .auto-pay-warning {
   margin: 0 16px 14px;
   padding: 8px 10px;
-  border: 1px solid #fed7aa;
+  border: 1px solid var(--summary-amber-border);
   border-radius: 8px;
-  background: #fff7ed;
+  background: var(--warning-soft-bg);
   color: #f56c6c;
   font-size: 12px;
   line-height: 1.5;

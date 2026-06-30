@@ -1011,7 +1011,7 @@ watch(
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
 }
 
 .status-tile span {
@@ -1029,10 +1029,10 @@ watch(
   white-space: nowrap;
 }
 
-.status-tile--blue { border-color: #c8def8; background: #f7fbff; }
-.status-tile--green { border-color: #c8ead3; background: #f6fdf8; }
-.status-tile--orange { border-color: #f2d9b3; background: #fffaf2; }
-.status-tile--red { border-color: #f1c9c9; background: #fff8f8; }
+.status-tile--blue { border-color: var(--summary-blue-border); background: var(--summary-blue-bg); }
+.status-tile--green { border-color: var(--summary-green-border); background: var(--summary-green-bg); }
+.status-tile--orange { border-color: var(--summary-amber-border); background: var(--summary-amber-bg); }
+.status-tile--red { border-color: var(--summary-red-border); background: var(--summary-red-bg); }
 
 .ticket-center,
 .order-column {
@@ -1062,7 +1062,7 @@ watch(
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
 }
 
 .panel-header,
@@ -1325,7 +1325,7 @@ watch(
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
 }
 
 .bottom-spacer {
@@ -1471,4 +1471,3 @@ watch(
   @click="handleMoveSelectedToGroup"
   @click="handleImportAccounts"
 -->
-

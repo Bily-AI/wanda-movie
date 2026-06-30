@@ -32,9 +32,22 @@
   --border-light: #e4e7ed;
   --shadow-base: 0 2px 12px rgb(0 0 0 / 6%);
   --shadow-light: 0 2px 8px rgb(0 0 0 / 4%);
+  --shadow-panel: 0 2px 10px rgb(31 42 68 / 5%);
+  --shadow-panel-strong: 0 8px 28px rgb(31 42 68 / 14%);
   --radius-base: 8px;
   --radius-small: 4px;
   --radius-large: 12px;
+  --summary-blue-border: #bfdbfe;
+  --summary-blue-bg: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
+  --summary-green-border: #bbf7d0;
+  --summary-green-bg: linear-gradient(180deg, #fbfffd 0%, #f0fdf4 100%);
+  --summary-amber-border: #fed7aa;
+  --summary-amber-bg: linear-gradient(180deg, #fffdf8 0%, #fff7ed 100%);
+  --summary-red-border: #f1c9c9;
+  --summary-red-bg: #fff8f8;
+  --table-header-bg: #f8fbff;
+  --panel-soft-bg: #f8fbff;
+  --warning-soft-bg: #fff7ed;
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
@@ -80,6 +93,19 @@ html.dark,
   --border-light: #40506a;
   --shadow-base: 0 2px 12px rgb(0 0 0 / 30%);
   --shadow-light: 0 2px 8px rgb(0 0 0 / 20%);
+  --shadow-panel: 0 2px 12px rgb(0 0 0 / 24%);
+  --shadow-panel-strong: 0 12px 34px rgb(0 0 0 / 38%);
+  --summary-blue-border: #315a8e;
+  --summary-blue-bg: linear-gradient(180deg, #1d2b3f 0%, #17263a 100%);
+  --summary-green-border: #2f6b4b;
+  --summary-green-bg: linear-gradient(180deg, #1b322a 0%, #172b24 100%);
+  --summary-amber-border: #806033;
+  --summary-amber-bg: linear-gradient(180deg, #352b1f 0%, #2b241c 100%);
+  --summary-red-border: #80464c;
+  --summary-red-bg: #332126;
+  --table-header-bg: #253043;
+  --panel-soft-bg: #253043;
+  --warning-soft-bg: #332a20;
   --el-bg-color: var(--app-surface);
   --el-bg-color-overlay: #242d3a;
   --el-fill-color-light: #263141;
@@ -141,13 +167,267 @@ button {
 }
 
 .el-button {
+  min-height: 32px;
+  border-radius: 6px;
   font-weight: 500;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.el-button--small {
+  min-height: 30px;
 }
 
 .el-button:focus-visible,
-.el-switch:focus-visible {
+.el-switch:focus-visible,
+.el-checkbox__input:focus-visible .el-checkbox__inner,
+.el-radio__input:focus-visible .el-radio__inner {
   outline: 2px solid var(--app-accent);
   outline-offset: 2px;
+}
+
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner,
+.el-input-number,
+.el-date-editor.el-input__wrapper {
+  border-radius: 6px;
+}
+
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner {
+  box-shadow: 0 0 0 1px var(--app-border) inset;
+  transition:
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.el-input__wrapper:hover,
+.el-select__wrapper:hover,
+.el-textarea__inner:hover {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--app-accent) 35%, var(--app-border)) inset;
+}
+
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused,
+.el-textarea__inner:focus {
+  box-shadow: 0 0 0 1px var(--app-accent) inset;
+}
+
+.el-card {
+  border-color: var(--app-border);
+  border-radius: var(--radius-base);
+  background: var(--app-surface);
+}
+
+.el-card__header {
+  border-bottom-color: var(--app-border);
+}
+
+.panel,
+.ui-panel {
+  border: 1px solid var(--app-border);
+  border-radius: var(--radius-base);
+  background: var(--app-surface);
+  box-shadow: var(--shadow-panel);
+}
+
+[class*='summary-card'] {
+  border-radius: var(--radius-base);
+  box-shadow: var(--shadow-panel);
+}
+
+[class*='summary-card--blue'],
+[class*='status-tile--blue'] {
+  border-color: var(--summary-blue-border);
+  background: var(--summary-blue-bg);
+}
+
+[class*='summary-card--green'],
+[class*='status-tile--green'] {
+  border-color: var(--summary-green-border);
+  background: var(--summary-green-bg);
+}
+
+[class*='summary-card--amber'],
+[class*='summary-card--orange'],
+[class*='status-tile--orange'] {
+  border-color: var(--summary-amber-border);
+  background: var(--summary-amber-bg);
+}
+
+[class*='summary-card--red'],
+[class*='status-tile--red'] {
+  border-color: var(--summary-red-border);
+  background: var(--summary-red-bg);
+}
+
+.el-table {
+  --el-table-border-color: var(--app-border);
+  --el-table-header-bg-color: var(--table-header-bg);
+  --el-table-row-hover-bg-color: var(--app-hover);
+  color: var(--app-text);
+}
+
+.el-table th.el-table__cell {
+  color: var(--app-subtle);
+  background: var(--table-header-bg);
+}
+
+.el-table .el-table__cell {
+  border-bottom-color: var(--app-border);
+}
+
+.el-empty {
+  --el-empty-fill-color-0: var(--app-surface);
+  --el-empty-fill-color-1: var(--panel-soft-bg);
+  --el-empty-fill-color-2: var(--app-bg-soft);
+  --el-empty-fill-color-3: var(--app-border);
+  --el-empty-fill-color-4: var(--app-muted);
+  --el-empty-fill-color-5: var(--app-subtle);
+  color: var(--app-muted);
+}
+
+.el-empty__image {
+  opacity: 0.72;
+}
+
+.el-overlay {
+  background-color: rgb(15 23 42 / 42%);
+}
+
+.el-dialog {
+  overflow: hidden;
+  border: 1px solid var(--app-border);
+  border-radius: var(--radius-base);
+  background: var(--app-surface);
+  box-shadow: var(--shadow-panel-strong);
+}
+
+.el-dialog__header {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  margin-right: 0;
+  padding: 0 52px 0 18px;
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-surface);
+}
+
+.el-dialog__title {
+  color: var(--app-text);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.el-dialog__headerbtn {
+  top: 0;
+  width: 50px;
+  height: 50px;
+}
+
+.el-dialog__body {
+  padding: 16px 18px;
+  color: var(--app-subtle);
+}
+
+.el-dialog__footer {
+  padding: 12px 18px;
+  border-top: 1px solid var(--app-border);
+  background: var(--panel-soft-bg);
+}
+
+.el-message-box {
+  overflow: hidden;
+  border: 1px solid var(--app-border);
+  border-radius: var(--radius-base);
+  background: var(--app-surface);
+  box-shadow: var(--shadow-panel-strong);
+}
+
+.el-message-box__header,
+.el-message-box__content,
+.el-message-box__btns {
+  color: var(--app-text);
+}
+
+.el-popper.is-light,
+.el-picker__popper,
+.el-popover.el-popper {
+  border-color: var(--app-border);
+  border-radius: var(--radius-base);
+  background: var(--app-surface);
+  box-shadow: var(--shadow-panel-strong);
+}
+
+.side-panel-body {
+  background: var(--app-surface);
+}
+
+.side-panel-header {
+  background: var(--panel-soft-bg);
+}
+
+.side-empty,
+.panel-empty {
+  color: var(--app-muted);
+}
+
+.mini-list-item,
+.order-card,
+.activity-card,
+.stored-card {
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.mini-list-item:hover,
+.order-card:hover,
+.activity-card:hover,
+.stored-card:hover {
+  border-color: color-mix(in srgb, var(--app-accent) 28%, var(--app-border));
+  box-shadow: 0 3px 14px rgb(31 42 68 / 8%);
+}
+
+html.dark [class*='summary-card--blue'],
+html.dark [class*='status-tile--blue'] {
+  border-color: var(--summary-blue-border) !important;
+  background: var(--summary-blue-bg) !important;
+}
+
+html.dark [class*='summary-card--green'],
+html.dark [class*='status-tile--green'] {
+  border-color: var(--summary-green-border) !important;
+  background: var(--summary-green-bg) !important;
+}
+
+html.dark [class*='summary-card--amber'],
+html.dark [class*='summary-card--orange'],
+html.dark [class*='status-tile--orange'] {
+  border-color: var(--summary-amber-border) !important;
+  background: var(--summary-amber-bg) !important;
+}
+
+html.dark [class*='summary-card--red'],
+html.dark [class*='status-tile--red'] {
+  border-color: var(--summary-red-border) !important;
+  background: var(--summary-red-bg) !important;
+}
+
+html.dark .panel-body,
+html.dark .order-card,
+html.dark .activity-card,
+html.dark .stored-card,
+html.dark .ticket-code-panel,
+html.dark .dialog-card-line,
+html.dark .detail-json {
+  background: var(--app-surface) !important;
 }
 
 .route-placeholder {

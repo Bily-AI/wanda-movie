@@ -720,7 +720,7 @@ watch(cardDisplayMode, (mode) => {
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
 }
 
 .stored-card-summary-grid {
@@ -741,7 +741,7 @@ watch(cardDisplayMode, (mode) => {
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
 }
 
 .stored-summary-card span,
@@ -764,18 +764,18 @@ watch(cardDisplayMode, (mode) => {
 }
 
 .stored-summary-card--blue {
-  border-color: #c8def8;
-  background: #f7fbff;
+  border-color: var(--summary-blue-border);
+  background: var(--summary-blue-bg);
 }
 
 .stored-summary-card--green {
-  border-color: #c8ead3;
-  background: #f6fdf8;
+  border-color: var(--summary-green-border);
+  background: var(--summary-green-bg);
 }
 
 .stored-summary-card--amber {
-  border-color: #f2d9b3;
-  background: #fffaf2;
+  border-color: var(--summary-amber-border);
+  background: var(--summary-amber-bg);
 }
 
 .stored-card-action-panel {
@@ -933,7 +933,7 @@ watch(cardDisplayMode, (mode) => {
   border-radius: 8px;
   padding: 14px;
   background: var(--app-surface);
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
 }
 
 .stored-card-top,

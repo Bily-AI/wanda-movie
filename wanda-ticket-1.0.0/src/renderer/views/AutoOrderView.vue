@@ -805,7 +805,7 @@ onBeforeUnmount(() => {
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
 }
 
 .auto-status-card {
@@ -819,7 +819,7 @@ onBeforeUnmount(() => {
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
 }
 
 .auto-status-card span,
@@ -842,23 +842,23 @@ onBeforeUnmount(() => {
 }
 
 .auto-status-card--blue {
-  border-color: #c8def8;
-  background: #f7fbff;
+  border-color: var(--summary-blue-border);
+  background: var(--summary-blue-bg);
 }
 
 .auto-status-card--green {
-  border-color: #c8ead3;
-  background: #f6fdf8;
+  border-color: var(--summary-green-border);
+  background: var(--summary-green-bg);
 }
 
 .auto-status-card--amber {
-  border-color: #f2d9b3;
-  background: #fffaf2;
+  border-color: var(--summary-amber-border);
+  background: var(--summary-amber-bg);
 }
 
 .auto-status-card--red {
-  border-color: #efc5c5;
-  background: #fff8f8;
+  border-color: var(--summary-red-border);
+  background: var(--summary-red-bg);
 }
 
 .auto-config-panel {
@@ -918,7 +918,7 @@ onBeforeUnmount(() => {
   padding: 10px 12px;
   border: 1px solid var(--border-light, var(--app-border));
   border-radius: 8px;
-  background: #f8fbff;
+  background: var(--panel-soft-bg);
 }
 
 .platform-switch-row {

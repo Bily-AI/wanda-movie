@@ -862,7 +862,7 @@ watch(
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--bg-primary, var(--app-surface));
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
 }
 
 .activity-summary-card span,
@@ -885,18 +885,18 @@ watch(
 }
 
 .activity-summary-card--blue {
-  border-color: #bfdbfe;
-  background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
+  border-color: var(--summary-blue-border);
+  background: var(--summary-blue-bg);
 }
 
 .activity-summary-card--green {
-  border-color: #bbf7d0;
-  background: linear-gradient(180deg, #fbfffd 0%, #f0fdf4 100%);
+  border-color: var(--summary-green-border);
+  background: var(--summary-green-bg);
 }
 
 .activity-summary-card--amber {
-  border-color: #fed7aa;
-  background: linear-gradient(180deg, #fffdf8 0%, #fff7ed 100%);
+  border-color: var(--summary-amber-border);
+  background: var(--summary-amber-bg);
 }
 
 .activity-toolbar {
@@ -988,7 +988,7 @@ watch(
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--bg-primary, var(--app-surface));
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
   overflow: hidden;
 }
 
@@ -1086,8 +1086,8 @@ watch(
   padding: 12px;
   border: 1px solid var(--app-border);
   border-radius: 8px;
-  background: linear-gradient(135deg, #fff 0%, #f8fbff 100%);
-  box-shadow: 0 2px 8px rgb(31 42 68 / 4%);
+  background: var(--summary-blue-bg);
+  box-shadow: var(--shadow-panel);
 }
 
 .activity-card__image {

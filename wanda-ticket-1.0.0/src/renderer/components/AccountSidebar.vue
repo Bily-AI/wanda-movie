@@ -580,7 +580,7 @@ async function confirmImportAccounts(): Promise<void> {
     <el-dialog v-model="moveGroupDialogVisible" title="移动到分组" width="400px" append-to-body>
       <el-form label-width="80px">
         <el-form-item label="目标分组">
-          <el-select v-model="targetGroupId" style="width: 100%" placeholder="请选择目标分组">
+          <el-select v-model="targetGroupId" class="dialog-full-select" placeholder="请选择目标分组">
             <el-option
               v-for="group in accountsStore.groups"
               :key="group.id"
@@ -636,7 +636,7 @@ async function confirmImportAccounts(): Promise<void> {
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
 }
 
 .account-section-header {
@@ -699,9 +699,9 @@ async function confirmImportAccounts(): Promise<void> {
   justify-content: space-between;
   gap: 8px;
   padding: 0 10px;
-  border: 1px solid #e0e8f3;
+  border: 1px solid var(--app-border);
   border-radius: 7px;
-  background: #f8fbff;
+  background: var(--panel-soft-bg);
   color: var(--app-muted);
   cursor: pointer;
   font: inherit;
@@ -830,9 +830,9 @@ async function confirmImportAccounts(): Promise<void> {
 .account-metric {
   min-width: 0;
   padding: 6px 8px;
-  border: 1px solid #e1eaf5;
+  border: 1px solid var(--app-border);
   border-radius: 7px;
-  background: #f8fbff;
+  background: var(--panel-soft-bg);
 }
 
 .account-metric span {
@@ -887,8 +887,8 @@ async function confirmImportAccounts(): Promise<void> {
 }
 
 .account-row:hover {
-  border-color: #d5e4f6;
-  background: #f8fbff;
+  border-color: var(--summary-blue-border);
+  background: var(--panel-soft-bg);
 }
 
 .account-row--active {
@@ -1037,19 +1037,8 @@ async function confirmImportAccounts(): Promise<void> {
   background-color: var(--app-border);
 }
 
-:global(.legacy-account-import-dialog .el-dialog__header) {
-  padding: 22px 24px 10px;
-  margin-right: 0;
-}
-
-:global(.legacy-account-import-dialog .el-dialog__title) {
-  color: var(--app-text);
-  font-size: 18px;
-  font-weight: 700;
-}
-
 :global(.legacy-account-import-dialog .el-dialog__body) {
-  padding: 10px 24px 12px;
+  padding: 16px 18px;
 }
 
 :global(.legacy-account-import-dialog .el-textarea__inner) {
@@ -1059,7 +1048,7 @@ async function confirmImportAccounts(): Promise<void> {
   line-height: 1.6;
 }
 
-:global(.legacy-account-import-dialog .el-dialog__footer) {
-  padding: 8px 24px 20px;
+.dialog-full-select {
+  width: 100%;
 }
 </style>

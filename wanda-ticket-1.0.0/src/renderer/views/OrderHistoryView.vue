@@ -583,9 +583,9 @@ onBeforeUnmount(() => {
           placeholder="搜索手机号/订单号/影片..."
           clearable
           :prefix-icon="Search"
-          style="width: 280px"
+          class="history-search-input"
         />
-        <el-select v-model="ordersStore.filters.status" placeholder="订单状态" clearable style="width: 140px">
+        <el-select v-model="ordersStore.filters.status" placeholder="订单状态" clearable class="history-status-select">
           <el-option label="全部状态" value="" />
           <el-option label="已完成" value="completed" />
           <el-option label="待支付" value="pending" />
@@ -600,7 +600,7 @@ onBeforeUnmount(() => {
           end-placeholder="结束日期"
           format="YYYY-MM-DD"
           value-format="YYYY-MM-DD"
-          style="width: 260px"
+          class="history-date-range"
         />
         <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
         <el-button :icon="Refresh" @click="handleRefresh">刷新</el-button>
@@ -873,7 +873,7 @@ onBeforeUnmount(() => {
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
 }
 
 .history-summary-grid {
@@ -892,13 +892,13 @@ onBeforeUnmount(() => {
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
 }
 
-.history-summary-card--blue { border-color: #c8def8; background: #f7fbff; }
-.history-summary-card--green { border-color: #c8ead3; background: #f6fdf8; }
-.history-summary-card--orange { border-color: #f2d9b3; background: #fffaf2; }
-.history-summary-card--red { border-color: #f1c9c9; background: #fff8f8; }
+.history-summary-card--blue { border-color: var(--summary-blue-border); background: var(--summary-blue-bg); }
+.history-summary-card--green { border-color: var(--summary-green-border); background: var(--summary-green-bg); }
+.history-summary-card--orange { border-color: var(--summary-amber-border); background: var(--summary-amber-bg); }
+.history-summary-card--red { border-color: var(--summary-red-border); background: var(--summary-red-bg); }
 
 .stat-label {
   color: var(--app-muted);
@@ -938,6 +938,18 @@ onBeforeUnmount(() => {
 
 .filter-right {
   flex: 0 0 auto;
+}
+
+.history-search-input {
+  width: 280px;
+}
+
+.history-status-select {
+  width: 140px;
+}
+
+.history-date-range {
+  width: 260px;
 }
 
 .history-table-panel {
@@ -1065,7 +1077,7 @@ onBeforeUnmount(() => {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: rgb(0 0 0 / 45%);
+  background: rgb(15 23 42 / 42%);
   backdrop-filter: blur(2px);
 }
 
@@ -1073,9 +1085,10 @@ onBeforeUnmount(() => {
   position: fixed;
   width: 440px;
   max-height: 90vh;
-  background: #f5f5f5;
-  border-radius: 12px;
-  box-shadow: 0 8px 40px rgb(0 0 0 / 25%);
+  border: 1px solid var(--app-border);
+  border-radius: var(--radius-base);
+  background: var(--app-bg);
+  box-shadow: var(--shadow-panel-strong);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1093,8 +1106,8 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   padding: 10px 16px;
-  background: #fff;
-  border-bottom: 1px solid #eee;
+  background: var(--app-surface);
+  border-bottom: 1px solid var(--app-border);
   cursor: move;
   user-select: none;
   flex-shrink: 0;
@@ -1102,10 +1115,10 @@ onBeforeUnmount(() => {
 
 .ticket-back-btn,
 .ticket-close-btn {
-  background: none;
+  background: transparent;
   border: none;
   font-size: 16px;
-  color: #666;
+  color: var(--app-subtle);
   cursor: pointer;
   padding: 4px 8px;
   display: flex;
@@ -1119,19 +1132,19 @@ onBeforeUnmount(() => {
 
 .ticket-back-btn:hover,
 .ticket-close-btn:hover {
-  background: #f0f0f0;
+  background: var(--app-hover);
 }
 
 .ticket-close-btn {
   font-size: 18px;
-  color: #999;
+  color: var(--app-muted);
 }
 
 .ticket-screenshot-btn {
-  background: none;
-  border: 1px solid #dcdfe6;
+  background: transparent;
+  border: 1px solid var(--app-border);
   font-size: 12px;
-  color: #409eff;
+  color: var(--app-accent);
   cursor: pointer;
   padding: 2px 10px;
   border-radius: 4px;
@@ -1139,20 +1152,20 @@ onBeforeUnmount(() => {
 }
 
 .ticket-screenshot-btn:hover {
-  background: #409eff;
+  background: var(--app-accent);
   color: #fff;
-  border-color: #409eff;
+  border-color: var(--app-accent);
 }
 
 .ticket-title {
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: var(--app-text);
 }
 
 .ticket-card {
   margin: 10px 12px 0;
-  border-radius: 10px;
+  border-radius: var(--radius-base);
   overflow: hidden;
   background: transparent;
   flex-shrink: 0;
@@ -1168,8 +1181,8 @@ onBeforeUnmount(() => {
 }
 
 .ticket-body {
-  background: #fff;
-  color: #333;
+  background: var(--app-surface);
+  color: var(--app-text);
   padding: 24px 20px 20px;
   position: relative;
 }
@@ -1183,7 +1196,7 @@ onBeforeUnmount(() => {
 
 .ticket-code-label {
   font-size: 17px;
-  color: #555;
+  color: var(--app-subtle);
   white-space: nowrap;
 }
 
@@ -1201,11 +1214,11 @@ onBeforeUnmount(() => {
   gap: 6px;
   margin-top: 16px;
   font-size: 15px;
-  color: #555;
+  color: var(--app-subtle);
 }
 
 .ticket-mobile-label {
-  color: #666;
+  color: var(--app-muted);
 }
 
 .ticket-qr-wrapper {
@@ -1219,7 +1232,7 @@ onBeforeUnmount(() => {
   width: 220px !important;
   height: 220px !important;
   object-fit: contain;
-  background: #fff;
+  background: var(--app-surface);
 }
 
 .ticket-status-stamp-text {
@@ -1259,8 +1272,8 @@ onBeforeUnmount(() => {
 
 .ticket-detail {
   margin: 10px 12px 12px;
-  background: #fff;
-  border-radius: 12px;
+  background: var(--app-surface);
+  border-radius: var(--radius-base);
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -1278,8 +1291,8 @@ onBeforeUnmount(() => {
   align-items: center;
   padding: 14px 16px;
   font-size: 13px;
-  color: #999;
-  border-bottom: 1px solid #f0f0f0;
+  color: var(--app-muted);
+  border-bottom: 1px solid var(--app-border);
 }
 
 .detail-status {
@@ -1294,36 +1307,36 @@ onBeforeUnmount(() => {
 .movie-name-line {
   font-size: 17px;
   font-weight: 600;
-  color: #333;
+  color: var(--app-text);
   margin-bottom: 12px;
 }
 
 .movie-version-tag {
   font-size: 13px;
   font-weight: 400;
-  color: #666;
+  color: var(--app-subtle);
   margin-left: 6px;
 }
 
 .info-row {
   font-size: 14px;
-  color: #555;
+  color: var(--app-subtle);
   line-height: 2;
   display: flex;
 }
 
 .info-label {
-  color: #999;
+  color: var(--app-muted);
   flex-shrink: 0;
 }
 
 .seat-tag {
   display: inline-block;
-  border: 1px solid #ddd;
+  border: 1px solid var(--app-border);
   border-radius: 4px;
   padding: 1px 8px;
   font-size: 13px;
-  color: #333;
+  color: var(--app-text);
   margin-left: 4px;
 }
 
@@ -1332,11 +1345,11 @@ onBeforeUnmount(() => {
   width: calc(100% - 32px);
   margin: 0 16px 16px;
   padding: 12px;
-  background: #eaf2fe;
+  background: var(--app-accent-soft);
   border: none;
   border-radius: 8px;
   font-size: 14px;
-  color: #409eff;
+  color: var(--app-accent);
   cursor: pointer;
   align-items: center;
   justify-content: center;
@@ -1354,13 +1367,13 @@ onBeforeUnmount(() => {
 }
 
 .wanda-dialog {
-  background: #f0f2f5 !important;
+  background: var(--app-bg) !important;
 }
 
 .wanda-official-content {
-  background: #fff;
+  background: var(--app-surface);
   margin: 10px 12px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-base);
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -1402,22 +1415,22 @@ onBeforeUnmount(() => {
 .wanda-movie-title {
   font-size: 20px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: var(--app-text);
 }
 
 .wanda-movie-meta {
   font-size: 13px;
-  color: #888;
+  color: var(--app-muted);
 }
 
 .wanda-show-time {
   font-size: 14px;
-  color: #555;
+  color: var(--app-subtle);
 }
 
 .wanda-mobile-last4 {
   font-size: 13px;
-  color: #888;
+  color: var(--app-muted);
   margin-top: 2px;
 }
 
@@ -1426,7 +1439,7 @@ onBeforeUnmount(() => {
   height: 96px;
   border-radius: 6px;
   overflow: hidden;
-  background: #eee;
+  background: var(--app-bg-soft);
   flex-shrink: 0;
 }
 
@@ -1438,7 +1451,7 @@ onBeforeUnmount(() => {
 
 .wanda-divider {
   height: 1px;
-  background: #e8e8e8;
+  background: var(--app-border);
   margin: 0 20px;
 }
 
@@ -1457,12 +1470,12 @@ onBeforeUnmount(() => {
 
 .wanda-item-label {
   font-size: 13px;
-  color: #999;
+  color: var(--app-muted);
 }
 
 .wanda-item-value {
   font-size: 15px;
-  color: #333;
+  color: var(--app-text);
   font-weight: 500;
 }
 
@@ -1476,8 +1489,8 @@ onBeforeUnmount(() => {
   width: 160px !important;
   height: 160px !important;
   object-fit: contain;
-  background: #fff;
-  border: 1px solid #eee;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
   border-radius: 4px;
 }
 
@@ -1498,7 +1511,7 @@ onBeforeUnmount(() => {
 
 .wanda-code-label {
   font-size: 15px;
-  color: #555;
+  color: var(--app-subtle);
 }
 
 .wanda-code-number {
@@ -1509,11 +1522,11 @@ onBeforeUnmount(() => {
 }
 
 .wanda-bottom-tip {
-  background: #f7f8fa;
+  background: var(--panel-soft-bg);
   text-align: center;
   padding: 14px 20px;
   font-size: 13px;
-  color: #888;
-  border-top: 1px solid #eee;
+  color: var(--app-muted);
+  border-top: 1px solid var(--app-border);
 }
 </style>

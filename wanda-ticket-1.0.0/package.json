@@ -42,6 +42,7 @@
     "check:ui-workbench-layout": "node tools/check-ui-workbench-layout-contract.mjs",
     "check:log-layout": "node tools/check-log-layout-contract.mjs",
     "check:settings-layout": "node tools/check-settings-layout-contract.mjs",
+    "check:global-ui": "node tools/check-global-ui-contract.mjs",
     "check:interface-smoke": "node tools/check-interface-smoke-contract.mjs",
     "smoke:wanda": "node tools/smoke-wanda-api.mjs",
     "index:old": "node tools/old-package-index.mjs"

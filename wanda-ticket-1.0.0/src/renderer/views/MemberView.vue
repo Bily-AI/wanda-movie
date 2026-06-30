@@ -1108,7 +1108,7 @@ onMounted(() => {
                 </div>
                 <span v-if="currentGrade && !isMaxGrade" class="stage-hint">
                   还差 <strong>{{ needGrowthToNext }}</strong> 成长值升级到
-                  <strong style="color: var(--wanda-primary)">{{ nextGrade?.gradeName }}</strong>
+                  <strong class="next-grade-name">{{ nextGrade?.gradeName }}</strong>
                 </span>
               </div>
             </div>
@@ -1227,7 +1227,7 @@ onMounted(() => {
               </div>
 
               <div v-if="group.highEquities.length" class="high-equity-table-wrap">
-                <div class="section-subtitle" style="margin-top: 12px">
+                <div class="section-subtitle section-subtitle--compact">
                   <el-icon><Star /></el-icon>
                   <span>升级解锁 ({{ group.highEquities.length }})</span>
                 </div>
@@ -1258,7 +1258,7 @@ onMounted(() => {
 
           <div v-if="rtimeError" class="error-card">
             <el-alert :title="rtimeError" type="error" show-icon :closable="false" />
-            <el-button type="primary" :icon="Refresh" style="margin-top: 12px" @click="loadRtimeData">重试</el-button>
+            <el-button type="primary" :icon="Refresh" class="retry-button" @click="loadRtimeData">重试</el-button>
           </div>
         </template>
       </section>
@@ -1316,7 +1316,7 @@ onMounted(() => {
               :icon="Check"
               :loading="batchLoading"
               :disabled="!hasClaimableWPlus"
-              style="margin-left: auto"
+              class="receive-all-button"
               @click="handleReceiveAllWPlusRights"
             >
               一键领取
@@ -1340,7 +1340,7 @@ onMounted(() => {
 
             <template v-else-if="wplusProfile">
               <div v-if="wplusRightGroups.length" class="wplus-activity-section">
-                <div class="section-subtitle" style="margin-top: 16px">
+                <div class="section-subtitle section-subtitle--spaced">
                   <el-icon><CollectionTag /></el-icon>
                   <span>光影活动 ({{ totalWPlusRights }})</span>
                 </div>
@@ -1353,7 +1353,7 @@ onMounted(() => {
                   <div class="right-group-header">
                     <img v-if="group.iconUrl" :src="group.iconUrl" class="right-group-icon" alt="">
                     <span class="right-group-name">{{ group.name }}</span>
-                    <el-tag v-if="group.verifyStatus === 1" type="warning" size="small" style="margin-left: 8px">
+                    <el-tag v-if="group.verifyStatus === 1" type="warning" size="small" class="verify-status-tag">
                       需实名认证
                     </el-tag>
                   </div>
@@ -1457,7 +1457,7 @@ onMounted(() => {
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--bg-primary, var(--app-surface));
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
 }
 
 .member-summary-grid {
@@ -1478,7 +1478,7 @@ onMounted(() => {
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--bg-primary, var(--app-surface));
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
 }
 
 .member-summary-card span,
@@ -1501,18 +1501,18 @@ onMounted(() => {
 }
 
 .member-summary-card--blue {
-  border-color: #bfdbfe;
-  background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
+  border-color: var(--summary-blue-border);
+  background: var(--summary-blue-bg);
 }
 
 .member-summary-card--green {
-  border-color: #bbf7d0;
-  background: linear-gradient(180deg, #fbfffd 0%, #f0fdf4 100%);
+  border-color: var(--summary-green-border);
+  background: var(--summary-green-bg);
 }
 
 .member-summary-card--amber {
-  border-color: #fed7aa;
-  background: linear-gradient(180deg, #fffdf8 0%, #fff7ed 100%);
+  border-color: var(--summary-amber-border);
+  background: var(--summary-amber-bg);
 }
 
 .vip-subtabs {
@@ -1525,7 +1525,7 @@ onMounted(() => {
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--bg-primary, var(--app-surface));
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
   flex-shrink: 0;
 }
 
@@ -1557,14 +1557,14 @@ onMounted(() => {
 
 .vip-subtab:hover {
   color: var(--wanda-primary);
-  border-color: #bfdbfe;
-  background: #f8fbff;
+  border-color: var(--summary-blue-border);
+  background: var(--panel-soft-bg);
 }
 
 .vip-subtab--active {
   color: var(--wanda-primary);
-  border-color: #93c5fd;
-  background: #eaf3ff;
+  border-color: var(--summary-blue-border);
+  background: var(--app-accent-soft);
   box-shadow: inset 0 0 0 1px rgb(45 127 249 / 16%);
 }
 
@@ -1602,7 +1602,7 @@ onMounted(() => {
   border: 1px solid var(--app-border);
   padding: 16px;
   flex-shrink: 0;
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
 }
 
 .vip-info-card {
@@ -1611,7 +1611,7 @@ onMounted(() => {
   border-radius: 8px;
   border: 1px solid var(--app-border);
   padding: 16px;
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
 }
 
 .vip-info-header {
@@ -1647,7 +1647,7 @@ onMounted(() => {
 
 .base-desc :deep(.el-descriptions__label.el-descriptions__cell) {
   color: var(--text-secondary, var(--app-muted));
-  background: #f8fbff;
+  background: var(--table-header-bg);
 }
 
 .base-desc :deep(.el-descriptions__content.el-descriptions__cell) {
@@ -1680,12 +1680,12 @@ onMounted(() => {
   border-radius: 8px;
   border: 1px solid var(--app-border);
   padding: 16px;
-  box-shadow: 0 2px 10px rgb(31 42 68 / 4%);
+  box-shadow: var(--shadow-panel);
 }
 
 .grade-card--current {
-  border-color: #93c5fd;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border-color: var(--summary-blue-border);
+  background: var(--summary-blue-bg);
   box-shadow: 0 0 0 1px rgb(45 127 249 / 12%), 0 4px 14px rgb(45 127 249 / 8%);
 }
 
@@ -1712,6 +1712,10 @@ onMounted(() => {
   font-weight: 700;
 }
 
+.next-grade-name {
+  color: var(--wanda-primary);
+}
+
 .grade-range {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
@@ -1726,7 +1730,7 @@ onMounted(() => {
   margin-bottom: 12px;
   padding: 8px 10px;
   border-radius: 6px;
-  background: #f8fafc;
+  background: var(--panel-soft-bg);
 }
 
 .equity-table-wrap,
@@ -1742,6 +1746,22 @@ onMounted(() => {
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 12px;
+}
+
+.section-subtitle--compact {
+  margin-top: 12px;
+}
+
+.section-subtitle--spaced {
+  margin-top: 16px;
+}
+
+.receive-all-button {
+  margin-left: auto;
+}
+
+.retry-button {
+  margin-top: 12px;
 }
 
 .wplus-actions {
@@ -1793,8 +1813,8 @@ onMounted(() => {
 }
 
 .right-group-card {
-  background: #fffaf0;
-  border: 1px solid #fde7bd;
+  background: var(--warning-soft-bg);
+  border: 1px solid var(--summary-amber-border);
   border-radius: 8px;
   padding: 14px;
   margin-bottom: 12px;
@@ -1806,7 +1826,7 @@ onMounted(() => {
   gap: 8px;
   margin-bottom: 12px;
   padding-bottom: 10px;
-  border-bottom: 1px solid #f6dfb5;
+  border-bottom: 1px solid var(--summary-amber-border);
 }
 
 .right-group-icon {
@@ -1819,7 +1839,11 @@ onMounted(() => {
 .right-group-name {
   font-size: var(--font-size-base);
   font-weight: 600;
-  color: #9a6700;
+  color: var(--el-color-warning);
+}
+
+.verify-status-tag {
+  margin-left: 8px;
 }
 
 .right-list {
@@ -1835,10 +1859,10 @@ onMounted(() => {
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  background: #fff;
+  background: var(--app-surface);
   border-radius: 8px;
-  border: 1px solid #f5e6c8;
-  box-shadow: 0 2px 8px rgb(154 103 0 / 5%);
+  border: 1px solid var(--app-border);
+  box-shadow: var(--shadow-panel);
 }
 
 .right-item-icon {
@@ -2006,8 +2030,8 @@ onMounted(() => {
 }
 
 .signin-section {
-  background: linear-gradient(180deg, #fffdf8 0%, #fff7ed 100%);
-  border: 1px solid #fed7aa;
+  background: var(--summary-amber-bg);
+  border: 1px solid var(--summary-amber-border);
   border-radius: 8px;
   padding: 14px 16px;
   margin-bottom: 14px;
@@ -2109,7 +2133,7 @@ onMounted(() => {
 
 .vip-info-card :deep(.el-table th.el-table__cell) {
   color: var(--text-secondary, var(--app-muted));
-  background: #f8fbff;
+  background: var(--table-header-bg);
 }
 
 .vip-info-card :deep(.el-table__cell) {

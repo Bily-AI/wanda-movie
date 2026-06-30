@@ -849,11 +849,11 @@ watch(
 
     <section class="coupon-filter-panel panel">
       <div class="coupon-filter-left">
-        <el-input v-model="keyword" placeholder="搜索券号 / 名称 / couponNo" clearable :prefix-icon="Search" style="width: 260px" />
-        <el-select v-model="nameFilter" placeholder="券名称" clearable style="width: 170px">
+        <el-input v-model="keyword" placeholder="搜索券号 / 名称 / couponNo" clearable :prefix-icon="Search" class="coupon-filter-search" />
+        <el-select v-model="nameFilter" placeholder="券名称" clearable class="coupon-filter-name">
           <el-option v-for="name in nameOptions" :key="name" :label="name" :value="name" />
         </el-select>
-        <el-select v-model="categoryFilter" placeholder="分类" clearable style="width: 150px">
+        <el-select v-model="categoryFilter" placeholder="分类" clearable class="coupon-filter-category">
           <el-option v-for="category in couponCategories" :key="category.id" :label="category.name" :value="category.id" />
         </el-select>
         <el-button :type="statsMode ? 'warning' : 'default'" @click="showStats">
@@ -973,7 +973,7 @@ watch(
       <div class="coupon-gift-list">
         <p class="coupon-gift-hint">共 {{ pendingPresentCoupons.length }} 张兑换券</p>
         <div class="coupon-gift-items">
-          <el-tag v-for="coupon in pendingPresentCoupons" :key="coupon.couponNo" size="small" style="margin: 2px">
+          <el-tag v-for="coupon in pendingPresentCoupons" :key="coupon.couponNo" size="small" class="coupon-gift-tag">
             {{ coupon.couponTypeName || coupon.couponNo?.substring(0, 12) }}
           </el-tag>
         </div>
@@ -981,7 +981,7 @@ watch(
 
       <el-alert v-if="presentNeedCheck" title="本次赠送需要短信验证" type="warning" :closable="false" show-icon />
 
-      <el-form label-position="top" class="gift-form" style="margin-top: 16px">
+      <el-form label-position="top" class="gift-form gift-form--spaced">
         <el-form-item label="接收人手机号">
           <el-input v-model="presentTargetMobile" placeholder="请输入接收人手机号" maxlength="11" clearable :disabled="submittingPresent" />
         </el-form-item>
@@ -1062,7 +1062,7 @@ watch(
     <el-dialog v-model="categoryDialogVisible" title="分类管理" width="460px" :close-on-click-modal="false" destroy-on-close>
       <div class="category-manage-body">
         <div class="cat-add-row">
-          <el-input v-model="newCategoryName" placeholder="输入新分类名称" size="small" style="width: 180px" @keyup.enter="addCouponCategory" />
+          <el-input v-model="newCategoryName" placeholder="输入新分类名称" size="small" class="cat-name-input" @keyup.enter="addCouponCategory" />
           <el-button size="small" type="primary" :disabled="!newCategoryName.trim()" @click="addCouponCategory">添加分类</el-button>
         </div>
 
@@ -1071,7 +1071,7 @@ watch(
         <template v-for="category in couponCategories" :key="category.id">
           <div class="cat-item">
             <div class="cat-header">
-              <el-input v-model="category.name" size="small" style="width: 180px" @change="saveCouponCategories" />
+              <el-input v-model="category.name" size="small" class="cat-name-input" @change="saveCouponCategories" />
               <el-popconfirm title="确定删除此分类？" @confirm="removeCouponCategory(category.id)">
                 <template #reference>
                   <el-button size="small" type="danger" text>删除</el-button>
@@ -1084,7 +1084,7 @@ watch(
               filterable
               placeholder="选择券名称"
               size="small"
-              style="width: 100%"
+              class="cat-coupon-select"
               @change="handleCategoryCouponNamesChange"
             >
               <el-option v-for="name in nameOptions" :key="name" :label="name" :value="name" />
@@ -1135,7 +1135,7 @@ watch(
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
 }
 
 .coupon-summary-grid {
@@ -1156,7 +1156,7 @@ watch(
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
-  box-shadow: 0 2px 10px rgb(31 42 68 / 5%);
+  box-shadow: var(--shadow-panel);
 }
 
 .coupon-summary-card span,
@@ -1179,18 +1179,18 @@ watch(
 }
 
 .coupon-summary-card--blue {
-  border-color: #c8def8;
-  background: #f7fbff;
+  border-color: var(--summary-blue-border);
+  background: var(--summary-blue-bg);
 }
 
 .coupon-summary-card--green {
-  border-color: #c8ead3;
-  background: #f6fdf8;
+  border-color: var(--summary-green-border);
+  background: var(--summary-green-bg);
 }
 
 .coupon-summary-card--amber {
-  border-color: #f2d9b3;
-  background: #fffaf2;
+  border-color: var(--summary-amber-border);
+  background: var(--summary-amber-bg);
 }
 
 .coupon-filter-panel {
@@ -1218,6 +1218,18 @@ watch(
 
 .coupon-filter-right {
   flex-shrink: 0;
+}
+
+.coupon-filter-search {
+  width: 260px;
+}
+
+.coupon-filter-name {
+  width: 170px;
+}
+
+.coupon-filter-category {
+  width: 150px;
 }
 
 .coupon-table-panel {
@@ -1371,7 +1383,10 @@ watch(
 }
 
 .coupon-gift-list {
-  padding: 8px 0;
+  padding: 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--panel-soft-bg);
 }
 
 .coupon-gift-hint {
@@ -1386,15 +1401,27 @@ watch(
   overflow-y: auto;
 }
 
+.coupon-gift-tag {
+  max-width: 100%;
+  margin: 2px;
+}
+
 .gift-form {
   margin-bottom: 0;
+}
+
+.gift-form--spaced {
+  margin-top: 16px;
 }
 
 .gift-dialog-footer {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 16px;
+  margin: 16px -18px -16px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--app-border);
+  background: var(--panel-soft-bg);
 }
 
 .sms-row {
@@ -1412,8 +1439,9 @@ watch(
 .bind-preview {
   margin-top: 12px;
   padding: 12px;
-  background: var(--bg-secondary);
+  border: 1px solid var(--app-border);
   border-radius: 8px;
+  background: var(--panel-soft-bg);
   max-height: 150px;
   overflow-y: auto;
 }
@@ -1471,12 +1499,16 @@ watch(
   gap: 8px;
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.cat-name-input {
+  width: 180px;
 }
 
 .cat-empty {
   text-align: center;
-  color: #c0c4cc;
+  color: var(--app-muted);
   padding: 24px 0;
   font-size: 14px;
 }
@@ -1484,9 +1516,9 @@ watch(
 .cat-item {
   padding: 12px;
   margin-bottom: 8px;
-  background: #fafafa;
+  background: var(--panel-soft-bg);
   border-radius: 8px;
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--app-border);
 }
 
 .cat-header {
@@ -1498,8 +1530,12 @@ watch(
 
 .cat-count {
   font-size: 12px;
-  color: #909399;
+  color: var(--app-muted);
   margin-top: 4px;
+}
+
+.cat-coupon-select {
+  width: 100%;
 }
 
 .detail-json {
