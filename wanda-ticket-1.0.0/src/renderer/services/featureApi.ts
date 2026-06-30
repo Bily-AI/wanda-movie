@@ -984,6 +984,21 @@ export async function fetchMemberSignInCalendar(ck: string, userIdentifier: stri
   }
 }
 
+export async function submitMemberSignIn(ck: string, userIdentifier: string): Promise<void> {
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+  assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
+
+  const response = await wandaGet<unknown>(
+    WANDA_HOSTS.GATEWAY,
+    WANDA_API_PATHS.MEMBER_GRADE_SIGN_IN,
+    { ruleScene: 1 },
+    ck,
+    userIdentifier
+  )
+
+  ensureSuccess(response, '会员签到失败')
+}
+
 export async function gainMemberEquity(
   gradeId: string,
   equityId: string,

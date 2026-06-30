@@ -29,6 +29,7 @@ const packageJson = JSON.parse(read('package.json'))
 const design = read('docs/superpowers/specs/2026-06-22-member-signin-flow-design.md')
 const featureApi = read('src/renderer/services/featureApi.ts')
 const memberView = read('src/renderer/views/MemberView.vue')
+const wandaCore = read('src/shared/wandaCore.ts')
 
 if (packageJson.scripts?.['check:member-signin'] !== 'node tools/check-member-signin-contract.mjs') {
   throw new Error('package.json 缺少正确的 check:member-signin 脚本')
@@ -51,8 +52,10 @@ for (const label of [
   'MemberSignInDay',
   'MemberSignInCalendar',
   'fetchMemberSignInCalendar',
+  'submitMemberSignIn',
   'normalizeSignInDay',
   'WANDA_API_PATHS.SIGN_IN_CALENDAR',
+  'WANDA_API_PATHS.MEMBER_GRADE_SIGN_IN',
   'JSON.stringify({ ruleScene: 1 })',
   "contentType: 'application/json'",
   "encodeURIComponent(jsonBody).replace(/%[0-9A-F]{2}/g",
@@ -65,6 +68,13 @@ for (const label of [
   assertIncludes('src/renderer/services/featureApi.ts', featureApi, label)
 }
 
+for (const label of [
+  "MEMBER_GRADE_SIGN_IN: '/member/grade/sign_in.api'",
+  'MEMBER_GRADE_SIGN_IN'
+]) {
+  assertIncludes('src/shared/wandaCore.ts', wandaCore, label)
+}
+
 assertMatches(
   'src/renderer/services/featureApi.ts',
   featureApi,
@@ -72,13 +82,29 @@ assertMatches(
   '会员签到必须使用旧包 JSON POST 调用'
 )
 
+assertMatches(
+  'src/renderer/services/featureApi.ts',
+  featureApi,
+  /submitMemberSignIn\([\s\S]*?wandaGet[\s\S]*?MEMBER_GRADE_SIGN_IN[\s\S]*?ruleScene: 1/,
+  'member sign-in submit must call member grade sign-in api'
+)
+
 for (const label of [
   'fetchMemberSignInCalendar',
+  'submitMemberSignIn',
   'type MemberSignInCalendar',
   'signInCalendar',
   'signInDays',
   'signInMessage',
+  'signInSubmitting',
+  'todaySignInDay',
+  'hasSignedToday',
   'loadSignInCalendar',
+  'submitSignIn',
+  'signin-actions',
+  'is-signin-primary',
+  'await loadSignInCalendar()',
+  'ElMessage.success',
   'DEFAULT_WANDA_USER_IDENTIFIER',
   'account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER',
   'state === 1',

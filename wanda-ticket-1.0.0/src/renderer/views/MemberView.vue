@@ -11,6 +11,7 @@ import {
   fetchWPlusRightGroups,
   gainMemberEquity,
   receiveWPlusRight,
+  submitMemberSignIn,
   type MemberEquityRow,
   type MemberGradeGroup,
   type MemberSignInCalendar,
@@ -35,6 +36,7 @@ const wplusProfileLoading = ref(false)
 const wplusRightsLoading = ref(false)
 const batchLoading = ref(false)
 const activateLoading = ref(false)
+const signInSubmitting = ref(false)
 const rtimeClaimingKeys = ref<string[]>([])
 const wplusClaimingKeys = ref<string[]>([])
 
@@ -244,6 +246,10 @@ const wplusEmptyDescription = computed(() => {
 })
 
 const signInDays = computed(() => signInCalendar.value?.dataList ?? [])
+
+const todaySignInDay = computed(() => signInDays.value.find((day) => day.todayFlag) || null)
+
+const hasSignedToday = computed(() => Boolean(todaySignInDay.value && todaySignInDay.value.state === 1))
 
 const signInTitle = computed(() => {
   if (!signInCalendar.value) {
@@ -463,6 +469,35 @@ async function loadRtimeData() {
 
 async function loadSignInCalendar() {
   await loadRtimeData()
+}
+
+async function submitSignIn() {
+  const account = withUserIdentifier(currentAccount.value)
+
+  if (!account) {
+    ElMessage.warning('请先选择一个已登录的账号')
+    return
+  }
+
+  if (hasSignedToday.value) {
+    ElMessage.info('今日已签到')
+    return
+  }
+
+  signInSubmitting.value = true
+
+  try {
+    await submitMemberSignIn(account.ck, account.userIdentifier)
+    ElMessage.success('签到成功')
+    logsStore.addLog('会员', account.phone, '会员签到成功')
+    await loadSignInCalendar()
+  } catch (error) {
+    const message = getErrorMessage(error, '签到失败')
+    ElMessage.error(message)
+    logsStore.addLog('会员', account.phone, `会员签到失败：${message}`)
+  } finally {
+    signInSubmitting.value = false
+  }
 }
 
 async function loadWPlusProfileData() {
@@ -1026,15 +1061,28 @@ onMounted(() => {
                   {{ signInTitle }}
                   <span v-if="signInStreakText" class="signin-streak-total">{{ signInStreakText }}</span>
                 </span>
-                <el-button
-                  type="warning"
-                  size="small"
-                  class="refresh-btn-inline"
-                  :icon="Refresh"
-                  @click="loadSignInCalendar"
-                >
-                  刷新签到
-                </el-button>
+                <div class="signin-actions">
+                  <el-button
+                    type="warning"
+                    size="small"
+                    class="refresh-btn-inline is-signin-primary"
+                    :loading="signInSubmitting"
+                    :disabled="!hasCurrentAccount || signInSubmitting || hasSignedToday"
+                    @click="submitSignIn"
+                  >
+                    {{ hasSignedToday ? '今日已签' : '签到' }}
+                  </el-button>
+                  <el-button
+                    type="primary"
+                    size="small"
+                    class="refresh-btn-inline"
+                    :icon="Refresh"
+                    :disabled="signInSubmitting"
+                    @click="loadSignInCalendar"
+                  >
+                    刷新签到
+                  </el-button>
+                </div>
               </div>
 
               <div v-if="signInDays.length" class="signin-days">
@@ -2058,6 +2106,26 @@ onMounted(() => {
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   font-weight: 400;
+}
+
+.signin-actions {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 8px;
+  margin-left: 12px;
+}
+
+.signin-actions .refresh-btn-inline {
+  margin-left: 0;
+}
+
+.signin-actions .el-button + .el-button {
+  margin-left: 0;
+}
+
+.is-signin-primary {
+  min-width: 76px;
 }
 
 .signin-days {
