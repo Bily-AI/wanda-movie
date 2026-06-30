@@ -487,6 +487,27 @@ function normalizeGradeGroup(item: unknown): MemberGradeGroup {
 
 function normalizeSignInDay(item: unknown): MemberSignInDay {
   const record = asRecord(item)
+  const rawState = toNumber(
+    record.state ?? record.status ?? record.signInState ?? record.signState ?? record.signinState,
+    Number.NaN
+  )
+  const signedFlag = [
+    record.signed,
+    record.isSigned,
+    record.isSignIn,
+    record.isSign,
+    record.hasSignIn,
+    record.checked,
+    record.isChecked,
+    record.done,
+    record.finished
+  ].some(toBoolean)
+  const statusText = firstText(record.signStatus, record.statusDesc, record.statusText)
+  const state = Number.isFinite(rawState)
+    ? rawState
+    : signedFlag || statusText.includes('已签') || statusText.includes('已完成')
+      ? 1
+      : 0
 
   return {
     sortOrder: firstText(record.sortOrder, record.order, record.index, record.day, record.date),
@@ -494,7 +515,7 @@ function normalizeSignInDay(item: unknown): MemberSignInDay {
     date: firstText(record.date, record.loginDate, record.signDate),
     content: firstText(record.content, record.prizeName, record.remark, record.name),
     iconUrl: firstText(record.iconUrl, record.url, record.src),
-    state: toNumber(record.state ?? record.status ?? record.signInState),
+    state,
     todayFlag: toBoolean(record.todayFlag ?? record.isToday),
     raw: item
   }

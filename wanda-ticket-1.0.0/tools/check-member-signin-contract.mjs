@@ -61,7 +61,11 @@ for (const label of [
   'signInStreak',
   'dataList',
   'todayFlag',
-  'state'
+  'state',
+  'signState',
+  'isSigned',
+  'hasSignIn',
+  '已签'
 ]) {
   assertIncludes('src/renderer/services/featureApi.ts', featureApi, label)
 }
@@ -92,12 +96,16 @@ for (const label of [
   'signInSubmitting',
   'todaySignInDay',
   'hasSignedToday',
+  'getSignInSnapshot',
+  'isSignInSnapshotChanged',
   'loadSignInCalendar',
   'submitSignIn',
   'signin-actions',
   'is-signin-primary',
   'await loadSignInCalendar()',
   'ElMessage.success',
+  'ElMessage.warning',
+  '签到未确认',
   'DEFAULT_WANDA_USER_IDENTIFIER',
   'account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER',
   'state === 1',
@@ -115,8 +123,15 @@ assertNotIncludes('src/renderer/views/MemberView.vue', memberView, 'submitMember
 assertMatches(
   'src/renderer/views/MemberView.vue',
   memberView,
-  /submitSignIn\([\s\S]*?signInSubmitting\.value = true[\s\S]*?await loadSignInCalendar\(\)[\s\S]*?ElMessage\.success/,
-  'member sign-in submit reuses the real sign-in calendar flow'
+  /submitSignIn\([\s\S]*?const beforeSignInSnapshot = getSignInSnapshot\(\)[\s\S]*?signInSubmitting\.value = true[\s\S]*?await loadSignInCalendar\(\)[\s\S]*?const afterSignInSnapshot = getSignInSnapshot\(\)[\s\S]*?isSignInSnapshotChanged\(beforeSignInSnapshot, afterSignInSnapshot\)[\s\S]*?ElMessage\.success/,
+  'member sign-in success must be gated by real state change'
+)
+
+assertMatches(
+  'src/renderer/views/MemberView.vue',
+  memberView,
+  /submitSignIn\([\s\S]*?ElMessage\.warning\('签到未确认，请刷新后核对万达状态'\)/,
+  'member sign-in unchanged state must not report success'
 )
 
 for (const label of [

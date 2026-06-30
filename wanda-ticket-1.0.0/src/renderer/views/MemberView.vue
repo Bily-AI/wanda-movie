@@ -266,6 +266,31 @@ const signInStreakText = computed(() => {
   return `（累计 ${signInCalendar.value.signInStreak} 天）`
 })
 
+interface SignInSnapshot {
+  signedToday: boolean
+  consecutiveDays: number
+  signInStreak: number
+  growthValue: number
+}
+
+function getSignInSnapshot(): SignInSnapshot {
+  return {
+    signedToday: hasSignedToday.value,
+    consecutiveDays: signInCalendar.value?.consecutiveDays ?? 0,
+    signInStreak: signInCalendar.value?.signInStreak ?? 0,
+    growthValue: currentGrowthValue.value
+  }
+}
+
+function isSignInSnapshotChanged(before: SignInSnapshot, after: SignInSnapshot) {
+  return (
+    (!before.signedToday && after.signedToday) ||
+    after.consecutiveDays > before.consecutiveDays ||
+    after.signInStreak > before.signInStreak ||
+    after.growthValue > before.growthValue
+  )
+}
+
 function withUserIdentifier(account: typeof currentAccount.value) {
   if (!account?.ck) {
     return null
@@ -483,12 +508,24 @@ async function submitSignIn() {
     return
   }
 
+  const beforeSignInSnapshot = getSignInSnapshot()
+
   signInSubmitting.value = true
 
   try {
     await loadSignInCalendar()
-    ElMessage.success('签到成功')
-    logsStore.addLog('会员', account.phone, '会员签到成功')
+    const afterSignInSnapshot = getSignInSnapshot()
+
+    if (isSignInSnapshotChanged(beforeSignInSnapshot, afterSignInSnapshot)) {
+      ElMessage.success('签到成功')
+      logsStore.addLog('会员', account.phone, '会员签到成功')
+    } else if (afterSignInSnapshot.signedToday) {
+      ElMessage.info('今日已签到')
+      logsStore.addLog('会员', account.phone, '会员签到刷新完成：今日已签到')
+    } else {
+      ElMessage.warning('签到未确认，请刷新后核对万达状态')
+      logsStore.addLog('会员', account.phone, '会员签到未确认：接口返回无状态变化')
+    }
   } catch (error) {
     const message = getErrorMessage(error, '签到失败')
     ElMessage.error(message)
