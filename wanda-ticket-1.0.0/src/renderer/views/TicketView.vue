@@ -25,6 +25,16 @@ import type { OrderPayInfoResult } from '@shared/wandaTicketTypes'
 const accountsStore = useAccountsStore()
 const settingsStore = useSettingsStore()
 const ticketStore = useTicketStore()
+type SelectLikeInstance = {
+  focus?: () => void
+  toggleMenu?: () => void
+}
+
+const citySelectRef = ref<SelectLikeInstance | null>(null)
+const cinemaSelectRef = ref<SelectLikeInstance | null>(null)
+const movieSelectRef = ref<SelectLikeInstance | null>(null)
+const dateSelectRef = ref<SelectLikeInstance | null>(null)
+const showtimeSelectRef = ref<SelectLikeInstance | null>(null)
 const ticketCodeDialogVisible = ref(false)
 const payInfoDialogVisible = ref(false)
 const openingAlipay = ref(false)
@@ -492,6 +502,44 @@ async function handleCopyTicketCode(): Promise<void> {
   }
 }
 
+async function openSelect(instance: SelectLikeInstance | null, enabled = true): Promise<void> {
+  if (!instance || !enabled) {
+    return
+  }
+
+  await nextTick()
+  instance.focus?.()
+  instance.toggleMenu?.()
+}
+
+async function handleCityChange(): Promise<void> {
+  ticketStore.selectCity()
+  await openSelect(cinemaSelectRef.value, ticketStore.filteredCinemaOptions.length > 0)
+}
+
+async function handleCinemaChange(): Promise<void> {
+  await ticketStore.loadCinemaShowtimes()
+  await openSelect(movieSelectRef.value, ticketStore.canSelectMovie)
+}
+
+async function handleMovieChange(): Promise<void> {
+  ticketStore.selectMovie()
+  await openSelect(dateSelectRef.value, ticketStore.canSelectDate)
+}
+
+async function handleDateChange(): Promise<void> {
+  ticketStore.selectDate()
+  await openSelect(showtimeSelectRef.value, ticketStore.canSelectShowtime)
+}
+
+async function handleShowtimeChange(): Promise<void> {
+  ticketStore.setShowtime()
+
+  if (ticketStore.canRefreshSeats) {
+    await ticketStore.loadRealTimeSeats()
+  }
+}
+
 watch(
   () => accountsStore.currentAccountId,
   (currentAccountId, previousAccountId) => {
@@ -602,11 +650,12 @@ watch(
 
             <label>城市：</label>
             <el-select
+              ref="citySelectRef"
               v-model="ticketStore.query.city"
               filterable
               default-first-option
               placeholder="选择或搜索城市"
-              @change="ticketStore.selectCity"
+              @change="handleCityChange"
             >
               <el-option
                 v-for="city in ticketStore.filteredCityOptions"
@@ -619,12 +668,13 @@ watch(
             <label>影院：</label>
             <div>
               <el-select
+                ref="cinemaSelectRef"
                 v-model="ticketStore.query.cinema"
                 filterable
                 default-first-option
                 placeholder="选择或搜索影院"
                 :loading="ticketStore.loadingShowtimes"
-                @change="ticketStore.loadCinemaShowtimes"
+                @change="handleCinemaChange"
               >
                 <el-option
                   v-for="cinema in ticketStore.filteredCinemaOptions"
@@ -638,12 +688,13 @@ watch(
 
             <label>影片：</label>
             <el-select
+              ref="movieSelectRef"
               v-model="ticketStore.query.movie"
               filterable
               default-first-option
               placeholder="请先选择影院"
               :disabled="!ticketStore.canSelectMovie"
-              @change="ticketStore.selectMovie"
+              @change="handleMovieChange"
             >
               <el-option
                 v-for="movie in ticketStore.movies"
@@ -655,12 +706,13 @@ watch(
 
             <label>日期：</label>
             <el-select
+              ref="dateSelectRef"
               v-model="ticketStore.query.date"
               filterable
               default-first-option
               placeholder="请先选择影片"
               :disabled="!ticketStore.canSelectDate"
-              @change="ticketStore.selectDate"
+              @change="handleDateChange"
             >
               <el-option
                 v-for="date in ticketStore.dates"
@@ -673,12 +725,13 @@ watch(
             <label>场次：</label>
             <div class="showtime-row">
               <el-select
+                ref="showtimeSelectRef"
                 v-model="ticketStore.query.showtime"
                 filterable
                 default-first-option
                 placeholder="请先选择日期"
                 :disabled="!ticketStore.canSelectShowtime"
-                @change="ticketStore.setShowtime"
+                @change="handleShowtimeChange"
               >
                 <el-option
                   v-for="showtime in ticketStore.showtimes"

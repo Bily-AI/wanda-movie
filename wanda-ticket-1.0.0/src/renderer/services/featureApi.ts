@@ -587,21 +587,27 @@ function normalizeWPlusProfile(data: Record<string, unknown>, raw: unknown): Mem
   return {
     isPayMember: toBoolean(data.isPayMember),
     expireAt: firstText(
+      data.plusEndDate,
       data.expireAt,
       data.expireTime,
       data.endTime,
       data.deadline,
+      data.payMemberStr,
       data.validityDateShowMsg,
       data.memberExpireTime,
       data.plusExpireTime,
       data.payMemberExpireTime,
+      result.plusEndDate,
       result.expireAt,
       result.expireTime,
       result.endTime,
       result.deadline,
+      result.payMemberStr,
+      member.plusEndDate,
       member.expireAt,
       member.expireTime,
-      member.endTime
+      member.endTime,
+      member.payMemberStr
     ),
     raw
   }

@@ -14,6 +14,7 @@ export interface WandaLoginResult {
   userIdentifier: string
   mobile?: string
   isPayMember?: boolean
+  payMemberStr?: string
   pointsBalance?: number
   point?: number
   points?: number
@@ -27,6 +28,7 @@ export interface WandaLoginStatus {
     mobile?: string
     userIdentifier?: string
     isPayMember?: boolean
+    payMemberStr?: string
     pointsBalance?: number
     point?: number
     points?: number

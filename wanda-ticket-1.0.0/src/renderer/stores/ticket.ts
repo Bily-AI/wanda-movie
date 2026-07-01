@@ -798,8 +798,7 @@ export const useTicketStore = defineStore('ticket', {
     },
     canRefreshSeats(state) {
       return Boolean(
-        state.query.city &&
-          state.query.cinema &&
+        state.query.cinema &&
           state.query.movie &&
           state.query.date &&
           state.query.showtime &&

@@ -22,6 +22,7 @@ const ticketView = ticketViewFull.replace(/<!--[\s\S]*?-->/g, '')
 const accountSidebar = read('src/renderer/components/AccountSidebar.vue')
 const accountsStore = read('src/renderer/stores/accounts.ts')
 const localData = read('src/shared/localData.ts')
+const featureApi = read('src/renderer/services/featureApi.ts')
 const storedCardView = read('src/renderer/views/StoredValueCardView.vue')
 const couponView = read('src/renderer/views/ExchangeCouponView.vue')
 const memberView = read('src/renderer/views/MemberView.vue')
@@ -88,11 +89,16 @@ assertIncludes(
   accountSidebar,
   "summary.pointsBalance = pointsBalance"
 )
+assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, 'userInfo?.payMemberStr')
+assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, 'function formatWPlusExpire(row: WandaAccount): string')
+assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, 'return extractDateOnly(text) || \'-\'')
 assertIncludes(
   'src/renderer/components/AccountSidebar.vue',
   accountSidebar,
-  "return extractDateOnly(row.wplusExpireAt) || '-'"
+  "text.match(/(\\d{4})[-./年](\\d{1,2})[-./月](\\d{1,2})/)"
 )
+assertIncludes('src/renderer/services/featureApi.ts', featureApi, 'data.plusEndDate')
+assertIncludes('src/renderer/services/featureApi.ts', featureApi, 'data.payMemberStr')
 
 assertIncludes('src/renderer/stores/accounts.ts', accountsStore, 'updateAccountProfileSummary')
 assertIncludes('src/renderer/views/StoredValueCardView.vue', storedCardView, 'updateAccountProfileSummary(account.id')

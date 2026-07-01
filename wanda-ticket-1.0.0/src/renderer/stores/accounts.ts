@@ -599,7 +599,7 @@ export const useAccountsStore = defineStore('accounts', {
           isPayMember: Boolean(result.isPayMember),
           accountAgeDays: 0,
           pointsBalance,
-          wplusExpireAt: '',
+          wplusExpireAt: String(result.payMemberStr || ''),
           storedCardCount: null,
           couponCount: null,
           memberGradeName: '',
@@ -673,6 +673,10 @@ export const useAccountsStore = defineStore('accounts', {
 
       if (pointsBalance !== null) {
         account.pointsBalance = pointsBalance
+      }
+
+      if (status.userInfo?.payMemberStr) {
+        account.wplusExpireAt = status.userInfo.payMemberStr
       }
 
       if (status.userInfo?.mobile) {

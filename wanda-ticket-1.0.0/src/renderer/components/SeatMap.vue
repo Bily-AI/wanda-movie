@@ -11,10 +11,10 @@ const emit = defineEmits<{
   select: [seat: SeatNode]
 }>()
 
-const seatWidth = 26
-const seatHeight = 22
-const seatGap = 6
-const rowLabelWidth = 28
+const seatWidth = 24
+const seatHeight = 20
+const seatGap = 5
+const rowLabelWidth = 26
 const mapPadding = 4
 
 function maxSeatCoordinate(projector: (seat: SeatNode) => number): number {
@@ -99,24 +99,31 @@ function rowStyle(y: number): Record<string, string> {
 }
 
 .row-label {
-  width: 28px;
-  height: 20px;
+  width: 26px;
+  height: 18px;
   position: absolute;
   left: 0;
   color: var(--app-subtle);
   font-size: 11px;
-  line-height: 20px;
+  line-height: 18px;
   text-align: right;
 }
 
 .seat-node {
   position: absolute;
-  border: 1px solid #c4ccd7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  outline: none;
+  appearance: none;
+  border: 2px solid #c4ccd7;
   border-radius: 5px 5px 7px 7px;
   background: #fff;
   color: #667085;
-  font-size: 10px;
-  line-height: 16px;
+  font-size: 9px;
+  line-height: 1;
+  text-align: center;
   cursor: pointer;
   transition:
     border-color 120ms ease,
@@ -139,7 +146,14 @@ function rowStyle(y: number): Record<string, string> {
 .seat-node.selected {
   border-color: var(--app-accent);
   background: var(--app-accent);
-  color: #fff;
+  color: #fff !important;
+}
+
+.seat-node.selected:hover:not(:disabled),
+.seat-node.selected:focus-visible {
+  border-color: var(--app-accent);
+  background: var(--app-accent);
+  color: #fff !important;
 }
 
 .seat-preferred { border-color: #f59e42; }

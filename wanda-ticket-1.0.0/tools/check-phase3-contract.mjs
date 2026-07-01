@@ -326,6 +326,9 @@ assertMatches(
   /canRefreshSeats\(state\)[\s\S]*?state\.currentShowtime/,
   '刷新座位必须依赖真实 currentShowtime'
 )
+if (/canRefreshSeats\(state\)[\s\S]*?state\.query\.city/.test(ticketStore)) {
+  throw new Error('src/renderer/stores/ticket.ts 刷新座位不应强依赖城市，只要真实场次已确定就应允许刷新')
+}
 assertMatches(
   'src/renderer/stores/ticket.ts',
   ticketStore,

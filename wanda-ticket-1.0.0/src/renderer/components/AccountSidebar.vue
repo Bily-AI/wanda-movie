@@ -83,7 +83,15 @@ function extractDateOnly(value: string): string {
 }
 
 function formatWPlusExpire(row: WandaAccount): string {
-  return extractDateOnly(row.wplusExpireAt) || '-'
+  const text = String(row.wplusExpireAt || '').trim()
+  const dateMatch = text.match(/(\d{4})[-./年](\d{1,2})[-./月](\d{1,2})/)
+
+  if (dateMatch) {
+    const [, year, month, day] = dateMatch
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+  }
+
+  return extractDateOnly(text) || '-'
 }
 
 function maskPhone(phone: string): string {
@@ -157,6 +165,10 @@ async function refreshAccountSummary(account: WandaAccount): Promise<void> {
 
     if (Number.isFinite(pointsBalance)) {
       summary.pointsBalance = pointsBalance
+    }
+
+    if (userInfo?.payMemberStr) {
+      summary.wplusExpireAt = userInfo.payMemberStr
     }
   }
 
@@ -884,6 +896,15 @@ async function confirmImportAccounts(): Promise<void> {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.account-metric-grid .account-metric:nth-child(2) strong {
+  font-size: 12px;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  line-height: 1.25;
+  word-break: break-word;
 }
 
 .account-list-card {
