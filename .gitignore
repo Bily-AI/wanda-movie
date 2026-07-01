@@ -13,6 +13,7 @@ wanda-ticket-1.0.0/.vite/
 # 本地运行数据
 wanda-ticket-1.0.0/data/
 wanda-ticket-1.0.0/logs/
+data/
 
 # 根目录兼容规则
 node_modules/
@@ -25,6 +26,12 @@ dist-electron/
 .env.*
 !/.env.example
 !wanda-ticket-1.0.0/.env.example
+clipboard-ocr-test.png
+clipboard-ocr-text.txt
+electron-builder-demo-*.yml
+wanda-ticket-1.0.0-demo-stage-*/
+wanda-ticket-1.0.0-release-*/
+docs/superpowers/specs/*.html
 
 # 系统与编辑器文件
 .DS_Store

@@ -47,12 +47,7 @@ for (const label of [
   assertIncludes('docs/superpowers/specs/2026-06-21-stored-card-real-actions-design.md', design, label)
 }
 
-for (const label of [
-  'CARD_TRANSFER',
-  'CARD_RECHARGE',
-  'ORDER_CREATE',
-  'ORDER_PREPAY'
-]) {
+for (const label of ['CARD_TRANSFER', 'CARD_RECHARGE', 'ORDER_CREATE', 'ORDER_PREPAY']) {
   assertIncludes('src/shared/wandaCore.ts', wandaCore, label)
 }
 
@@ -134,6 +129,9 @@ for (const label of [
   'safeCardNo',
   'safeMobile',
   'formatMoney',
+  "function getStoredCardStatusTagType(row: StoredCardRow): 'success' | 'danger'",
+  "return row.available ? 'success' : 'danger'",
+  ':type="getStoredCardStatusTagType(row)"',
   '@click="showCardDetail(row)"',
   '@click="openRechargeDialog(row)"',
   '@click="openTransferDialog(row)"'
@@ -166,7 +164,9 @@ for (const label of [
   'handlePaymentFeature',
   '当前版本先保留入口',
   '暂不发起支付',
-  '储值卡详情已保留在原始接口数据中'
+  '储值卡详情已保留在原始接口数据中',
+  "row.effectDate || '长期有效'",
+  'label="有效期"'
 ]) {
   assertNotIncludes('src/renderer/views/StoredValueCardView.vue', storedCardView, label)
 }

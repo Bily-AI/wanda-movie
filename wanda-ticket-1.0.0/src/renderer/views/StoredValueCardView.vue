@@ -91,6 +91,10 @@ function formatMoney(value: number): string {
   return `¥${Number(value || 0).toFixed(2)}`
 }
 
+function getStoredCardStatusTagType(row: StoredCardRow): 'success' | 'danger' {
+  return row.available ? 'success' : 'danger'
+}
+
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback
 }
@@ -576,7 +580,7 @@ watch(cardDisplayMode, (mode) => {
               <div class="stored-card-primary-cell">
                 <strong class="stored-card-primary-title">{{ row.name || '储值卡' }}</strong>
                 <span class="stored-card-primary-meta">{{ row.cardNo || '-' }}</span>
-                <span class="stored-card-primary-meta">{{ row.categoryName || '未分类' }} · {{ row.effectDate || '长期有效' }}</span>
+                <span class="stored-card-primary-meta">{{ row.categoryName || '未分类' }}</span>
               </div>
             </template>
           </el-table-column>
@@ -593,7 +597,7 @@ watch(cardDisplayMode, (mode) => {
           </el-table-column>
           <el-table-column label="状态" width="108" align="center">
             <template #default="{ row }">
-              <el-tag size="small" :type="row.available ? 'success' : 'info'">{{ row.statusDesc || row.status || '-' }}</el-tag>
+              <el-tag size="small" :type="getStoredCardStatusTagType(row)">{{ row.statusDesc || row.status || '-' }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="176" align="right" fixed="right">
@@ -614,13 +618,12 @@ watch(cardDisplayMode, (mode) => {
           <article v-for="row in cardRows" :key="row.cardNo || row.name" class="stored-card stored-card-item">
             <div class="stored-card-top">
               <strong>{{ row.name || '储值卡' }}</strong>
-              <el-tag size="small" :type="row.available ? 'success' : 'info'">{{ row.statusDesc || row.status || '-' }}</el-tag>
+              <el-tag size="small" :type="getStoredCardStatusTagType(row)">{{ row.statusDesc || row.status || '-' }}</el-tag>
             </div>
             <div class="stored-card-no">{{ row.cardNo || '-' }}</div>
             <div class="stored-card-money">{{ formatMoney(row.balance + row.presentBalance) }}</div>
             <div class="stored-card-meta">
               <span>{{ row.ownerPhone || row.holder || '-' }}</span>
-              <span>{{ row.effectDate || '长期有效' }}</span>
             </div>
             <div class="stored-card-actions">
               <el-button link type="primary" @click="showCardDetail(row)">详情</el-button>
@@ -643,7 +646,6 @@ watch(cardDisplayMode, (mode) => {
         <el-descriptions-item label="剩余次数">{{ selectedCard.remainingCount || '-' }}</el-descriptions-item>
         <el-descriptions-item label="卡分类">{{ selectedCard.categoryName || '-' }}</el-descriptions-item>
         <el-descriptions-item label="折扣">{{ selectedCard.discountRate || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="有效期">{{ selectedCard.effectDate || '-' }}</el-descriptions-item>
         <el-descriptions-item label="权益">{{ selectedCard.coverName || '-' }}</el-descriptions-item>
         <el-descriptions-item label="不可用原因">{{ selectedCard.unavailableReason || '-' }}</el-descriptions-item>
       </el-descriptions>

@@ -21,6 +21,8 @@ import type {
   ElementCaptureRequest,
   ElementCaptureResult,
   ElementCopyResult,
+  WandaH5OpenWindowRequest,
+  WandaH5OpenWindowResult,
   WandaHttpRequest,
   WandaHttpResult
 } from '@shared/ipc'
@@ -57,6 +59,7 @@ declare global {
       alipayClearSession: () => Promise<AlipayClearSessionResult>
       captureElement: (request: ElementCaptureRequest) => Promise<ElementCaptureResult>
       copyElementToClipboard: (request: ElementCaptureRequest) => Promise<ElementCopyResult>
+      openWandaH5Window: (request: WandaH5OpenWindowRequest) => Promise<WandaH5OpenWindowResult>
       openAutoOrderWindow: () => Promise<AutoOrderOpenWindowResult>
       sendAutoOrderTicket: (request: AutoOrderTicketRequest) => Promise<AutoOrderProcessTicketResult>
       reportAutoOrderResult: (result: AutoOrderTicketResult) => Promise<AutoOrderReportResult>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Check, CloseBold, CollectionTag, Medal, Refresh, Star, SuccessFilled, Trophy } from '@element-plus/icons-vue'
+import { Check, CloseBold, CollectionTag, Link, Medal, Refresh, Star, SuccessFilled, Trophy } from '@element-plus/icons-vue'
 
 import {
   activateWPlus,
@@ -11,10 +11,12 @@ import {
   fetchWPlusRightGroups,
   gainMemberEquity,
   receiveWPlusRight,
+  submitMemberSignIn,
   type MemberEquityRow,
   type MemberGradeGroup,
   type MemberSignInCalendar,
   type MemberSignInDay,
+  type MemberSignInSubmitResult,
   type MemberWPlusExchangeResult,
   type MemberWPlusProfile,
   type MemberWPlusRight,
@@ -24,11 +26,24 @@ import { useAccountsStore } from '@renderer/stores/accounts'
 import { useLogsStore } from '@renderer/stores/logs'
 
 const DEFAULT_WANDA_USER_IDENTIFIER = 'YYDDJDKYHA'
+const H5_COMMON_PAGES = [
+  {
+    label: 'W+页面',
+    url: 'https://act-m.wandacinemas.com/wmember/rightsdetail/2024'
+  },
+  {
+    label: '积分中心',
+    url: 'https://act-routine-web-prd-mx.wandacinemas.com/memberPoints?activityid=1034'
+  }
+] as const
 
 const accountsStore = useAccountsStore()
 const logsStore = useLogsStore()
 
 const activeTab = ref<'rtime' | 'wplus'>('rtime')
+const h5DialogVisible = ref(false)
+const selectedH5Url = ref<string>(H5_COMMON_PAGES[0].url)
+const h5Url = ref<string>(H5_COMMON_PAGES[0].url)
 
 const rtimeLoading = ref(false)
 const wplusProfileLoading = ref(false)
@@ -196,7 +211,9 @@ const needGrowthToNext = computed(() => {
   return Math.max(0, next.growthMinVal - record.memberGrowthVal)
 })
 
-const claimableRtimeRows = computed(() => gradeGroups.value.flatMap((group) => group.equities).filter(canGainEquity))
+const currentGradeEquities = computed(() => currentGrade.value?.equities ?? [])
+
+const claimableRtimeRows = computed(() => currentGradeEquities.value.filter(canGainEquity))
 
 const hasClaimableRtime = computed(() => claimableRtimeRows.value.length > 0)
 
@@ -291,6 +308,10 @@ function isSignInSnapshotChanged(before: SignInSnapshot, after: SignInSnapshot) 
   )
 }
 
+function isAlreadySignedSubmitResult(result: MemberSignInSubmitResult) {
+  return result.bizCode === 1004 || result.bizMsg.includes('已签到') || result.bizMsg.includes('重复签到')
+}
+
 function withUserIdentifier(account: typeof currentAccount.value) {
   if (!account?.ck) {
     return null
@@ -360,8 +381,12 @@ function isClaimedEquity(row: MemberEquityRow) {
   return row.equityGainStatus === 5
 }
 
+function isCurrentGradeEquity(row: MemberEquityRow) {
+  return Boolean(currentGrade.value && row.gradeId === currentGrade.value.gradeId)
+}
+
 function isClaimableEquity(row: MemberEquityRow) {
-  return !row.auto && row.equityGainStatus === 2
+  return isCurrentGradeEquity(row) && row.canReceive
 }
 
 function canGainEquity(row: MemberEquityRow) {
@@ -383,6 +408,10 @@ function getRtimeEquityStatus(row: MemberEquityRow): { label: string; type: TagT
 
   if (isClaimableEquity(row)) {
     return { label: '待领', type: 'primary' }
+  }
+
+  if (!row.auto && row.equityGainStatus === 2) {
+    return { label: '查看', type: 'info' }
   }
 
   if (row.equityGainStatus === 4) {
@@ -513,12 +542,17 @@ async function submitSignIn() {
   signInSubmitting.value = true
 
   try {
+    const signInResult = await submitMemberSignIn(account.ck)
     await loadSignInCalendar()
     const afterSignInSnapshot = getSignInSnapshot()
 
-    if (isSignInSnapshotChanged(beforeSignInSnapshot, afterSignInSnapshot)) {
-      ElMessage.success('签到成功')
-      logsStore.addLog('会员', account.phone, '会员签到成功')
+    if (isAlreadySignedSubmitResult(signInResult)) {
+      ElMessage.info('今日已签到')
+      logsStore.addLog('会员', account.phone, '会员签到刷新完成：今日已签到')
+    } else if (isSignInSnapshotChanged(beforeSignInSnapshot, afterSignInSnapshot) || signInResult.successMessage) {
+      const message = signInResult.successMessage || '签到成功'
+      ElMessage.success(message)
+      logsStore.addLog('会员', account.phone, `会员签到成功：${message}`)
     } else if (afterSignInSnapshot.signedToday) {
       ElMessage.info('今日已签到')
       logsStore.addLog('会员', account.phone, '会员签到刷新完成：今日已签到')
@@ -652,6 +686,8 @@ async function handleGainAllRtimeEquities() {
 
   let successCount = 0
   let failCount = 0
+  const successNames: string[] = []
+  const failureMessages: string[] = []
 
   batchLoading.value = true
 
@@ -660,8 +696,11 @@ async function handleGainAllRtimeEquities() {
       try {
         await gainMemberEquity(row.gradeId, row.equityId, account.ck, account.userIdentifier)
         successCount += 1
-      } catch {
+        successNames.push(row.name)
+      } catch (error) {
         failCount += 1
+        const message = getErrorMessage(error, '领取失败')
+        failureMessages.push(`${row.name}：${message}`)
       }
     }
   } finally {
@@ -669,14 +708,18 @@ async function handleGainAllRtimeEquities() {
   }
 
   if (successCount > 0 && failCount === 0) {
-    ElMessage.success(`一键领取完成，成功 ${successCount} 项`)
+    ElMessage.success(`等级权益领取完成：成功 ${successCount} 项${successNames.length ? `；成功：${successNames.join('、')}` : ''}`)
   } else if (successCount > 0) {
-    ElMessage.warning(`领取完成：成功 ${successCount} 项，失败 ${failCount} 项`)
+    ElMessage.warning(`等级权益领取完成：成功 ${successCount} 项，失败 ${failCount} 项${successNames.length ? `；成功：${successNames.join('、')}` : ''}`)
   } else {
-    ElMessage.error(`领取失败：${failCount} 项均未成功`)
+    ElMessage.error(`领取失败：${failCount} 项均未成功${failureMessages.length ? `；${failureMessages.slice(0, 2).join('；')}` : ''}`)
   }
 
-  logsStore.addLog('会员', account.phone, `Rtime 一键领取完成：成功 ${successCount} 项，失败 ${failCount} 项`)
+  logsStore.addLog(
+    '会员',
+    account.phone,
+    `Rtime 一键领取完成：成功 ${successCount} 项，失败 ${failCount} 项${successNames.length ? `；成功：${successNames.join('、')}` : ''}${failureMessages.length ? `；失败：${failureMessages.join('；')}` : ''}`
+  )
   await loadRtimeData()
 }
 
@@ -939,6 +982,58 @@ async function handleActivateWPlus() {
   }
 }
 
+function handleOpenH5Dialog() {
+  if (!currentAccount.value?.ck) {
+    ElMessage.warning('请先选择一个已登录的账号')
+    return
+  }
+
+  h5DialogVisible.value = true
+}
+
+function handleH5CommonPageChange(value: string) {
+  h5Url.value = value
+}
+
+async function handleOpenH5Page() {
+  const account = currentAccount.value
+  const url = h5Url.value.trim()
+
+  if (!account?.ck) {
+    ElMessage.warning('请先选择一个已登录的账号')
+    return
+  }
+
+  try {
+    const parsed = new URL(url)
+
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new Error('invalid protocol')
+    }
+  } catch {
+    ElMessage.warning('请输入有效的 H5 网址')
+    return
+  }
+
+  try {
+    const result = await window.wandaApp?.openWandaH5Window({
+      url,
+      token: account.ck,
+      title: '万达 H5 工具'
+    })
+
+    if (!result?.ok) {
+      ElMessage.error(result?.error || '打开 H5 工具失败')
+      return
+    }
+
+    h5DialogVisible.value = false
+    logsStore.addLog('会员', account.phone, `打开 H5 工具：${url}`)
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, '打开 H5 工具失败'))
+  }
+}
+
 function refreshCurrentTab() {
   if (activeTab.value === 'rtime') {
     void loadRtimeData()
@@ -1038,6 +1133,9 @@ onMounted(() => {
           >
             刷新当前
           </el-button>
+          <el-button size="small" :icon="Link" @click="handleOpenH5Dialog">
+            H5工具
+          </el-button>
         </div>
       </div>
 
@@ -1059,7 +1157,7 @@ onMounted(() => {
                 :loading="batchLoading"
                 @click="handleGainAllRtimeEquities"
               >
-                一键领取
+                领取全部会员等级权益
               </el-button>
             </div>
 
@@ -1514,6 +1612,30 @@ onMounted(() => {
         </div>
       </section>
     </template>
+
+    <el-dialog v-model="h5DialogVisible" title="H5工具" width="520px" append-to-body>
+      <el-form class="h5-tool-form" label-width="92px">
+        <el-form-item label="常用页面">
+          <el-select v-model="selectedH5Url" class="h5-tool-select" @change="handleH5CommonPageChange">
+            <el-option
+              v-for="page in H5_COMMON_PAGES"
+              :key="page.url"
+              :label="page.label"
+              :value="page.url"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="页面链接">
+          <el-input v-model="h5Url" clearable placeholder="https://..." />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="h5DialogVisible = false">取消</el-button>
+          <el-button type="primary" :icon="Link" @click="handleOpenH5Page">打开</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
@@ -1858,6 +1980,11 @@ onMounted(() => {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
+}
+
+.h5-tool-form,
+.h5-tool-select {
+  width: 100%;
 }
 
 .exchange-input {

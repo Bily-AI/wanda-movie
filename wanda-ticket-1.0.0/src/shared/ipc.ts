@@ -26,6 +26,7 @@ export const IPC_CHANNELS = {
   AUTO_ORDER_REPORT_RESULT: 'auto-order-report-result',
   AUTO_ORDER_PROCESS_EVENT: 'auto-order:process-ticket',
   AUTO_ORDER_PROCESS_RESULT_EVENT: 'auto-order:process-result',
+  WANDA_H5_OPEN_WINDOW: 'wanda-h5-open-window',
   ALIPAY_CLEAR_SESSION: 'alipay-clear-session',
   ALIPAY_SYNC_DEVICE: 'alipay-sync-device',
   ALIPAY_CONVERT: 'alipay-convert'
@@ -152,6 +153,18 @@ export type AutoOrderOpenWindowResult = IpcResult<boolean>
 export type AutoOrderProcessTicketResult = IpcResult<boolean>
 
 export type AutoOrderReportResult = IpcResult<boolean>
+
+export interface WandaH5OpenWindowRequest {
+  url: string
+  token: string
+  title?: string
+}
+
+export interface WandaH5OpenWindowData {
+  reusedWindow: boolean
+}
+
+export type WandaH5OpenWindowResult = IpcResult<WandaH5OpenWindowData>
 
 export interface AlipayDeviceFingerprint {
   model?: string

@@ -16,6 +16,12 @@ const DEFAULT_WANDA_MODEL = 'M2102J2SC'
 const DEFAULT_WANDA_USER_IDENTIFIER = 'YYDDJDKYHA'
 const DEFAULT_SHUMEI_BOX_ID = 'wanda-ticket-tool'
 const WANDA_USER_AGENT = 'okhttp/4.12.0'
+const WANDA_SIGN_IN_VERSION = '9.2.4'
+const WANDA_SIGN_IN_SYSTEM_VERSION = '15'
+const WANDA_SIGN_IN_MODEL = 'Pixel 6'
+const WANDA_SIGN_IN_WIDTH = 720
+const WANDA_SIGN_IN_HEIGHT = 1280
+const WANDA_SIGN_IN_USER = 'YYAAFWZJKD'
 
 let runtimeRequestParams: Partial<RequestParamsLocalData> = {}
 
@@ -210,6 +216,50 @@ export function buildWandaHeaders(
   }
 
   return headers
+}
+
+function buildWandaSignInHeaders(path: string, signatureBody: string, body: string, ck = ''): Record<string, string> {
+  const timestamp = String(Date.now())
+  const { signSalt, shumeiBoxId, mxCid } = getWandaRuntimeConfig()
+  const check = CryptoJS.MD5(`${signSalt}${timestamp}${path}${signatureBody}`).toString()
+  const mxApi = {
+    systemVersion: WANDA_SIGN_IN_SYSTEM_VERSION,
+    height: WANDA_SIGN_IN_HEIGHT,
+    'Accept-Encoding': 'gzip, deflate',
+    ts: timestamp,
+    ver: WANDA_SIGN_IN_VERSION,
+    _mi_: ck,
+    json: true,
+    appId: 2,
+    cCode: WANDA_CHANNEL,
+    check,
+    model: WANDA_SIGN_IN_MODEL,
+    sCode: 'Wanda',
+    width: WANDA_SIGN_IN_WIDTH,
+    ShumeiBoxId: shumeiBoxId
+  }
+
+  return {
+    'MX-API': JSON.stringify(mxApi),
+    'MX-CID': mxCid || generateMxCid(),
+    Host: WANDA_HOSTS.GATEWAY,
+    ShumeiBoxId: shumeiBoxId,
+    'Accept-Charset': 'UTF-8,*',
+    'Content-Type': 'application/json',
+    'Content-Length': String(new TextEncoder().encode(body).length),
+    Connection: 'Keep-Alive',
+    'Accept-Encoding': 'gzip',
+    'User-Agent': WANDA_USER_AGENT,
+    'X-RY-CHANNEL': WANDA_CHANNEL,
+    'X-RY-TIMESTAMP': timestamp,
+    'X-RY-SYSTEM-VER': WANDA_SIGN_IN_SYSTEM_VERSION,
+    'X-RY-VERSION': WANDA_SIGN_IN_VERSION,
+    'X-RY-TOKEN': ck,
+    'X-RY-USER': WANDA_SIGN_IN_USER,
+    'X-RY-CHECK': check,
+    'X-RY-MODEL': WANDA_SIGN_IN_MODEL,
+    'X-RY-SIGN': check
+  }
 }
 
 export function buildWandaLoginHeaders(path: string, body: string): Record<string, string> {
@@ -485,6 +535,23 @@ export async function wandaPostForm<T>(
 
   if (!result?.ok) {
     throw new Error(formatWandaTransportError('POST', host, path, result?.error, '万达 POST 请求失败'))
+  }
+
+  return result.data as WandaApiResponse<T>
+}
+
+export async function wandaSignInPostJson<T>(path: string, jsonBody: string, ck = ''): Promise<WandaApiResponse<T>> {
+  const url = buildWandaUrl(WANDA_HOSTS.GATEWAY, path)
+  const signatureBody = encodeURIComponent(jsonBody).replace(/%[0-9A-F]{2}/g, (match) => match.toLowerCase())
+  const headers = buildWandaSignInHeaders(path, signatureBody, jsonBody, ck)
+  const result = await getRequiredWandaApp().wandaHttpPost({
+    url,
+    headers,
+    body: jsonBody
+  })
+
+  if (!result?.ok) {
+    throw new Error(formatWandaTransportError('POST', WANDA_HOSTS.GATEWAY, path, result?.error, '万达签到 POST 请求失败'))
   }
 
   return result.data as WandaApiResponse<T>

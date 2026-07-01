@@ -1043,7 +1043,11 @@ watch(
 }
 
 .ticket-center {
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 8px;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
 }
 
 .order-column {
@@ -1150,8 +1154,9 @@ watch(
 }
 
 .seat-panel {
-  flex: 1;
+  flex: 1 0 420px;
   min-height: 420px;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -1171,15 +1176,21 @@ watch(
 
 .seat-stage {
   flex: 1;
-  min-height: 220px;
+  min-height: 0;
   display: grid;
   place-items: center;
 }
 
 .seat-scroll {
+  align-self: stretch;
+  justify-self: stretch;
+  min-width: 0;
+  min-height: 0;
   width: 100%;
   height: 100%;
   overflow: auto;
+  scrollbar-gutter: stable both-edges;
+  overscroll-behavior: contain;
 }
 
 .seat-toolbar {

@@ -53,8 +53,11 @@ for (const text of [
 for (const text of [
   'formatAccountAgeDays',
   'formatAccountNumber',
+  'formatWPlusExpire',
+  'extractDateOnly',
   'handleRefreshAccountSummaries',
   'refreshingAccountSummaries',
+  'checkLoginStatus',
   'fetchStoredCardsWithBalance',
   'fetchMemberCoupons',
   'fetchMemberGradeEquityList',
@@ -69,6 +72,27 @@ for (const text of [
 ]) {
   assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, text)
 }
+
+assertIncludes(
+  'src/renderer/components/AccountSidebar.vue',
+  accountSidebar,
+  'checkLoginStatus(account.ck, userIdentifier)'
+)
+assertIncludes(
+  'src/renderer/components/AccountSidebar.vue',
+  accountSidebar,
+  "'pointsBalance' | 'storedCardCount' | 'couponCount' | 'memberGradeName' | 'growthValue' | 'isPayMember' | 'wplusExpireAt'"
+)
+assertIncludes(
+  'src/renderer/components/AccountSidebar.vue',
+  accountSidebar,
+  "summary.pointsBalance = pointsBalance"
+)
+assertIncludes(
+  'src/renderer/components/AccountSidebar.vue',
+  accountSidebar,
+  "return extractDateOnly(row.wplusExpireAt) || '-'"
+)
 
 assertIncludes('src/renderer/stores/accounts.ts', accountsStore, 'updateAccountProfileSummary')
 assertIncludes('src/renderer/views/StoredValueCardView.vue', storedCardView, 'updateAccountProfileSummary(account.id')

@@ -27,6 +27,8 @@ import {
   type ProxyClearResult,
   type ProxyFetchResult,
   type ProxyUsedResult,
+  type WandaH5OpenWindowRequest,
+  type WandaH5OpenWindowResult,
   type WandaHttpRequest,
   type WandaHttpResult
 } from '../shared/ipc'
@@ -58,6 +60,8 @@ export type {
   ProxyClearResult,
   ProxyFetchResult,
   ProxyUsedResult,
+  WandaH5OpenWindowRequest,
+  WandaH5OpenWindowResult,
   WandaHttpRequest,
   WandaHttpResult
 } from '../shared/ipc'
@@ -89,6 +93,7 @@ export interface WandaAppApi {
   openAutoOrderWindow: () => Promise<AutoOrderOpenWindowResult>
   sendAutoOrderTicket: (request: AutoOrderTicketRequest) => Promise<AutoOrderProcessTicketResult>
   reportAutoOrderResult: (result: AutoOrderTicketResult) => Promise<AutoOrderReportResult>
+  openWandaH5Window: (request: WandaH5OpenWindowRequest) => Promise<WandaH5OpenWindowResult>
   onAutoOrderProcessTicket: (listener: (request: AutoOrderTicketRequest) => void) => () => void
   onAutoOrderProcessResult: (listener: (result: AutoOrderTicketResult) => void) => () => void
   alipayConvert: (
@@ -123,6 +128,7 @@ const wandaApp: WandaAppApi = {
   openAutoOrderWindow: () => ipcRenderer.invoke(IPC_CHANNELS.AUTO_ORDER_OPEN_WINDOW),
   sendAutoOrderTicket: (request) => ipcRenderer.invoke(IPC_CHANNELS.AUTO_ORDER_PROCESS_TICKET, request),
   reportAutoOrderResult: (result) => ipcRenderer.invoke(IPC_CHANNELS.AUTO_ORDER_REPORT_RESULT, result),
+  openWandaH5Window: (request) => ipcRenderer.invoke(IPC_CHANNELS.WANDA_H5_OPEN_WINDOW, request),
   onAutoOrderProcessTicket: (listener) => {
     const wrapped = (_event: Electron.IpcRendererEvent, request: AutoOrderTicketRequest) => listener(request)
     ipcRenderer.on(IPC_CHANNELS.AUTO_ORDER_PROCESS_EVENT, wrapped)

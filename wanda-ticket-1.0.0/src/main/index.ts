@@ -1,10 +1,10 @@
-import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, ipcMain, session, shell, type IpcMainInvokeEvent } from 'electron'
 import { readFile } from 'node:fs/promises'
 import { networkInterfaces } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { IPC_CHANNELS, type OldPackageIndexResult } from '../shared/ipc'
+import { IPC_CHANNELS, type OldPackageIndexResult, type WandaH5OpenWindowRequest } from '../shared/ipc'
 import { registerAlipayHandlers } from './alipay'
 import { registerBaiduOcrHandlers } from './baiduOcr'
 import { registerElementCaptureHandlers } from './elementCapture'
@@ -17,6 +17,9 @@ const __dirname = dirname(__filename)
 
 let mainWindow: BrowserWindow | null = null
 let autoOrderWindow: BrowserWindow | null = null
+let wandaH5Window: BrowserWindow | null = null
+
+const WANDA_H5_PARTITION = 'persist:wanda-h5'
 
 function loadRenderer(window: BrowserWindow, hash?: string): void {
   if (process.env.ELECTRON_RENDERER_URL) {
@@ -95,6 +98,98 @@ function createAutoOrderWindow(): BrowserWindow {
   autoOrderWindow = window
   loadRenderer(window, '/auto-order')
   return window
+}
+
+function parseH5Url(rawUrl: string): URL | null {
+  try {
+    const url = new URL(rawUrl)
+
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return null
+    }
+
+    return url
+  } catch {
+    return null
+  }
+}
+
+function getOrCreateWandaH5Window(): { window: BrowserWindow; reusedWindow: boolean } {
+  if (wandaH5Window && !wandaH5Window.isDestroyed()) {
+    wandaH5Window.focus()
+    return { window: wandaH5Window, reusedWindow: true }
+  }
+
+  const window = new BrowserWindow({
+    width: 430,
+    height: 820,
+    minWidth: 390,
+    minHeight: 680,
+    backgroundColor: '#ffffff',
+    show: false,
+    title: '万达 H5 工具',
+    webPreferences: {
+      partition: WANDA_H5_PARTITION,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    }
+  })
+
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    void shell.openExternal(url)
+    return { action: 'deny' }
+  })
+
+  window.on('ready-to-show', () => {
+    window.show()
+  })
+
+  window.on('closed', () => {
+    if (wandaH5Window === window) {
+      wandaH5Window = null
+    }
+  })
+
+  wandaH5Window = window
+  return { window, reusedWindow: false }
+}
+
+function buildWandaH5CookieScript(token: string): string {
+  return `document.cookie = ${JSON.stringify(`mi=${token}; path=/`)};`
+}
+
+async function createWandaH5Window(request: WandaH5OpenWindowRequest) {
+  const targetUrl = parseH5Url(String(request.url || '').trim())
+  const token = String(request.token || '').trim()
+
+  if (!targetUrl) {
+    return { ok: false, error: '请输入有效的 H5 网址' }
+  }
+
+  if (!token) {
+    return { ok: false, error: '请先选择已登录的万达账号' }
+  }
+
+  const h5Session = session.fromPartition(WANDA_H5_PARTITION)
+  await h5Session.cookies.set({
+    url: targetUrl.origin,
+    name: 'mi',
+    value: token,
+    path: '/',
+    secure: targetUrl.protocol === 'https:'
+  })
+
+  const { window, reusedWindow } = getOrCreateWandaH5Window()
+  window.setTitle(request.title || '万达 H5 工具')
+  window.webContents.removeAllListeners('did-finish-load')
+  window.webContents.on('did-finish-load', () => {
+    void window.webContents.executeJavaScript(buildWandaH5CookieScript(token), true).catch(() => undefined)
+  })
+
+  await window.loadURL(targetUrl.toString())
+
+  return { ok: true, data: { reusedWindow } }
 }
 
 function getWindowFromEvent(event: IpcMainInvokeEvent): BrowserWindow | null {
@@ -212,6 +307,8 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.APP_GET_LOCAL_IP, () => getLocalIp())
 
   ipcMain.handle(IPC_CHANNELS.OLD_PACKAGE_INDEX_READ, () => readOldPackageIndex())
+
+  ipcMain.handle(IPC_CHANNELS.WANDA_H5_OPEN_WINDOW, (_event, payload) => createWandaH5Window(payload))
 
   ipcMain.handle(IPC_CHANNELS.AUTO_ORDER_OPEN_WINDOW, () => {
     createAutoOrderWindow()

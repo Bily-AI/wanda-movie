@@ -54,7 +54,9 @@ export const WANDA_API_PATHS = {
   GIFT_ORDER_DETAIL: '/giftshop/orders/detail',
   GIFT_TRANSACTION_CREATE: '/giftshop/transactions/create',
   GIFT_TRANSACTION_DETAIL: '/giftshop/transactions/detail',
-  SIGN_IN_CALENDAR: '/sign_in/calendar.api'
+  SIGN_IN_CALENDAR: '/sign_in/calendar.api',
+  SIGN_IN_VALID_SUPPLEMENT: '/sign_in/valid_supplement.api',
+  SIGN_IN_DO: '/sign_in/do_sign_in.api'
 } as const
 
 export const AUTO_ORDER_API_PATHS = {

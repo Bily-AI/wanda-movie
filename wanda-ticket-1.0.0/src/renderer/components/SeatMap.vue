@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { SeatNode } from '@shared/wandaTicketTypes'
 
 const props = defineProps<{
@@ -15,6 +16,22 @@ const seatHeight = 22
 const seatGap = 6
 const rowLabelWidth = 28
 const mapPadding = 4
+
+function maxSeatCoordinate(projector: (seat: SeatNode) => number): number {
+  return props.seats.reduce((max, seat) => Math.max(max, projector(seat)), 0)
+}
+
+const mapStyle = computed<Record<string, string>>(() => {
+  const maxX = maxSeatCoordinate((seat) => seat.coordx)
+  const maxY = maxSeatCoordinate((seat) => seat.coordy)
+  const mapWidth = mapPadding * 2 + rowLabelWidth + maxX * (seatWidth + seatGap) + seatWidth
+  const mapHeight = mapPadding * 2 + maxY * (seatHeight + seatGap) + seatHeight
+
+  return {
+    width: `${Math.max(760, mapWidth)}px`,
+    height: `${Math.max(360, mapHeight)}px`
+  }
+})
 
 function isSelected(seat: SeatNode): boolean {
   return props.selectedSeats.some((item) => item.id === seat.id)
@@ -55,7 +72,7 @@ function rowStyle(y: number): Record<string, string> {
 </script>
 
 <template>
-  <div class="seat-map">
+  <div class="seat-map" :style="mapStyle">
     <span v-for="row in uniqueRows()" :key="row.y" class="row-label" :style="rowStyle(row.y)">
       {{ row.label }}排
     </span>

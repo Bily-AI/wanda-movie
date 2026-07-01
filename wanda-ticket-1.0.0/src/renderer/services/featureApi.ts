@@ -1,5 +1,5 @@
 import { WANDA_API_PATHS } from '@shared/wandaCore'
-import { WANDA_HOSTS, sanitizeWandaErrorMessage, wandaGet, wandaPostForm, wandaSeatGet } from './wandaRequest'
+import { WANDA_HOSTS, sanitizeWandaErrorMessage, wandaGet, wandaPostForm, wandaSeatGet, wandaSignInPostJson } from './wandaRequest'
 
 export interface StoredCardRow {
   holder: string
@@ -80,7 +80,9 @@ export interface MemberEquityRow {
   status: string
   auto: boolean
   equityGainStatus: number
+  equityType: number
   canGainMonth: boolean
+  canReceive: boolean
   useEquityIconUrl: string
   getEquityIconUrl: string
   raw: unknown
@@ -157,6 +159,13 @@ export interface MemberSignInCalendar {
   consecutiveDays: number
   signInStreak: number
   dataList: MemberSignInDay[]
+  raw: unknown
+}
+
+export interface MemberSignInSubmitResult {
+  bizCode: number
+  bizMsg: string
+  successMessage: string
   raw: unknown
 }
 
@@ -306,6 +315,43 @@ function ensureSuccess(response: unknown, fallbackMessage: string): Record<strin
   return Object.keys(data).length > 0 ? data : record
 }
 
+function formatWandaDate(date = new Date()): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+function normalizeSignInSubmitResult(response: unknown): MemberSignInSubmitResult {
+  const record = asRecord(response)
+  const data = asRecord(record.data)
+  const result = asRecord(data.data ?? data.res ?? data.result)
+
+  return {
+    bizCode: data.bizCode === undefined ? toNumber(record.code, -1) : toNumber(data.bizCode, -1),
+    bizMsg: firstText(data.bizMsg, data.msg, record.msg),
+    successMessage: firstText(result.successMessage, data.successMessage, data.bizMsg, data.msg, record.msg),
+    raw: response
+  }
+}
+
+function isAlreadySignedResult(result: MemberSignInSubmitResult): boolean {
+  return result.bizCode === 1004 || result.bizMsg.includes('已签到') || result.bizMsg.includes('重复签到')
+}
+
+function ensureSignInSubmitSuccess(response: unknown, fallbackMessage: string): MemberSignInSubmitResult {
+  const result = normalizeSignInSubmitResult(response)
+
+  if (result.bizCode === 0 || isAlreadySignedResult(result)) {
+    return result
+  }
+
+  ensureSuccess(response, fallbackMessage)
+
+  return result
+}
+
 function collectList(value: unknown, keys: string[]): unknown[] {
   if (Array.isArray(value)) {
     return value
@@ -405,6 +451,17 @@ function normalizeCoupon(item: unknown): MemberCouponRow {
 
 function normalizeEquity(item: unknown, group: Record<string, unknown> = {}): MemberEquityRow {
   const record = asRecord(item)
+  const auto = toBoolean(record.auto)
+  const getEquityIconUrl = firstText(record.getEquityIconUrl, record.receiveIconUrl)
+  const equityGainStatus = toNumber(record.equityGainStatus)
+  const equityType = toNumber(record.equityType)
+  const explicitCanReceiveRaw = record.canReceive ?? record.can_receive ?? record.canGain ?? record.receivable ?? record.canGet
+  const explicitCanReceive =
+    explicitCanReceiveRaw === undefined || explicitCanReceiveRaw === null || explicitCanReceiveRaw === ''
+      ? true
+      : toBoolean(explicitCanReceiveRaw)
+  const hasCanGainMonth = record.canGainMonth !== undefined && record.canGainMonth !== null && record.canGainMonth !== ''
+  const canGainMonth = toBoolean(record.canGainMonth)
 
   const EQUITY_TYPES: Record<number, string> = {
     1: '票务券',
@@ -424,8 +481,8 @@ function normalizeEquity(item: unknown, group: Record<string, unknown> = {}): Me
     6: '未达条件'
   }
 
-  const equityTypeStr = record.equityType ? EQUITY_TYPES[Number(record.equityType)] || String(record.equityType) : ''
-  const statusStr = record.equityGainStatus != null ? STATUS_MAP[Number(record.equityGainStatus)] || String(record.equityGainStatus) : ''
+  const equityTypeStr = equityType ? EQUITY_TYPES[equityType] || String(equityType) : ''
+  const statusStr = record.equityGainStatus != null ? STATUS_MAP[equityGainStatus] || String(equityGainStatus) : ''
 
   return {
     gradeId: firstText(record.gradeId, group.gradeId, group.id),
@@ -437,11 +494,13 @@ function normalizeEquity(item: unknown, group: Record<string, unknown> = {}): Me
     count: firstText(record.prizeNum != null ? String(record.prizeNum) : '', record.count, record.num, record.quantity, '-'),
     category: firstText(equityTypeStr, record.categoryName, record.typeName, record.type, '-'),
     status: firstText(statusStr, record.statusName, record.status, record.receiveStatus, '-'),
-    auto: toBoolean(record.auto),
-    equityGainStatus: toNumber(record.equityGainStatus),
-    canGainMonth: toBoolean(record.canGainMonth),
+    auto,
+    equityGainStatus,
+    equityType,
+    canGainMonth,
+    canReceive: !auto && equityGainStatus === 2 && equityType !== 6 && explicitCanReceive && (!hasCanGainMonth || canGainMonth),
     useEquityIconUrl: firstText(record.useEquityIconUrl, record.useIconUrl),
-    getEquityIconUrl: firstText(record.getEquityIconUrl, record.receiveIconUrl),
+    getEquityIconUrl,
     raw: item
   }
 }
@@ -1005,6 +1064,30 @@ export async function fetchMemberSignInCalendar(ck: string, userIdentifier: stri
   }
 }
 
+export async function submitMemberSignIn(ck: string): Promise<MemberSignInSubmitResult> {
+  assertNotBlank(ck, '万达账号 CK 不能为空')
+
+  const jsonBody = JSON.stringify({ signInDate: formatWandaDate(), ruleScene: 1 })
+  const validResponse = await wandaSignInPostJson<unknown>(
+    WANDA_API_PATHS.SIGN_IN_VALID_SUPPLEMENT,
+    jsonBody,
+    ck
+  )
+  const validResult = ensureSignInSubmitSuccess(validResponse, '会员签到校验失败')
+
+  if (isAlreadySignedResult(validResult)) {
+    return validResult
+  }
+
+  const response = await wandaSignInPostJson<unknown>(
+    WANDA_API_PATHS.SIGN_IN_DO,
+    jsonBody,
+    ck
+  )
+
+  return ensureSignInSubmitSuccess(response, '会员签到失败')
+}
+
 export async function gainMemberEquity(
   gradeId: string,
   equityId: string,
@@ -1016,10 +1099,11 @@ export async function gainMemberEquity(
   assertNotBlank(ck, '万达账号 CK 不能为空')
   assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
 
+  const path = `${WANDA_API_PATHS.MEMBER_GRADE}gain_equity.api?gradeId=${encodeURIComponent(gradeId)}&equityId=${encodeURIComponent(equityId)}`
   const response = await wandaGet<unknown>(
     WANDA_HOSTS.GATEWAY,
-    `${WANDA_API_PATHS.MEMBER_GRADE}gain_equity.api`,
-    { gradeId, equityId },
+    path,
+    {},
     ck,
     userIdentifier
   )

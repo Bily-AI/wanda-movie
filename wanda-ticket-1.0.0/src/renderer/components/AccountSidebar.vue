@@ -10,6 +10,7 @@ import {
   fetchWPlusProfile,
   type MemberGradeGroup
 } from '@renderer/services/featureApi'
+import { checkLoginStatus } from '@renderer/services/wandaAuthApi'
 import { useAccountsStore } from '@renderer/stores/accounts'
 import { useLogsStore } from '@renderer/stores/logs'
 import type { WandaAccount } from '@shared/localData'
@@ -60,8 +61,29 @@ function formatAccountNumber(value: number | null | undefined): string {
   return value === null || value === undefined ? '-' : String(value)
 }
 
+function extractDateOnly(value: string): string {
+  const text = value.trim()
+
+  if (!text) {
+    return ''
+  }
+
+  const compactMatch = text.match(/\b(\d{4})(\d{2})(\d{2})\b/)
+  if (compactMatch) {
+    return `${compactMatch[1]}-${compactMatch[2]}-${compactMatch[3]}`
+  }
+
+  const dateMatch = text.match(/(\d{4})[./-年](\d{1,2})[./-月](\d{1,2})/)
+  if (dateMatch) {
+    const [, year, month, day] = dateMatch
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+  }
+
+  return ''
+}
+
 function formatWPlusExpire(row: WandaAccount): string {
-  return row.wplusExpireAt || (row.isPayMember ? 'W+' : '-')
+  return extractDateOnly(row.wplusExpireAt) || '-'
 }
 
 function maskPhone(phone: string): string {
@@ -113,7 +135,8 @@ function getCurrentGradeSummary(groups: MemberGradeGroup[]): { memberGradeName: 
 
 async function refreshAccountSummary(account: WandaAccount): Promise<void> {
   const userIdentifier = account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
-  const [storedCardResult, couponResult, gradeResult, wplusResult] = await Promise.allSettled([
+  const [loginStatusResult, storedCardResult, couponResult, gradeResult, wplusResult] = await Promise.allSettled([
+    checkLoginStatus(account.ck, userIdentifier),
     fetchStoredCardsWithBalance(account.ck, userIdentifier),
     fetchMemberCoupons(account.ck, userIdentifier),
     fetchMemberGradeEquityList(account.ck, userIdentifier),
@@ -122,9 +145,20 @@ async function refreshAccountSummary(account: WandaAccount): Promise<void> {
   const summary: Partial<
     Pick<
       WandaAccount,
-      'storedCardCount' | 'couponCount' | 'memberGradeName' | 'growthValue' | 'isPayMember' | 'wplusExpireAt'
+      'pointsBalance' | 'storedCardCount' | 'couponCount' | 'memberGradeName' | 'growthValue' | 'isPayMember' | 'wplusExpireAt'
     >
   > = {}
+
+  if (loginStatusResult.status === 'fulfilled') {
+    const userInfo = loginStatusResult.value.userInfo
+    const pointsBalance = Number(
+      userInfo?.pointsBalance ?? userInfo?.point ?? userInfo?.points ?? userInfo?.integral ?? userInfo?.score
+    )
+
+    if (Number.isFinite(pointsBalance)) {
+      summary.pointsBalance = pointsBalance
+    }
+  }
 
   if (storedCardResult.status === 'fulfilled') {
     summary.storedCardCount = storedCardResult.value.cards.length
