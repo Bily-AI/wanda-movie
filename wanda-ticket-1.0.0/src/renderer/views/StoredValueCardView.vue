@@ -58,16 +58,8 @@ const paymentResult = ref<PaymentDialogData | null>(null)
 let loadSerial = 0
 
 const cardRows = computed(() => cards.value)
-const availableCardCount = computed(() => cards.value.filter((card) => card.available).length)
-const unavailableCardCount = computed(() => Math.max(cards.value.length - availableCardCount.value, 0))
-const normalBalance = computed(
-  () => balanceInfo.value?.balance ?? cards.value.reduce((sum, card) => sum + card.balance, 0)
-)
-const presentBalance = computed(
-  () => balanceInfo.value?.presentBalance ?? cards.value.reduce((sum, card) => sum + card.presentBalance, 0)
-)
 const totalBalance = computed(() =>
-  balanceInfo.value?.totalBalance ?? Number((normalBalance.value + presentBalance.value).toFixed(2))
+  balanceInfo.value?.totalBalance ?? cards.value.reduce((sum, card) => sum + card.balance, 0)
 )
 const paymentResultText = computed(() => {
   if (!paymentResult.value) {
@@ -91,8 +83,13 @@ function formatMoney(value: number): string {
   return `¥${Number(value || 0).toFixed(2)}`
 }
 
+function isStoredCardDisabled(row: StoredCardRow): boolean {
+  const statusText = `${row.statusDesc || row.status || ''}`
+  return !row.available || /禁用|停用|冻结|失效/.test(statusText)
+}
+
 function getStoredCardStatusTagType(row: StoredCardRow): 'success' | 'danger' {
-  return row.available ? 'success' : 'danger'
+  return isStoredCardDisabled(row) ? 'danger' : 'success'
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -285,7 +282,7 @@ async function loadAllAccountsCards() {
     balanceInfo.value = {
       balance: Number(balanceTotal.toFixed(2)),
       presentBalance: Number(presentTotal.toFixed(2)),
-      totalBalance: Number((balanceTotal + presentTotal).toFixed(2)),
+      totalBalance: Number(balanceTotal.toFixed(2)),
       raw: null
     }
     cardsMessage.value = cards.value.length > 0 ? '' : '暂无可用储值卡'
@@ -512,27 +509,6 @@ watch(cardDisplayMode, (mode) => {
 
 <template>
   <section class="stored-card-page">
-    <section class="stored-card-summary-grid" aria-label="储值卡摘要">
-      <article class="stored-summary-card stored-summary-card--blue">
-        <span>储值卡</span>
-        <strong>{{ cardRows.length }}</strong>
-        <em>可用 {{ availableCardCount }} 张</em>
-      </article>
-      <article class="stored-summary-card stored-summary-card--green">
-        <span>总余额</span>
-        <strong>{{ formatMoney(totalBalance) }}</strong>
-      </article>
-      <article class="stored-summary-card">
-        <span>本金余额</span>
-        <strong>{{ formatMoney(normalBalance) }}</strong>
-      </article>
-      <article class="stored-summary-card stored-summary-card--amber">
-        <span>赠送余额</span>
-        <strong>{{ formatMoney(presentBalance) }}</strong>
-        <em>不可用 {{ unavailableCardCount }} 张</em>
-      </article>
-    </section>
-
     <section class="stored-card-action-panel panel">
       <div class="stored-card-action-left">
         <el-radio-group v-model="cardDisplayMode" class="stored-card-view-toggle" size="small">
@@ -586,18 +562,15 @@ watch(cardDisplayMode, (mode) => {
           </el-table-column>
           <el-table-column label="余额" width="118" align="right">
             <template #default="{ row }">
-              <span class="stored-card-amount">{{ formatMoney(row.balance + row.presentBalance) }}</span>
+              <span class="stored-card-amount">{{ formatMoney(row.balance) }}</span>
             </template>
-          </el-table-column>
-          <el-table-column label="本金" width="108" align="right">
-            <template #default="{ row }">{{ formatMoney(row.balance) }}</template>
           </el-table-column>
           <el-table-column label="赠送" width="108" align="right">
             <template #default="{ row }">{{ formatMoney(row.presentBalance) }}</template>
           </el-table-column>
           <el-table-column label="状态" width="108" align="center">
             <template #default="{ row }">
-              <el-tag size="small" :type="getStoredCardStatusTagType(row)">{{ row.statusDesc || row.status || '-' }}</el-tag>
+              <el-tag size="small" class="stored-card-status-tag" :class="{ 'stored-card-status-tag--disabled': isStoredCardDisabled(row) }" :type="getStoredCardStatusTagType(row)">{{ row.statusDesc || row.status || '-' }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="176" align="right" fixed="right">
@@ -618,10 +591,10 @@ watch(cardDisplayMode, (mode) => {
           <article v-for="row in cardRows" :key="row.cardNo || row.name" class="stored-card stored-card-item">
             <div class="stored-card-top">
               <strong>{{ row.name || '储值卡' }}</strong>
-              <el-tag size="small" :type="getStoredCardStatusTagType(row)">{{ row.statusDesc || row.status || '-' }}</el-tag>
+              <el-tag size="small" class="stored-card-status-tag" :class="{ 'stored-card-status-tag--disabled': isStoredCardDisabled(row) }" :type="getStoredCardStatusTagType(row)">{{ row.statusDesc || row.status || '-' }}</el-tag>
             </div>
             <div class="stored-card-no">{{ row.cardNo || '-' }}</div>
-            <div class="stored-card-money">{{ formatMoney(row.balance + row.presentBalance) }}</div>
+            <div class="stored-card-money">{{ formatMoney(row.balance) }}</div>
             <div class="stored-card-meta">
               <span>{{ row.ownerPhone || row.holder || '-' }}</span>
             </div>
@@ -754,7 +727,7 @@ watch(cardDisplayMode, (mode) => {
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-rows: 100px auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
   padding: 14px;
   overflow: hidden;
@@ -767,61 +740,6 @@ watch(cardDisplayMode, (mode) => {
   border-radius: 8px;
   background: var(--app-surface);
   box-shadow: var(--shadow-panel);
-}
-
-.stored-card-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  min-width: 0;
-}
-
-.stored-summary-card {
-  min-width: 0;
-  height: 100px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 7px;
-  padding: 14px 16px;
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: var(--app-surface);
-  box-shadow: var(--shadow-panel);
-}
-
-.stored-summary-card span,
-.stored-summary-card em {
-  overflow: hidden;
-  color: var(--text-secondary, var(--app-muted));
-  font-size: 13px;
-  font-style: normal;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.stored-summary-card strong {
-  overflow: hidden;
-  color: var(--text-primary, var(--app-text));
-  font-size: 22px;
-  line-height: 1.18;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.stored-summary-card--blue {
-  border-color: var(--summary-blue-border);
-  background: var(--summary-blue-bg);
-}
-
-.stored-summary-card--green {
-  border-color: var(--summary-green-border);
-  background: var(--summary-green-bg);
-}
-
-.stored-summary-card--amber {
-  border-color: var(--summary-amber-border);
-  background: var(--summary-amber-bg);
 }
 
 .stored-card-action-panel {
@@ -959,6 +877,12 @@ watch(cardDisplayMode, (mode) => {
   font-weight: 700;
 }
 
+:deep(.stored-card-status-tag--disabled.el-tag) {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
 .stored-card-grid-panel {
   flex: 1;
   min-height: 0;
@@ -1047,13 +971,8 @@ watch(cardDisplayMode, (mode) => {
 }
 
 @media (max-width: 1360px) {
-  .stored-card-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-auto-rows: 96px;
-  }
-
   .stored-card-page {
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .stored-card-action-panel {
@@ -1064,17 +983,9 @@ watch(cardDisplayMode, (mode) => {
 
 @media (max-height: 720px) {
   .stored-card-page {
-    grid-template-rows: 88px auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     gap: 10px;
     padding: 12px;
-  }
-
-  .stored-summary-card {
-    height: 88px;
-  }
-
-  .stored-summary-card strong {
-    font-size: 20px;
   }
 }
 </style>

@@ -336,12 +336,6 @@ const statusTiles = computed(() => [
     tone: ticketStore.showtimeError ? 'green' : 'blue'
   },
   {
-    key: 'assets',
-    label: '可用资产',
-    value: `${couponItems.value.length} 券 / ${paymentCardItems.value.length} 卡`,
-    tone: 'blue'
-  },
-  {
     key: 'order',
     label: '当前订单',
     value: ticketStore.currentOrderFinalized ? '已完成' : ticketStore.currentOrder ? '待提交' : '未创建',
@@ -754,8 +748,6 @@ watch(
             <span />
             <p v-if="ticketStore.showtimeError" class="query-error">{{ ticketStore.showtimeError }}</p>
           </div>
-
-          <div class="poster-panel" aria-label="影片海报区域" />
         </div>
       </section>
 
@@ -1041,7 +1033,7 @@ watch(
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(620px, 1fr) 330px;
+  grid-template-columns: minmax(560px, 1fr) 380px;
   grid-template-rows: 86px minmax(0, 1fr) 64px;
   gap: 12px;
   overflow: hidden;
@@ -1050,7 +1042,7 @@ watch(
 .ticket-status-grid {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1098,8 +1090,6 @@ watch(
 .ticket-center {
   overflow-x: hidden;
   overflow-y: auto;
-  padding-right: 8px;
-  scrollbar-gutter: stable;
   overscroll-behavior: contain;
 }
 
@@ -1109,9 +1099,7 @@ watch(
 
 .ticket-context-column {
   min-width: 0;
-  padding-right: 8px;
   overflow-y: auto;
-  scrollbar-gutter: stable;
   overscroll-behavior: contain;
 }
 
@@ -1163,9 +1151,7 @@ watch(
 }
 
 .query-layout {
-  display: grid;
-  grid-template-columns: minmax(420px, 1fr) 240px;
-  gap: 14px;
+  display: block;
   padding: 14px;
 }
 
@@ -1196,14 +1182,6 @@ watch(
   display: grid;
   grid-template-columns: minmax(0, 1fr) 110px;
   gap: 8px;
-}
-
-.poster-panel {
-  min-height: 208px;
-  border: 1px solid var(--app-border);
-  border-radius: 6px;
-  background:
-    linear-gradient(135deg, #f8fbff 0%, #fff 52%, #f4f8fd 100%);
 }
 
 .seat-panel {

@@ -180,14 +180,11 @@ const progressPercentage = computed(() => {
   const next = nextGrade.value
 
   if (next) {
-    const denominator = next.growthMinVal - record.growthMinVal
-
-    if (denominator <= 0) {
+    if (next.growthMinVal <= 0) {
       return 100
     }
 
-    const numerator = record.memberGrowthVal - record.growthMinVal
-    return Math.min(100, Math.max(0, Math.round((numerator / denominator) * 100)))
+    return Math.min(100, Math.max(0, Math.round((record.memberGrowthVal / next.growthMinVal) * 100)))
   }
 
   const target = record.growthMaxVal ?? record.growthMinVal * 2
@@ -229,6 +226,25 @@ const hasClaimableWPlus = computed(() => claimableWPlusRights.value.length > 0)
 
 const totalClaimableMemberRights = computed(() => claimableRtimeRows.value.length + claimableWPlusRights.value.length)
 
+const wplusStatusProfile = computed(() => {
+  if (wplusProfile.value) {
+    return wplusProfile.value
+  }
+
+  const expireAt = String(currentAccount.value?.wplusExpireAt || '').trim()
+  const isPayMember = Boolean(currentAccount.value?.isPayMember) || hasWPlusExpireDate(expireAt)
+
+  if (!isPayMember && !expireAt) {
+    return null
+  }
+
+  return {
+    isPayMember,
+    expireAt,
+    raw: currentAccount.value
+  }
+})
+
 const wplusStatusText = computed(() => {
   if (wplusProfileLoading.value) {
     return '检测中'
@@ -247,6 +263,26 @@ const wplusStatusHint = computed(() => {
   }
 
   return wplusProfile.value?.isPayMember ? '权益待刷新' : '可激活兑换'
+})
+
+const wplusStatusTextSafe = computed(() => {
+  if (wplusProfileLoading.value && !wplusStatusProfile.value) {
+    return '检测中'
+  }
+
+  if (!wplusStatusProfile.value) {
+    return '未检测'
+  }
+
+  return wplusStatusProfile.value.isPayMember ? '已开通' : '未开通'
+})
+
+const wplusStatusHintSafe = computed(() => {
+  if (wplusStatusProfile.value?.expireAt) {
+    return `到期 ${wplusStatusProfile.value.expireAt}`
+  }
+
+  return wplusStatusProfile.value?.isPayMember ? '权益待刷新' : '可激活兑换'
 })
 
 const wplusEmptyDescription = computed(() => {
@@ -326,6 +362,11 @@ function withUserIdentifier(account: typeof currentAccount.value) {
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback
+}
+
+function hasWPlusExpireDate(value: string | null | undefined) {
+  const text = String(value || '').trim()
+  return /(\d{4})[-./年](\d{1,2})[-./月](\d{1,2})|\b\d{8}\b/.test(text)
 }
 
 function isNonWPlusMessage(message: string) {
@@ -1100,8 +1141,8 @@ onMounted(() => {
         </article>
         <article class="member-summary-card">
           <span>W+状态</span>
-          <strong>{{ wplusStatusText }}</strong>
-          <em>{{ wplusStatusHint }}</em>
+          <strong>{{ wplusStatusTextSafe }}</strong>
+          <em>{{ wplusStatusHintSafe }}</em>
         </article>
       </section>
 

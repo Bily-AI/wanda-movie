@@ -434,7 +434,7 @@ async function confirmImportAccounts(): Promise<void> {
               <em>{{ formatLoginDate(account) }}</em>
             </span>
             <span class="row-meta">
-              <strong>{{ formatAccountNumber(account.pointsBalance) }}</strong>
+              <strong>{{ account.remark || '-' }}</strong>
               <em>{{ account.isPayMember ? 'W+' : account.statusText || '-' }}</em>
             </span>
           </button>

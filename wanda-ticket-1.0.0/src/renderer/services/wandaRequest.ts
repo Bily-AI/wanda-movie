@@ -29,6 +29,7 @@ export interface WandaPostOptions {
   useProxy?: boolean
   signatureBody?: string
   contentType?: string
+  useMergePaymentHeaders?: boolean
 }
 
 export interface WandaRequestOptions {
@@ -216,6 +217,56 @@ export function buildWandaHeaders(
   }
 
   return headers
+}
+
+export function buildMergePaymentHeaders(
+  path: string,
+  signatureBody: string,
+  ck = '',
+  userIdentifier = ''
+): Record<string, string> {
+  const timestamp = Date.now()
+  const { signSalt, model, shumeiBoxId } = getWandaRuntimeConfig()
+  const ryUser = getDefaultWandaUserId() || userIdentifier.trim()
+  const width = getRuntimeNumberParam('width', 1080)
+  const height = getRuntimeNumberParam('height', 2206)
+  const check = CryptoJS.MD5(`${signSalt}${timestamp}${path}${signatureBody}`).toString()
+  const mxApi = {
+    systemVersion: WANDA_SYSTEM_VERSION,
+    height,
+    'Accept-Encoding': 'gzip, deflate',
+    ts: timestamp,
+    ver: WANDA_VERSION,
+    _mi_: ck,
+    json: true,
+    appId: 2,
+    cCode: WANDA_CHANNEL,
+    check,
+    model,
+    sCode: 'Wanda',
+    width,
+    ShumeiBoxId: shumeiBoxId
+  }
+
+  return {
+    'MX-API': JSON.stringify(mxApi),
+    'X-RY-SIGN': check,
+    'X-RY-USER': ryUser,
+    Host: WANDA_HOSTS.GATEWAY,
+    'X-RY-CHECK': check,
+    'X-RY-MODEL': model,
+    'X-RY-TOKEN': ck,
+    ShumeiBoxId: shumeiBoxId,
+    'X-RY-SYSTEM-VER': WANDA_SYSTEM_VERSION,
+    'X-RY-VERSION': WANDA_VERSION,
+    'Accept-Charset': 'UTF-8,*',
+    'X-RY-CHANNEL': WANDA_CHANNEL,
+    'X-RY-TIMESTAMP': String(timestamp),
+    'Content-Type': 'application/x-www-form-urlencoded',
+    Connection: 'Keep-Alive',
+    'Accept-Encoding': 'gzip',
+    'User-Agent': WANDA_USER_AGENT
+  }
 }
 
 function buildWandaSignInHeaders(path: string, signatureBody: string, body: string, ck = ''): Record<string, string> {
@@ -516,8 +567,11 @@ export async function wandaPostForm<T>(
 ): Promise<WandaApiResponse<T>> {
   const url = buildWandaUrl(host, path)
   const signatureBody = options.signatureBody ?? formBody
+  const baseHeaders = options.useMergePaymentHeaders
+    ? buildMergePaymentHeaders(path, signatureBody, ck, userIdentifier)
+    : buildWandaHeaders(path, signatureBody, ck, userIdentifier)
   const headers: Record<string, string> = {
-    ...buildWandaHeaders(path, signatureBody, ck, userIdentifier),
+    ...baseHeaders,
     Host: host,
     'Content-Length': String(new TextEncoder().encode(formBody).length)
   }

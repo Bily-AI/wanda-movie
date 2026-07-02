@@ -90,12 +90,6 @@ const pagedLogs = computed(() => {
   return filteredLogs.value.slice(startIndex, startIndex + PAGE_SIZE)
 })
 
-const todayLogCount = computed(() => logsStore.records.filter((row) => isTodayLog(row.time)).length)
-
-const accountCount = computed(() => new Set(logsStore.records.map((row) => row.account).filter(Boolean)).size)
-
-const latestLogTime = computed(() => logsStore.records[0]?.time || '-')
-
 watch([logType, keyword, dateRange], () => {
   currentPage.value = 1
 })
@@ -106,26 +100,6 @@ function getTypeLabel(type: string): string {
 
 function getTypeTag(type: string): '' | 'success' | 'warning' | 'info' | 'danger' | 'primary' {
   return typeTagMap[type] || 'info'
-}
-
-function parseLogTime(time: string): Date | null {
-  const parsed = new Date(time.replace(/-/g, '/'))
-  return Number.isFinite(parsed.getTime()) ? parsed : null
-}
-
-function isTodayLog(time: string): boolean {
-  const parsed = parseLogTime(time)
-
-  if (!parsed) {
-    return false
-  }
-
-  const today = new Date()
-  return (
-    parsed.getFullYear() === today.getFullYear() &&
-    parsed.getMonth() === today.getMonth() &&
-    parsed.getDate() === today.getDate()
-  )
 }
 
 async function handleClearLogs() {
@@ -145,29 +119,6 @@ async function handleClearLogs() {
 
 <template>
   <section class="log-page">
-    <section class="log-summary-grid" aria-label="日志摘要">
-      <article class="log-summary-card log-summary-card--blue">
-        <span>日志总数</span>
-        <strong>{{ logsStore.records.length }}</strong>
-        <em>当前筛选 {{ filteredLogs.length }} 条</em>
-      </article>
-      <article class="log-summary-card log-summary-card--green">
-        <span>今日日志</span>
-        <strong>{{ todayLogCount }}</strong>
-        <em>最近 {{ latestLogTime }}</em>
-      </article>
-      <article class="log-summary-card log-summary-card--amber">
-        <span>关联账号</span>
-        <strong>{{ accountCount }}</strong>
-        <em>按账号/详情可搜索</em>
-      </article>
-      <article class="log-summary-card">
-        <span>当前页</span>
-        <strong>{{ currentPage }}</strong>
-        <em>每页 {{ PAGE_SIZE }} 条</em>
-      </article>
-    </section>
-
     <section class="log-filter-panel panel">
       <div class="filter-bar">
         <el-select v-model="logType" placeholder="日志类型" clearable class="log-type-select">
@@ -258,66 +209,11 @@ async function handleClearLogs() {
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-rows: 100px auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
   padding: 14px;
   overflow: hidden;
   background: var(--bg-page, var(--app-bg));
-}
-
-.log-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  min-width: 0;
-}
-
-.log-summary-card {
-  min-width: 0;
-  height: 100px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 7px;
-  padding: 14px 16px;
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: var(--bg-primary, var(--app-surface));
-  box-shadow: var(--shadow-panel);
-}
-
-.log-summary-card span,
-.log-summary-card em {
-  overflow: hidden;
-  color: var(--text-secondary, var(--app-muted));
-  font-size: 13px;
-  font-style: normal;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.log-summary-card strong {
-  overflow: hidden;
-  color: var(--text-primary, var(--app-text));
-  font-size: 22px;
-  line-height: 1.18;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.log-summary-card--blue {
-  border-color: var(--summary-blue-border);
-  background: var(--summary-blue-bg);
-}
-
-.log-summary-card--green {
-  border-color: var(--summary-green-border);
-  background: var(--summary-green-bg);
-}
-
-.log-summary-card--amber {
-  border-color: var(--summary-amber-border);
-  background: var(--summary-amber-bg);
 }
 
 .panel {
@@ -439,12 +335,8 @@ async function handleClearLogs() {
 }
 
 @media (max-width: 1360px) {
-  .log-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .log-page {
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .log-filter-panel {
@@ -457,10 +349,6 @@ async function handleClearLogs() {
 }
 
 @media (max-width: 880px) {
-  .log-summary-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .filter-bar,
   .filter-actions,
   .log-type-select,
@@ -479,15 +367,6 @@ async function handleClearLogs() {
   .log-page {
     gap: 10px;
     padding: 12px;
-  }
-
-  .log-summary-card {
-    height: 88px;
-    padding: 12px 14px;
-  }
-
-  .log-summary-card strong {
-    font-size: 20px;
   }
 }
 </style>

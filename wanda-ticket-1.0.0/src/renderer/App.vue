@@ -18,6 +18,7 @@ import {
 
 import { useAppStore } from './stores/app'
 import { useAccountsStore } from './stores/accounts'
+import { useLogsStore } from './stores/logs'
 import { useSettingsStore } from './stores/settings'
 import { useTicketStore } from './stores/ticket'
 import AccountSidebar from './components/AccountSidebar.vue'
@@ -26,12 +27,14 @@ import type { AutoOrderTicketRequest, AutoOrderTicketResult } from '@shared/ipc'
 
 const appStore = useAppStore()
 const accountsStore = useAccountsStore()
+const logsStore = useLogsStore()
 const settingsStore = useSettingsStore()
 const ticketStore = useTicketStore()
 const route = useRoute()
 const router = useRouter()
 
 const version = computed(() => appStore.version)
+const workspaceViewKey = computed(() => `${route.fullPath}:${accountsStore.currentAccountId || 'no-account'}`)
 let localDataLoaded = false
 let settingsSaveTimer: ReturnType<typeof setTimeout> | undefined
 let stopAutoOrderListener: (() => void) | undefined
@@ -63,6 +66,7 @@ onMounted(async () => {
   await Promise.all([
     appStore.initialize(),
     accountsStore.loadAccounts(),
+    logsStore.loadLogs(),
     settingsStore.loadSettings(),
     ticketStore.loadCityData()
   ])
@@ -281,7 +285,7 @@ function registerAutoOrderListener(): void {
       <div class="workspace-layout">
         <AccountSidebar />
         <section class="workspace-content">
-          <router-view />
+          <router-view :key="workspaceViewKey" />
         </section>
       </div>
     </main>
@@ -473,7 +477,7 @@ function registerAutoOrderListener(): void {
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-columns: 340px minmax(0, 1fr);
+  grid-template-columns: 320px minmax(0, 1fr);
   gap: 12px;
 }
 

@@ -408,7 +408,7 @@ function normalizeStoredCardBalanceInfo(item: unknown): StoredCardBalanceInfo | 
   return {
     balance,
     presentBalance,
-    totalBalance: Number((balance + presentBalance).toFixed(2)),
+    totalBalance: balance,
     raw: item
   }
 }
@@ -583,32 +583,34 @@ function normalizeSignInDay(item: unknown): MemberSignInDay {
 function normalizeWPlusProfile(data: Record<string, unknown>, raw: unknown): MemberWPlusProfile {
   const result = asRecord(data.res)
   const member = asRecord(data.member ?? result.member)
+  const expireAt = firstText(
+    data.plusEndDate,
+    data.expireAt,
+    data.expireTime,
+    data.endTime,
+    data.deadline,
+    data.payMemberStr,
+    data.validityDateShowMsg,
+    data.memberExpireTime,
+    data.plusExpireTime,
+    data.payMemberExpireTime,
+    result.plusEndDate,
+    result.expireAt,
+    result.expireTime,
+    result.endTime,
+    result.deadline,
+    result.payMemberStr,
+    member.plusEndDate,
+    member.expireAt,
+    member.expireTime,
+    member.endTime,
+    member.payMemberStr
+  )
+  const hasExpireDate = /(\d{4})[./-年](\d{1,2})[./-月](\d{1,2})|\b\d{8}\b/.test(expireAt)
 
   return {
-    isPayMember: toBoolean(data.isPayMember),
-    expireAt: firstText(
-      data.plusEndDate,
-      data.expireAt,
-      data.expireTime,
-      data.endTime,
-      data.deadline,
-      data.payMemberStr,
-      data.validityDateShowMsg,
-      data.memberExpireTime,
-      data.plusExpireTime,
-      data.payMemberExpireTime,
-      result.plusEndDate,
-      result.expireAt,
-      result.expireTime,
-      result.endTime,
-      result.deadline,
-      result.payMemberStr,
-      member.plusEndDate,
-      member.expireAt,
-      member.expireTime,
-      member.endTime,
-      member.payMemberStr
-    ),
+    isPayMember: toBoolean(data.isPayMember ?? result.isPayMember ?? member.isPayMember) || hasExpireDate,
+    expireAt,
     raw
   }
 }

@@ -1067,7 +1067,7 @@ export async function submitTicketPayment(
     formBody,
     ck,
     userIdentifier,
-    { signatureBody }
+    { signatureBody, useMergePaymentHeaders: true }
   )
   const record = asRecord(response)
   const code = maybeBizCode(record.code)

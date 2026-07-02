@@ -1,6 +1,28 @@
 import { defineStore } from 'pinia'
 
+import { DEFAULT_LOCAL_DATA, type LogRecord, type LogsLocalData } from '@shared/localData'
+
 export type LogDateRange = [Date, Date] | []
+
+function getWandaApp() {
+  if (typeof window === 'undefined') {
+    return undefined
+  }
+
+  return window.wandaApp
+}
+
+function toPlainLogsData(data: LogsLocalData): LogsLocalData {
+  return structuredClone({
+    records: data.records.map((record) => ({
+      id: String(record.id || ''),
+      time: String(record.time || ''),
+      type: String(record.type || ''),
+      account: String(record.account || ''),
+      detail: String(record.detail || '')
+    }))
+  })
+}
 
 export const useLogsStore = defineStore('logs', {
   state: () => ({
@@ -9,13 +31,7 @@ export const useLogsStore = defineStore('logs', {
       keyword: '',
       dateRange: [] as LogDateRange
     },
-    records: [] as Array<{
-      id: string
-      time: string
-      type: string
-      account: string
-      detail: string
-    }>
+    records: [] as LogRecord[]
   }),
   getters: {
     recordCount(state) {
@@ -55,6 +71,41 @@ export const useLogsStore = defineStore('logs', {
     }
   },
   actions: {
+    async loadLogs() {
+      const wandaApp = getWandaApp()
+
+      if (!wandaApp) {
+        this.records = structuredClone(DEFAULT_LOCAL_DATA.logs.records)
+        return
+      }
+
+      const result = await wandaApp.readLocalData('logs')
+
+      if (!result?.ok) {
+        this.records = structuredClone(DEFAULT_LOCAL_DATA.logs.records)
+        return
+      }
+
+      this.records = toPlainLogsData(result.data).records
+    },
+    async saveLogs() {
+      const wandaApp = getWandaApp()
+
+      if (!wandaApp) {
+        return
+      }
+
+      const result = await wandaApp.writeLocalData(
+        'logs',
+        toPlainLogsData({
+          records: this.records
+        })
+      )
+
+      if (!result?.ok) {
+        throw new Error(result?.error || '日志保存失败')
+      }
+    },
     addLog(type: string, account: string, detail: string) {
       this.records.unshift({
         id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -63,6 +114,7 @@ export const useLogsStore = defineStore('logs', {
         account: this.maskAccount(account),
         detail
       })
+      void this.saveLogs()
     },
     maskAccount(account: string) {
       if (account.length < 7) {
@@ -78,6 +130,7 @@ export const useLogsStore = defineStore('logs', {
     },
     clearRecords() {
       this.records = []
+      void this.saveLogs()
     }
   }
 })

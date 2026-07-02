@@ -1240,6 +1240,10 @@ watch(
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .gifts-panel {
+    min-height: 300px;
+  }
+
   .order-panel {
     min-height: 300px;
   }

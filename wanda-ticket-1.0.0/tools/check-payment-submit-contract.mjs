@@ -154,6 +154,7 @@ for (const label of [
   'cartSnackInfo=%5b%5d',
   'cartSnackInfo=%5B%5D',
   'requestInfo=',
+  'JSON.stringify(request.requestInfo)',
   'normalizedRequestInfoJson',
   'encodeURIComponent(normalizedRequestInfoJson)',
   'escapeRequestInfoForSignature(normalizedRequestInfoJson)',
@@ -176,12 +177,21 @@ for (const label of [
   assertIncludes('src/renderer/services/seatApi.ts', seatApi, label)
 }
 
-assertMatches(
+const requestInfoEscapeBlock = sliceRequired(
   'src/renderer/services/seatApi.ts',
   seatApi,
-  /escapeRequestInfoForSignature\([\s\S]*?replaceAll\('\\\\\\\\u003d', '\\\\u003d'\)[\s\S]*?escape/,
-  'requestInfo 签名转义必须沿用旧包逻辑'
+  'function escapeRequestInfoForSignature',
+  'function normalizePaymentSubmitResult',
+  'requestInfo 签名转义'
 )
+
+for (const label of ["' ()-@*.=&'", 'codePoint.toString(16)', "padStart(4, '0')"]) {
+  assertIncludes('src/renderer/services/seatApi.ts', requestInfoEscapeBlock, label)
+}
+
+for (const label of ["'@*_+-./'", '.toUpperCase()', "padStart(2, '0')"]) {
+  assertNotIncludes('src/renderer/services/seatApi.ts', requestInfoEscapeBlock, label)
+}
 
 assertOrdered(
   'src/renderer/services/seatApi.ts',
@@ -316,11 +326,19 @@ assertBlockContains(
 
 assertNotIncludes('src/renderer/views/TicketView.vue', ticketView, '@click="ticketStore.checkCurrentOrderBeforePayment"')
 
-assertIncludes(
+const mergePaymentHeadersBlock = sliceRequired(
   'src/renderer/services/wandaRequest.ts',
   wandaRequest,
-  "const ryUser = userIdentifier.trim() || getDefaultWandaUserId()",
-  'X-RY-USER 必须优先使用当前账号 userIdentifier'
+  'export function buildMergePaymentHeaders',
+  'function buildWandaSignInHeaders',
+  'buildMergePaymentHeaders'
+)
+
+assertIncludes(
+  'src/renderer/services/wandaRequest.ts',
+  mergePaymentHeadersBlock,
+  "const ryUser = getDefaultWandaUserId() || userIdentifier.trim()",
+  'merge_payment X-RY-USER 必须对齐旧包优先使用设备 userId'
 )
 
 for (const [file, content] of [

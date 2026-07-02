@@ -264,6 +264,40 @@ function yuanToCents(value: unknown): number {
   return Math.max(0, Math.round(toNumber(value) * 100))
 }
 
+function resolveActivityPaymentAmounts(activity: PaymentActivity | undefined, seatTotalPrice = 0) {
+  if (!activity) {
+    return {
+      externalPriceCent: 0,
+      cardPriceCent: 0
+    }
+  }
+
+  const externalPriceCent = yuanToCents(activity.price)
+  let cardPriceCent = yuanToCents(activity.channelPrice)
+
+  if (cardPriceCent <= 0) {
+    const allotSeatRecord = asRecord(activity.allotSeat)
+    const totalPayPrice = Math.max(0, Math.round(toNumber(allotSeatRecord.totalPayPrice)))
+
+    if (totalPayPrice > 0) {
+      cardPriceCent = totalPayPrice
+    } else {
+      cardPriceCent = asList(allotSeatRecord.itemList).reduce<number>((sum, item) => {
+        return sum + Math.max(0, Math.round(toNumber(asRecord(item).payPrice)))
+      }, 0)
+    }
+  }
+
+  if (cardPriceCent <= 0 && seatTotalPrice > 0) {
+    cardPriceCent = Math.max(0, seatTotalPrice - externalPriceCent)
+  }
+
+  return {
+    externalPriceCent,
+    cardPriceCent
+  }
+}
+
 function normalizeKeyword(value: string): string {
   return value.trim().toLowerCase()
 }
@@ -837,25 +871,22 @@ export const useTicketStore = defineStore('ticket', {
         ? state.paymentActivities.find((activity) => activity.code === state.paymentActivity)
         : undefined
 
-      let payablePrice = selectedActivity ? yuanToCents(selectedActivity.price) : seatTotal
+      const { externalPriceCent, cardPriceCent } = resolveActivityPaymentAmounts(selectedActivity, seatTotal)
+      let remainingCardPrice = selectedActivity ? cardPriceCent : seatTotal
 
       if (state.selectedPaymentCards.length > 0) {
-        let remainingPrice = payablePrice
-
         for (const cardNo of state.selectedPaymentCards) {
-          if (remainingPrice <= 0) {
+          if (remainingCardPrice <= 0) {
             break
           }
 
           const card = state.paymentCards.find((item) => item.cardNo === cardNo)
-          const paymentPrice = Math.min(yuanToCents(card?.balance), remainingPrice)
-          remainingPrice -= Math.max(0, paymentPrice)
+          const paymentPrice = Math.min(yuanToCents(card?.balance), remainingCardPrice)
+          remainingCardPrice -= Math.max(0, paymentPrice)
         }
-
-        payablePrice = remainingPrice
       }
 
-      return Math.max(0, payablePrice)
+      return Math.max(0, selectedActivity ? externalPriceCent + remainingCardPrice : remainingCardPrice)
     },
     selectedSeatPreviewDiscountPriceCent(): number {
       return Math.max(0, this.selectedSeatTotalPriceCent - this.selectedSeatPreviewPayablePriceCent)
@@ -1349,21 +1380,21 @@ export const useTicketStore = defineStore('ticket', {
       const isCouponPayment = Boolean(couponPaymentInfo)
       const primaryCard = selectedCards[0]
       const seatTotalPrice = Math.max(0, currentOrder.amountCent)
-      const payablePrice = couponPaymentInfo
+      const couponPayablePrice = couponPaymentInfo
         ? couponPaymentInfo.useResult.itemList.reduce((sum, item) => sum + item.actuallyPaidAmount, 0)
-        : selectedActivity
-          ? yuanToCents(selectedActivity.price)
-          : seatTotalPrice
-      let remainingPrice = payablePrice
+        : 0
+      const { externalPriceCent, cardPriceCent } = resolveActivityPaymentAmounts(selectedActivity, seatTotalPrice)
+      const activityCardPrice = selectedActivity ? cardPriceCent : seatTotalPrice
+      let remainingCardPrice = isCouponPayment ? 0 : activityCardPrice
       const storedCardPayments: TicketStoredCardPayment[] = []
 
       for (const card of isCouponPayment ? [] : selectedCards) {
-        if (remainingPrice <= 0) {
+        if (remainingCardPrice <= 0) {
           break
         }
 
         const cardBalance = yuanToCents(card.balance)
-        const paymentPrice = Math.min(cardBalance, remainingPrice)
+        const paymentPrice = Math.min(cardBalance, remainingCardPrice)
 
         if (paymentPrice <= 0) {
           continue
@@ -1376,28 +1407,61 @@ export const useTicketStore = defineStore('ticket', {
           ticketType: card.cardTypeCode,
           ticketTypeName: card.cardTypeName
         })
-        remainingPrice -= paymentPrice
+        remainingCardPrice -= paymentPrice
       }
+
+      const externalPaymentPrice = couponPaymentInfo
+        ? couponPayablePrice
+        : selectedActivity
+          ? externalPriceCent + remainingCardPrice
+          : remainingCardPrice
+      const discountPrice = couponPaymentInfo
+        ? Math.max(0, seatTotalPrice - couponPayablePrice)
+        : selectedActivity
+          ? Math.max(0, seatTotalPrice - (externalPriceCent + activityCardPrice))
+          : 0
 
       const requestInfo: BuiltTicketPaymentRequestInfo = {
         contextId: '',
         currentPrice: 0,
         externalPayment: {
           paySdkId: 1057,
-          paymentPrice: Math.max(0, remainingPrice),
+          paymentPrice: Math.max(0, externalPaymentPrice),
           paymentType: 1057,
           returnUrl: 'wandafilm/pay/finished'
         },
         goodInfo: '',
-        orderId: String(currentOrder.orderId),
-        verifyCode: ''
+        orderId: String(currentOrder.orderId)
       }
 
       if (couponPaymentInfo) {
         requestInfo.ticketVoucher = {
-          discountPrice: Math.max(0, seatTotalPrice - payablePrice),
+          discountPrice,
           voucher: couponPaymentInfo.selection.voucher
         }
+      }
+
+      if (!isCouponPayment && selectedActivity && primaryCard) {
+        requestInfo.activity = {
+          allotJson: selectedActivity.allotSeatRaw || '{}',
+          card: {
+            cardNumber: primaryCard.cardNo,
+            quantity: 0
+          },
+          discountPrice,
+          integral: 0,
+          ticketType: selectedActivity.code,
+          ticketTypeName: primaryCard.cardTypeName,
+          type: selectedActivity.detailType
+        }
+      }
+
+      if (storedCardPayments.length > 0) {
+        requestInfo.cardPayment = storedCardPayments[0]
+        requestInfo.storedCardPayments = storedCardPayments
+      }
+
+      if (couponPaymentInfo) {
         requestInfo.couponPaymentList = couponPaymentInfo.useResult.itemList.map((item) => ({
           actuallyPaidAmount: item.payPrice ?? item.actuallyPaidAmount,
           rightsCode: '',
@@ -1408,24 +1472,7 @@ export const useTicketStore = defineStore('ticket', {
         }))
       }
 
-      if (!isCouponPayment && selectedActivity && primaryCard) {
-        requestInfo.activity = {
-          allotJson: selectedActivity.allotSeatRaw || '{}',
-          card: {
-            cardNumber: primaryCard.cardNo,
-            quantity: 0
-          },
-          discountPrice: Math.max(0, seatTotalPrice - payablePrice),
-          integral: 0,
-          ticketType: selectedActivity.code,
-          ticketTypeName: primaryCard.cardTypeName,
-          type: selectedActivity.detailType
-        }
-      }
-
-      if (storedCardPayments.length > 0) {
-        requestInfo.storedCardPayments = storedCardPayments
-      }
+      Object.assign(requestInfo, { verifyCode: '' })
 
       return requestInfo
     },
