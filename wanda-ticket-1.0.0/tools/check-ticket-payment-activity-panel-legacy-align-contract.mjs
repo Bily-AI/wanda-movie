@@ -8,7 +8,7 @@ const source = fs.readFileSync(path.join(root, file), 'utf8').replace(/\r\n/g, '
 
 for (const marker of [
   "const lastSelectedActivity = ref('')",
-  'const activityEnabled = computed(() =>',
+  'const activityEnabled = computed(',
   '<header class="side-panel-header',
   '<el-switch',
   '@change="handleActivityEnabledChange"',
