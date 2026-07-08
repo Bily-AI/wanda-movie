@@ -308,20 +308,19 @@ for (const label of [
   'payInfoDialogVisible',
   'getPayInfoValue(ticketStore.currentOrderPayInfo)',
   'collectPayInfoFields',
-  'handleShowPaymentInfo',
   '支付参数',
   'payment-info-dialog'
 ]) {
   assertIncludes('src/renderer/views/TicketView.vue', ticketView, label)
 }
 
-assertBlockContains(
+// 对齐旧版：支付参数弹窗不再走手动“支付参数”按钮，而是取到支付信息后自动弹出
+assertNotIncludes('src/renderer/views/TicketView.vue', ticketView, 'handleShowPaymentInfo')
+assertMatches(
   'src/renderer/views/TicketView.vue',
   ticketView,
-  '<el-button',
-  '</el-button>',
-  ['handleShowPaymentInfo', 'payInfoFields.length === 0', '支付参数'],
-  '外部支付参数必须有手动查看入口'
+  /\(\)\s*=>\s*ticketStore\.currentOrderPayInfo[\s\S]*?payInfoDialogVisible\.value = true/,
+  '外部支付参数必须在取到支付信息后自动弹出'
 )
 
 assertNotIncludes('src/renderer/views/TicketView.vue', ticketView, '@click="ticketStore.checkCurrentOrderBeforePayment"')
