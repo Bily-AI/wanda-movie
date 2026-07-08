@@ -507,6 +507,35 @@ function rewriteCouponVoucher(value: unknown): unknown {
   return value
 }
 
+function extractAllotPayableCent(value: unknown): number {
+  const record = asRecord(value)
+  const total = Math.max(0, Math.round(toNumber(record.totalPayPrice)))
+
+  if (total > 0) {
+    return total
+  }
+
+  const items = asList(record.dtItemList ?? record.itemList)
+
+  if (items.length === 0) {
+    // 有 totalPayPrice 字段（哪怕为 0，代表全额抵扣）才认为可用，否则回退
+    return 'totalPayPrice' in record ? total : -1
+  }
+
+  return items.reduce<number>((sum, item) => {
+    const itemRecord = asRecord(item)
+    return sum + Math.max(0, Math.round(toNumber(itemRecord.payPrice ?? itemRecord.actuallyPaidAmount ?? itemRecord.actualPaidAmount)))
+  }, 0)
+}
+
+function parseCouponAllotPayableCent(allotSeat: string): number {
+  try {
+    return extractAllotPayableCent(JSON.parse(allotSeat))
+  } catch {
+    return -1
+  }
+}
+
 function normalizeCouponSelectionResult(payload: Record<string, unknown>): CouponSelectionResult {
   const res = asRecord(payload.res)
   const allotSeat = firstText(res.allotseat, res.allotSeat, payload.allotseat, payload.allotSeat)
@@ -518,6 +547,7 @@ function normalizeCouponSelectionResult(payload: Record<string, unknown>): Coupo
   return {
     allotSeat,
     voucher: normalizeCouponVoucher(allotSeat),
+    payablePriceCent: parseCouponAllotPayableCent(allotSeat),
     raw: payload
   }
 }

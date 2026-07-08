@@ -218,6 +218,8 @@ export interface CouponItem {
 export interface CouponSelectionResult {
   allotSeat: string
   voucher: string
+  /** 券分摊后真实应付总额（单位：分）；无法解析时为 -1 */
+  payablePriceCent: number
   raw: unknown
 }
 

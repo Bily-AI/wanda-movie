@@ -789,6 +789,9 @@ export const useTicketStore = defineStore('ticket', {
     paymentActivity: '',
     selectedPaymentCards: [] as string[],
     selectedCoupons: [] as string[],
+    couponPreviewPayableCent: -1,
+    couponPreviewLoading: false,
+    couponPreviewSerial: 0,
     loadingPaymentData: false,
     paymentRequestSerial: 0,
     paymentCheckSerial: 0,
@@ -873,6 +876,11 @@ export const useTicketStore = defineStore('ticket', {
       }
 
       if (state.selectedCoupons.length > 0) {
+        // 优先使用券分摊接口返回的真实应付价；接口未就绪/失败时回退到本地按面额估算
+        if (state.couponPreviewPayableCent >= 0) {
+          return Math.min(seatTotal, Math.max(0, state.couponPreviewPayableCent))
+        }
+
         return Math.max(0, seatTotal - this.selectedSeatSelectedCouponAmountCent)
       }
 
@@ -1064,6 +1072,9 @@ export const useTicketStore = defineStore('ticket', {
       this.paymentActivity = ''
       this.selectedPaymentCards = []
       this.selectedCoupons = []
+      ++this.couponPreviewSerial
+      this.couponPreviewPayableCent = -1
+      this.couponPreviewLoading = false
       this.paymentSubmitResult = null
       this.paymentDataMessage = ''
       this.paymentPrerequisiteError = ''
@@ -1335,6 +1346,56 @@ export const useTicketStore = defineStore('ticket', {
           useAccountsStore().currentAccount?.id === accountId
         ) {
           this.checkingPayment = false
+        }
+      }
+    },
+    async refreshSelectedCouponPreview(): Promise<void> {
+      const account = useAccountsStore().currentAccount
+      const currentOrder = this.currentOrder
+
+      const selectedCoupons = this.selectedCoupons
+        .map((couponCode) => this.coupons.find((coupon) => coupon.code === couponCode || coupon.couponNo === couponCode))
+        .filter((coupon): coupon is CouponItem => Boolean(coupon))
+
+      // 无券 / 缺少下单账号或订单上下文时，清空预览，让预览价回退到本地估算
+      if (selectedCoupons.length === 0 || !currentOrder || !account?.ck || currentOrder.accountId !== account.id) {
+        ++this.couponPreviewSerial
+        this.couponPreviewPayableCent = -1
+        this.couponPreviewLoading = false
+        return
+      }
+
+      const userIdentifier = account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
+      const couponTypeCodes = selectedCoupons.map((coupon) => firstText(coupon.typeCode, coupon.code, coupon.couponNo))
+      const serial = ++this.couponPreviewSerial
+      this.couponPreviewLoading = true
+
+      try {
+        const selection = await selectCouponsForPayment(
+          currentOrder.seats,
+          currentOrder.cinemaId,
+          couponTypeCodes,
+          account.ck,
+          userIdentifier
+        )
+
+        if (serial !== this.couponPreviewSerial) {
+          return
+        }
+
+        this.couponPreviewPayableCent = selection.payablePriceCent
+      } catch (error) {
+        if (serial !== this.couponPreviewSerial) {
+          return
+        }
+
+        // 预览失败不阻塞下单，回退到本地估算
+        this.couponPreviewPayableCent = -1
+        const message = error instanceof Error && error.message ? error.message : '兑换券预览价格获取失败'
+        useLogsStore().addLog('支付前置', account.phone, `兑换券预览价格获取失败：${message}`)
+      } finally {
+        if (serial === this.couponPreviewSerial) {
+          this.couponPreviewLoading = false
         }
       }
     },

@@ -452,6 +452,11 @@ function handleSelectedSeatDiscountRateChange(value: string): void {
   ticketStore.setSelectedSeatDiscountRate(value)
 }
 
+function handleCouponSelectionChange(values: string[]): void {
+  ticketStore.selectedCoupons = values
+  void ticketStore.refreshSelectedCouponPreview()
+}
+
 async function handleRefreshTicketCode(): Promise<void> {
   await ticketStore.refreshTicketCode()
 
@@ -866,7 +871,7 @@ watch(
           :selected-values="ticketStore.selectedCoupons"
           :loading="ticketStore.loadingPaymentData"
           :seat-count="ticketStore.selectedSeatCount"
-          @update:selected-values="ticketStore.selectedCoupons = $event"
+          @update:selected-values="handleCouponSelectionChange"
         />
       </section>
 
