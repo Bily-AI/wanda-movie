@@ -58,8 +58,16 @@ const paymentResult = ref<PaymentDialogData | null>(null)
 let loadSerial = 0
 
 const cardRows = computed(() => cards.value)
+const availableCardCount = computed(() => cards.value.filter((card) => card.available).length)
+const unavailableCardCount = computed(() => Math.max(cards.value.length - availableCardCount.value, 0))
+const normalBalance = computed(
+  () => balanceInfo.value?.balance ?? cards.value.reduce((sum, card) => sum + card.balance, 0)
+)
+const presentBalance = computed(
+  () => balanceInfo.value?.presentBalance ?? cards.value.reduce((sum, card) => sum + card.presentBalance, 0)
+)
 const totalBalance = computed(() =>
-  balanceInfo.value?.totalBalance ?? cards.value.reduce((sum, card) => sum + card.balance, 0)
+  balanceInfo.value?.totalBalance ?? Number((normalBalance.value + presentBalance.value).toFixed(2))
 )
 const paymentResultText = computed(() => {
   if (!paymentResult.value) {
@@ -89,7 +97,7 @@ function isStoredCardDisabled(row: StoredCardRow): boolean {
 }
 
 function getStoredCardStatusTagType(row: StoredCardRow): 'success' | 'danger' {
-  return isStoredCardDisabled(row) ? 'danger' : 'success'
+  return row.available ? 'success' : 'danger'
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -509,6 +517,26 @@ watch(cardDisplayMode, (mode) => {
 
 <template>
   <section class="stored-card-page">
+    <section class="stored-card-summary-grid" aria-label="储值卡摘要">
+      <article class="stored-summary-card stored-summary-card--blue">
+        <span>储值卡</span>
+        <strong>{{ cardRows.length }}</strong>
+        <em>可用 {{ availableCardCount }} 张</em>
+      </article>
+      <article class="stored-summary-card stored-summary-card--green">
+        <span>总余额</span>
+        <strong>{{ formatMoney(totalBalance) }}</strong>
+      </article>
+      <article class="stored-summary-card">
+        <span>本金余额</span>
+        <strong>{{ formatMoney(normalBalance) }}</strong>
+      </article>
+      <article class="stored-summary-card stored-summary-card--amber">
+        <span>赠送余额</span>
+        <strong>{{ formatMoney(presentBalance) }}</strong>
+        <em>不可用 {{ unavailableCardCount }} 张</em>
+      </article>
+    </section>
     <section class="stored-card-action-panel panel">
       <div class="stored-card-action-left">
         <el-radio-group v-model="cardDisplayMode" class="stored-card-view-toggle" size="small">
@@ -727,11 +755,66 @@ watch(cardDisplayMode, (mode) => {
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: 100px auto minmax(0, 1fr);
   gap: 12px;
   padding: 14px;
   overflow: hidden;
   background: var(--bg-page, var(--app-bg));
+}
+
+.stored-card-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.stored-summary-card {
+  min-width: 0;
+  height: 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  padding: 14px 16px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-surface);
+  box-shadow: var(--shadow-panel);
+}
+
+.stored-summary-card span,
+.stored-summary-card em {
+  overflow: hidden;
+  color: var(--text-secondary, var(--app-muted));
+  font-size: 13px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stored-summary-card strong {
+  overflow: hidden;
+  color: var(--text-primary, var(--app-text));
+  font-size: 22px;
+  line-height: 1.18;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stored-summary-card--blue {
+  border-color: var(--summary-blue-border);
+  background: var(--summary-blue-bg);
+}
+
+.stored-summary-card--green {
+  border-color: var(--summary-green-border);
+  background: var(--summary-green-bg);
+}
+
+.stored-summary-card--amber {
+  border-color: var(--summary-amber-border);
+  background: var(--summary-amber-bg);
 }
 
 .panel {
@@ -971,21 +1054,34 @@ watch(cardDisplayMode, (mode) => {
 }
 
 @media (max-width: 1360px) {
+  .stored-card-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: 96px;
+  }
+
   .stored-card-page {
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
   }
 
   .stored-card-action-panel {
-    align-items: flex-start;
     flex-direction: column;
+    align-items: flex-start;
   }
 }
 
 @media (max-height: 720px) {
   .stored-card-page {
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: 88px auto minmax(0, 1fr);
     gap: 10px;
     padding: 12px;
+  }
+
+  .stored-summary-card {
+    height: 88px;
+  }
+
+  .stored-summary-card strong {
+    font-size: 20px;
   }
 }
 </style>

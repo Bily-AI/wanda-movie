@@ -227,7 +227,7 @@ export function buildMergePaymentHeaders(
 ): Record<string, string> {
   const timestamp = Date.now()
   const { signSalt, model, shumeiBoxId } = getWandaRuntimeConfig()
-  const ryUser = getDefaultWandaUserId() || userIdentifier.trim()
+  const ryUser = userIdentifier.trim() || getDefaultWandaUserId()
   const width = getRuntimeNumberParam('width', 1080)
   const height = getRuntimeNumberParam('height', 2206)
   const check = CryptoJS.MD5(`${signSalt}${timestamp}${path}${signatureBody}`).toString()

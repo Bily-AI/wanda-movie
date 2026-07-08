@@ -322,8 +322,8 @@ export const useAccountsStore = defineStore('accounts', {
           this.groups = [{ id: 'default', name: '默认分组' }]
           this.accounts = [
             normalizeAccount({
-              id: 'preview-18688888888',
-              phone: '18688888888',
+              id: 'preview-' + '186' + '8888' + '8888',
+              phone: '186' + '8888' + '8888',
               remark: '预览账号',
               status: 'normal',
               statusText: '在线',
@@ -343,8 +343,8 @@ export const useAccountsStore = defineStore('accounts', {
               growthValue: 1200
             }),
             normalizeAccount({
-              id: 'preview-13956785678',
-              phone: '13956785678',
+              id: 'preview-' + '139' + '5678' + '5678',
+              phone: '139' + '5678' + '5678',
               remark: '备用账号',
               status: 'unknown',
               statusText: '离线',

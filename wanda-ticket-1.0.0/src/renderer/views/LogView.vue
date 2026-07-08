@@ -377,4 +377,9 @@ async function handleClearLogs() {
   logsStore.filteredRecords
   logsStore.clearRecords
   @click="logsStore.clearRecords"
+  log-summary-grid
+  log-summary-card
+  todayLogCount
+  grid-template-rows: 100px auto minmax(0, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 -->

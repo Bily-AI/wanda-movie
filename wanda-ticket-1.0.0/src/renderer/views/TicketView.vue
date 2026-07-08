@@ -46,7 +46,12 @@ interface PaymentDisplayItem {
   key: string
   label: string
   value: string
+  priceText?: string
   meta?: string
+  cardNo?: string
+  balanceText?: string
+  typeText?: string
+  expiryText?: string
 }
 
 interface PayInfoDisplayField {
@@ -172,11 +177,14 @@ const paymentActivityOptions = computed<PaymentDisplayItem[]>(() =>
       return []
     }
 
+    const priceText = `￥${activity.price.toFixed(2)}`
+
     return [
       {
         key: `${value}-${index}`,
         label: activity.name || activity.note || value,
-        value
+        value,
+        priceText
       }
     ]
   })
@@ -195,7 +203,9 @@ const paymentCardItems = computed<PaymentDisplayItem[]>(() =>
         key: `${value}-${index}`,
         label: card.cardName || card.cardTypeName || value,
         value,
-        meta: `￥${card.balance.toFixed(2)}`
+        meta: `￥${card.balance.toFixed(2)}`,
+        cardNo: value,
+        balanceText: `￥${card.balance.toFixed(2)}`
       }
     ]
   })
@@ -262,6 +272,18 @@ function formatCouponExpiryMeta(...values: unknown[]): string {
   return ''
 }
 
+function buildCouponType(coupon: (typeof ticketStore.coupons)[number]): string {
+  const raw = asRecord(coupon.raw)
+  return firstText(
+    coupon.detailTypeName,
+    raw.detailTypeName,
+    raw.detailtypename,
+    coupon.couponTypeName,
+    raw.couponTypeName,
+    raw.typeName
+  ) || '代金券'
+}
+
 function buildCouponMeta(coupon: (typeof ticketStore.coupons)[number]): string {
   const raw = asRecord(coupon.raw)
   const expiryText = formatCouponExpiryMeta(
@@ -302,7 +324,16 @@ const couponItems = computed<PaymentDisplayItem[]>(() =>
         key: `${value}-${index}`,
         label: buildCouponLabel(coupon) || `兑换券 ${index + 1}`,
         value,
-        meta: buildCouponMeta(coupon) || '-'
+        meta: buildCouponMeta(coupon) || '-',
+        typeText: buildCouponType(coupon),
+        expiryText: formatCouponExpiryMeta(
+          coupon.validity,
+          asRecord(coupon.raw).validityDateShowMsg,
+          asRecord(coupon.raw).validity,
+          asRecord(coupon.raw).expireTime,
+          asRecord(coupon.raw).expireDate,
+          asRecord(coupon.raw).endTime
+        ) || '-'
       }
     ]
   })
@@ -429,15 +460,6 @@ async function handleRefreshTicketCode(): Promise<void> {
   } else {
     ElMessage.warning(ticketStore.currentOrderMessage || '订单尚未出票或取票码暂不可用')
   }
-}
-
-function handleShowPaymentInfo(): void {
-  if (payInfoFields.value.length === 0) {
-    ElMessage.warning('暂无可查看的支付参数')
-    return
-  }
-
-  payInfoDialogVisible.value = true
 }
 
 async function handleOpenTicketAlipayPayment(): Promise<void> {
@@ -608,6 +630,15 @@ watch(
       if (bestCard) {
         ElMessage.success(`已为你自动匹配最佳支付卡：${bestCard.cardName || bestCard.cardNo}`)
       }
+    }
+  }
+)
+
+watch(
+  () => hasTicketCodeData.value,
+  (hasData) => {
+    if (hasData) {
+      ticketCodeDialogVisible.value = true
     }
   }
 )
@@ -806,33 +837,6 @@ watch(
           </p>
           <p v-if="ticketStore.paymentDataMessage">{{ ticketStore.paymentDataMessage }}</p>
           <p v-if="ticketStore.currentOrderMessage">{{ ticketStore.currentOrderMessage }}</p>
-          <div class="order-summary-actions">
-            <el-button
-              size="small"
-              plain
-              :disabled="payInfoFields.length === 0"
-              @click="handleShowPaymentInfo"
-            >
-              支付参数
-            </el-button>
-            <el-popconfirm
-              title="确认取消当前真实订单？取消后需要重新选座下单。"
-              confirm-button-text="确认取消"
-              cancel-button-text="保留订单"
-              @confirm="ticketStore.cancelCurrentOrder"
-            >
-              <template #reference>
-                <el-button
-                  size="small"
-                  type="warning"
-                  :loading="ticketStore.orderCancelling"
-                  :disabled="ticketStore.orderCancelling || ticketStore.currentOrderFinalized"
-                >
-                  取消订单
-                </el-button>
-              </template>
-            </el-popconfirm>
-          </div>
         </div>
         <div v-else class="side-empty">{{ ticketStore.currentOrderMessage || '暂无订单' }}</div>
       </section>
@@ -842,6 +846,7 @@ watch(
           :activities="paymentActivityOptions"
           :selected-activity="ticketStore.paymentActivity"
           :loading="ticketStore.loadingPaymentData"
+          :active-price="formatCentAmount(ticketStore.selectedActivityPayablePriceCent)"
           @update:selected-activity="ticketStore.paymentActivity = $event"
         />
       </section>
@@ -1283,12 +1288,6 @@ watch(
   margin: 0 0 8px;
 }
 
-.order-summary-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 .payment-info-panel {
   max-height: 58vh;
   overflow: auto;
@@ -1512,4 +1511,39 @@ watch(
   @click="accountsStore.loginWandaAccount"
   @click="handleMoveSelectedToGroup"
   @click="handleImportAccounts"
+
+  @change="ticketStore.selectCity"
+  @change="ticketStore.loadCinemaShowtimes"
+  @change="ticketStore.selectMovie"
+  @change="ticketStore.selectDate"
+  @change="ticketStore.setShowtime"
+
+  .ticket-center {
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+  .seat-panel {
+    flex: 1 0 420px;
+    min-height: 420px;
+    overflow: hidden;
+  }
+  .seat-stage {
+    flex: 1;
+    min-height: 0;
+  }
+  .seat-scroll {
+    align-self: stretch;
+    justify-self: stretch;
+    overflow: auto;
+    scrollbar-gutter: stable both-edges;
+  }
+
+.ticket-context-column {
+  min-width: 0;
+  padding-right: 8px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
 -->

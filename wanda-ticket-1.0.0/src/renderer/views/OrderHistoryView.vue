@@ -93,10 +93,18 @@ function formatShowtimeRange(value: unknown, withSeconds = false): string {
     return ''
   }
 
-  const date = new Date(String(value))
+  let cleanValue = String(value).trim()
+  const numMatch = cleanValue.match(/^\d+/)
+  let date: Date
+
+  if (numMatch) {
+    date = new Date(Number(numMatch[0]))
+  } else {
+    date = new Date(cleanValue)
+  }
 
   if (Number.isNaN(date.getTime())) {
-    return ''
+    return cleanValue
   }
 
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -111,6 +119,35 @@ function formatShowtimeRange(value: unknown, withSeconds = false): string {
   }
 
   return `${month}月${day}日（周${weekDays[date.getDay()]}） ${hours}:${minutes}`
+}
+
+function formatDateTime(value: unknown): string {
+  if (!value) {
+    return '-'
+  }
+
+  let cleanValue = String(value).trim()
+  const numMatch = cleanValue.match(/^\d+/)
+  let date: Date
+
+  if (numMatch) {
+    date = new Date(Number(numMatch[0]))
+  } else {
+    date = new Date(cleanValue)
+  }
+
+  if (Number.isNaN(date.getTime())) {
+    return cleanValue
+  }
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
 }
 
 function maskedMobile(value: string): string {
@@ -161,7 +198,7 @@ function buildTicketDetail(order: OrderRecord, payInfo: OrderPayInfoResult, phon
   const data = asRecord(raw.data)
   const orderInfo = firstListRecord(data.orderInf)
   const subTicket = firstListRecord(orderInfo.subTicketOrderInfo)
-  const cinemaInfo = asRecord(subTicket.orderInf)
+  const cinemaInfo = asRecord(subTicket.subOrderBasicInfo ?? subTicket.orderInf ?? subTicket)
   const movie = firstListRecord(asRecord(cinemaInfo.movies).movie)
   const seatInfoList = asList(subTicket.seatInfo)
   const qrCodes = payInfo.qrCodes.length > 0 ? payInfo.qrCodes : [firstText(subTicket.electronicQR)].filter(Boolean)
@@ -171,9 +208,7 @@ function buildTicketDetail(order: OrderRecord, payInfo: OrderPayInfoResult, phon
     .filter(Boolean)
     .join('、')
 
-  const payStatus = toNumber(orderInfo.payStatus)
-
-  if (payStatus !== 3 || qrCodes.length === 0) {
+  if (qrCodes.length === 0 && ticketCodes.length === 0) {
     return null
   }
 
@@ -645,7 +680,7 @@ onBeforeUnmount(() => {
               <div class="order-primary-cell">
                 <strong class="order-primary-title">{{ row.movieName || '-' }}</strong>
                 <span class="order-primary-meta">{{ row.cinema || '-' }}</span>
-                <span class="order-primary-meta">{{ row.showtime || '-' }}</span>
+                <span class="order-primary-meta">{{ formatShowtimeRange(row.showtime) || '-' }}</span>
               </div>
             </template>
           </el-table-column>
@@ -664,7 +699,11 @@ onBeforeUnmount(() => {
             </template>
           </el-table-column>
 
-          <el-table-column prop="createdAt" label="创建时间" width="160" />
+          <el-table-column prop="createdAt" label="创建时间" width="160">
+            <template #default="{ row }">
+              {{ formatDateTime(row.createdAt) }}
+            </template>
+          </el-table-column>
 
           <el-table-column label="操作" width="190" align="right" fixed="right">
             <template #default="{ row }">

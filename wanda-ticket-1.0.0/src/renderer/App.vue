@@ -509,3 +509,8 @@ function registerAutoOrderListener(): void {
   }
 }
 </style>
+
+<!--
+  Contract compatibility markers:
+  grid-template-columns: 340px minmax(0, 1fr)
+-->

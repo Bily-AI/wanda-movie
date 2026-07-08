@@ -408,7 +408,7 @@ function getOrderStatus(
 function normalizeOrderRecord(item: unknown, phone: string): OrderRecord {
   const record = asRecord(item)
   const ticketInfo = asRecord(asList(record.subTicketOrderInfo)[0])
-  const cinemaInfo = asRecord(ticketInfo.orderInf)
+  const cinemaInfo = asRecord(ticketInfo.subOrderBasicInfo ?? ticketInfo.orderInf ?? ticketInfo)
   const movie = asRecord(asList(asRecord(cinemaInfo.movies).movie)[0])
   const statusText = firstText(record.showOrderStatusStr, record.statusText, record.statusName)
   const status = getOrderStatus(record.payStatus, record.showOrderStatus, statusText)
@@ -420,7 +420,7 @@ function normalizeOrderRecord(item: unknown, phone: string): OrderRecord {
     movieName: firstText(movie.name, movie.movieName, record.movieName),
     cinema: firstText(cinemaInfo.cinameName, cinemaInfo.cinemaName, record.cinemaName),
     showtime: firstText(movie.showTime, movie.showtime, record.showTime),
-    amount: centsToYuan(record.realPay ?? record.salesAmount ?? record.amount),
+    amount: centsToYuan(record.salesAmount ?? record.amount ?? record.realPay ?? 0),
     status,
     statusText: statusText || status,
     createdAt: firstText(record.createTime, record.createdAt, record.orderTime),

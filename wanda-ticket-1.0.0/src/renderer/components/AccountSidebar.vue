@@ -282,6 +282,19 @@ async function handleCopyPhone(): Promise<void> {
   }
 }
 
+async function handleCopyPhoneAndToken(): Promise<void> {
+  const account = contextMenuAccount.value
+  if (!account) return
+  contextMenuVisible.value = false
+  try {
+    const text = `${account.phone}---${account.ck || ''}`
+    await navigator.clipboard.writeText(text)
+    ElMessage.success('账号及Token已复制')
+  } catch {
+    ElMessage.error('复制失败')
+  }
+}
+
 async function handleCreateGroup(): Promise<void> {
   contextMenuVisible.value = false
   try {
@@ -596,6 +609,10 @@ async function confirmImportAccounts(): Promise<void> {
           <el-menu-item @click="handleCopyPhone">
             <el-icon><DocumentCopy /></el-icon>
             <span>复制手机号</span>
+          </el-menu-item>
+          <el-menu-item @click="handleCopyPhoneAndToken">
+            <el-icon><DocumentCopy /></el-icon>
+            <span>复制账号---token</span>
           </el-menu-item>
           <div class="el-menu-item-divider" />
           <el-menu-item @click="handleImportAccounts">

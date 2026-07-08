@@ -39,6 +39,7 @@
     "check:ticket-payment-activity-panel-legacy-align": "node tools/check-ticket-payment-activity-panel-legacy-align-contract.mjs",
     "check:ticket-payment-card-panel-legacy-align": "node tools/check-ticket-payment-card-panel-legacy-align-contract.mjs",
     "check:ticket-coupon-panel-legacy-align": "node tools/check-ticket-coupon-panel-legacy-align-contract.mjs",
+    "check:ticket-order-summary-legacy-align": "node tools/check-ticket-order-summary-legacy-align-contract.mjs",
     "check:member-signin": "node tools/check-member-signin-contract.mjs",
     "check:member-h5-tool": "node tools/check-member-h5-tool-contract.mjs",
     "check:member-grade-equity": "node tools/check-member-grade-equity-contract.mjs",

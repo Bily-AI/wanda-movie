@@ -5,6 +5,7 @@ interface PaymentDisplayItem {
   key: string
   label: string
   value: string
+  priceText?: string
   meta?: string
   cardNo?: string
   balanceText?: string
@@ -25,6 +26,21 @@ const emit = defineEmits<{
 
 const lastSelectedActivity = ref('')
 
+function parseActivityPrice(value?: string): number {
+  const price = Number(String(value ?? '').replace(/[^\d.]/g, ''))
+  return Number.isFinite(price) ? price : Number.POSITIVE_INFINITY
+}
+
+function findCheapestActivity(activities: PaymentDisplayItem[]): PaymentDisplayItem | null {
+  if (activities.length === 0) {
+    return null
+  }
+
+  return activities.reduce((cheapest, activity) =>
+    parseActivityPrice(activity.priceText) < parseActivityPrice(cheapest.priceText) ? activity : cheapest
+  )
+}
+
 watch(
   () => props.selectedActivity,
   (value) => {
@@ -35,9 +51,37 @@ watch(
   { immediate: true }
 )
 
-const activityEnabled = computed(
-  () => props.activities.length > 0 && (Boolean(props.selectedActivity) || Boolean(lastSelectedActivity.value))
+watch(
+  () => props.activities,
+  (activities) => {
+    if (activities.length === 0) {
+      lastSelectedActivity.value = ''
+
+      if (props.selectedActivity) {
+        emit('update:selectedActivity', '')
+      }
+
+      return
+    }
+
+    if (activities.some((item) => item.value === props.selectedActivity)) {
+      return
+    }
+
+    const defaultActivity = findCheapestActivity(activities)
+
+    if (defaultActivity) {
+      lastSelectedActivity.value = defaultActivity.value
+      emit('update:selectedActivity', defaultActivity.value)
+    }
+  },
+  { immediate: true }
 )
+
+const activityEnabled = computed(() => props.activities.length > 0 && Boolean(props.selectedActivity))
+const selectedActivityItem = computed(() => props.activities.find((item) => item.value === props.selectedActivity) ?? null)
+const cheapestActivity = computed(() => findCheapestActivity(props.activities))
+const displayPriceText = computed(() => selectedActivityItem.value?.priceText || cheapestActivity.value?.priceText || '')
 
 function handleActivityEnabledChange(value: boolean): void {
   if (!value) {
@@ -45,7 +89,13 @@ function handleActivityEnabledChange(value: boolean): void {
     return
   }
 
-  emit('update:selectedActivity', lastSelectedActivity.value)
+  const rememberedActivity = props.activities.find((item) => item.value === lastSelectedActivity.value)
+  const defaultActivity = rememberedActivity ?? findCheapestActivity(props.activities)
+
+  if (defaultActivity) {
+    lastSelectedActivity.value = defaultActivity.value
+    emit('update:selectedActivity', defaultActivity.value)
+  }
 }
 </script>
 
@@ -82,9 +132,16 @@ function handleActivityEnabledChange(value: boolean): void {
             :key="item.key"
             :label="item.label"
             :value="item.value"
-          />
+          >
+            <div class="activity-option">
+              <span class="activity-option-label">{{ item.label }}</span>
+              <el-tag v-if="item.priceText" size="small" type="danger" class="activity-option-price">
+                {{ item.priceText }}
+              </el-tag>
+            </div>
+          </el-option>
         </el-select>
-        <span class="active-price-text">{{ activePrice }}</span>
+        <span class="active-price-text">{{ displayPriceText }}</span>
       </div>
     </div>
   </section>
@@ -131,15 +188,35 @@ function handleActivityEnabledChange(value: boolean): void {
   min-width: 0;
 }
 
-.side-line span {
+.side-line > span:first-child {
   color: var(--app-subtle);
 }
 
 .active-price-text {
+  justify-self: end;
   color: var(--el-color-danger);
   font-weight: 600;
   font-size: 14px;
   white-space: nowrap;
+}
+
+.activity-option {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.activity-option-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-option-price {
+  flex: 0 0 auto;
 }
 
 /* 兼容 ui-workbench-layout 契约测试 */

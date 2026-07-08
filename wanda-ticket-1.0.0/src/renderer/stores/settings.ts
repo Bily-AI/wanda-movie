@@ -43,14 +43,33 @@ function generateRequestFingerprint(): string {
   return value
 }
 
+function generateShumeiBoxId(): string {
+  const chars = '0123456789abcdef'
+  let value = ''
+
+  for (let index = 0; index < 32; index += 1) {
+    value += chars[Math.floor(Math.random() * chars.length)]
+  }
+
+  return value
+}
+
 function pickRandom<T>(list: readonly T[]): T {
   return list[Math.floor(Math.random() * list.length)]
 }
 
 function randomDeviceProfile() {
-  const models = ['iPhone13,3', 'iPhone14,5', 'iPhone14,7', 'iPhone15,3', 'iPhone15,4', 'iPhone16,1', 'iPhone16,2']
+  const models = [
+    'iPhone13,3',
+    'iPhone14,5',
+    'iPhone14,7',
+    'iPhone15,3',
+    'iPhone15,4',
+    'iPhone16,1',
+    'iPhone16,2'
+  ]
   const versions = ['17.4', '17.5.1', '17.6.1', '18.0', '18.1', '18.2']
-  const screens = ['375x812', '390x844', '393x852', '414x896', '430x932']
+  const screens = ['390x844', '393x852', '430x932', '375x812', '414x896']
   const builds = ['619.1.19.11.8', '619.2.5.10.1', '620.1.16.10.11', '620.2.4.10.7']
   const screen = pickRandom(screens)
   const [width, height] = screen.split('x')
@@ -91,6 +110,25 @@ function toPlainRequestParamsData(data: RequestParamsLocalData): RequestParamsLo
 
 function hasUsableRequestParams(data: RequestParamsLocalData): boolean {
   return Boolean(data.shumeiBoxId && data.userId && data.model)
+}
+
+function normalizeRequestParams(data: RequestParamsLocalData): RequestParamsLocalData {
+  const screen = String(data.screen || '').trim()
+  const [screenWidth = '', screenHeight = ''] = screen.split('x')
+
+  return {
+    ...data,
+    deviceFingerprint: String(data.deviceFingerprint || '').trim(),
+    userId: String(data.userId || '').trim(),
+    model: String(data.model || '').trim(),
+    ios: String(data.ios || '').trim(),
+    screen,
+    width: String(data.width || screenWidth || '').trim(),
+    height: String(data.height || screenHeight || '').trim(),
+    build: String(data.build || '').trim(),
+    shumeiBoxId: String(data.shumeiBoxId || '').trim(),
+    languageType: String(data.languageType || '').trim()
+  }
 }
 
 export const useSettingsStore = defineStore('settings', {
@@ -140,11 +178,12 @@ export const useSettingsStore = defineStore('settings', {
     refreshRequestParams() {
       const deviceProfile = randomDeviceProfile()
       const fingerprint = generateRequestFingerprint()
+      const shumeiBoxId = generateShumeiBoxId()
 
       this.requestParams = {
         ...this.requestParams,
         deviceFingerprint: fingerprint,
-        shumeiBoxId: fingerprint,
+        shumeiBoxId,
         userId: generateDeviceUserId(),
         model: deviceProfile.model,
         ios: deviceProfile.ios,
@@ -185,7 +224,7 @@ export const useSettingsStore = defineStore('settings', {
       }
 
       if (requestParamsResult.ok) {
-        this.requestParams = requestParamsResult.data
+        this.requestParams = normalizeRequestParams(requestParamsResult.data)
       }
 
       if (!hasUsableRequestParams(this.requestParams)) {

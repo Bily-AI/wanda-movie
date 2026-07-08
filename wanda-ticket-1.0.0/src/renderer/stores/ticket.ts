@@ -856,6 +856,15 @@ export const useTicketStore = defineStore('ticket', {
 
       return Math.max(0, total)
     },
+    selectedActivityPayablePriceCent(state): number {
+      const seatTotal = this.selectedSeatTotalPriceCent
+      if (seatTotal <= 0) return 0
+      const selectedActivity = state.paymentActivity
+        ? state.paymentActivities.find((activity) => activity.code === state.paymentActivity || activity.name === state.paymentActivity)
+        : undefined
+      const { externalPriceCent, cardPriceCent } = resolveActivityPaymentAmounts(selectedActivity, seatTotal)
+      return selectedActivity ? (externalPriceCent + cardPriceCent) : seatTotal
+    },
     selectedSeatPreviewPayablePriceCent(state): number {
       const seatTotal = this.selectedSeatTotalPriceCent
 
@@ -868,7 +877,7 @@ export const useTicketStore = defineStore('ticket', {
       }
 
       const selectedActivity = state.paymentActivity
-        ? state.paymentActivities.find((activity) => activity.code === state.paymentActivity)
+        ? state.paymentActivities.find((activity) => activity.code === state.paymentActivity || activity.name === state.paymentActivity)
         : undefined
 
       const { externalPriceCent, cardPriceCent } = resolveActivityPaymentAmounts(selectedActivity, seatTotal)
@@ -917,6 +926,13 @@ export const useTicketStore = defineStore('ticket', {
     }
   },
   actions: {
+    getActivityPayablePriceCent(activity: PaymentActivity | undefined): number {
+      const seatTotal = this.selectedSeatTotalPriceCent
+      if (seatTotal <= 0) return 0
+      if (!activity) return seatTotal
+      const { externalPriceCent, cardPriceCent } = resolveActivityPaymentAmounts(activity, seatTotal)
+      return externalPriceCent + cardPriceCent
+    },
     clearSeatSelection(force = false) {
       if (this.hasPendingCurrentOrder && !force) {
         this.currentOrderMessage = '已有待处理订单，请先取消当前订单后再调整座位'
@@ -1362,7 +1378,7 @@ export const useTicketStore = defineStore('ticket', {
       couponPaymentInfo: TicketCouponPaymentInfo | null = null
     ): BuiltTicketPaymentRequestInfo {
       const selectedActivity = this.paymentActivity
-        ? this.paymentActivities.find((activity) => activity.code === this.paymentActivity)
+        ? this.paymentActivities.find((activity) => activity.code === this.paymentActivity || activity.name === this.paymentActivity)
         : undefined
       const selectedCards = this.selectedPaymentCards
         .map((cardNo) => this.paymentCards.find((card) => card.cardNo === cardNo))

@@ -337,8 +337,8 @@ const mergePaymentHeadersBlock = sliceRequired(
 assertIncludes(
   'src/renderer/services/wandaRequest.ts',
   mergePaymentHeadersBlock,
-  "const ryUser = getDefaultWandaUserId() || userIdentifier.trim()",
-  'merge_payment X-RY-USER 必须对齐旧包优先使用设备 userId'
+  "const ryUser = userIdentifier.trim() || getDefaultWandaUserId()",
+  'merge_payment X-RY-USER 必须优先使用当前账号 userIdentifier，避免签名身份串号'
 )
 
 for (const [file, content] of [
