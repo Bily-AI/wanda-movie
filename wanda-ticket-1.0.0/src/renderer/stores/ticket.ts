@@ -771,7 +771,6 @@ export const useTicketStore = defineStore('ticket', {
     paymentDataMessage: '',
     paymentPrerequisiteError: '',
     paymentSubmissionLocked: false,
-    selectedSeatDiscountRate: '0.87',
     selectedSeats: [] as SelectedSeat[],
     maxSeatCount: 8
   }),
@@ -858,17 +857,6 @@ export const useTicketStore = defineStore('ticket', {
     selectedSeatPreviewDiscountPriceCent(): number {
       return Math.max(0, this.selectedSeatTotalPriceCent - this.selectedSeatPreviewPayablePriceCent)
     },
-    selectedSeatDiscountRateNumber(state): number {
-      const rate = Number(state.selectedSeatDiscountRate)
-      if (!Number.isFinite(rate)) {
-        return 1
-      }
-
-      return Math.min(Math.max(rate, 0), 1)
-    },
-    selectedSeatDiscountedPayablePriceCent(): number {
-      return Math.round(this.selectedSeatPreviewPayablePriceCent * this.selectedSeatDiscountRateNumber)
-    },
     canSubmitCurrentOrderPayment(state) {
       return Boolean(
         state.currentOrder &&
@@ -898,9 +886,6 @@ export const useTicketStore = defineStore('ticket', {
 
       this.selectedSeatNodes = []
       this.selectedSeats = []
-    },
-    setSelectedSeatDiscountRate(value: string) {
-      this.selectedSeatDiscountRate = value.trim()
     },
     resetQueryAfterCityChange() {
       ++this.showtimeRequestSerial

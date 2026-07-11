@@ -33,10 +33,10 @@ for (const marker of [
 ]) {
   assert.ok(store.includes(marker), `ticket.ts 应包含 ${marker}`)
 }
-// 折后价基数保持“实付 × 折扣率”不变
+// 对齐旧版：不再有本地 ×0.87 折后价
 assert.ok(
-  store.includes('this.selectedSeatPreviewPayablePriceCent * this.selectedSeatDiscountRateNumber'),
-  'ticket.ts 折后价应基于实付价乘折扣率'
+  !store.includes('selectedSeatDiscountRateNumber'),
+  'ticket.ts 不应再有本地折扣率折后价（对齐旧版）'
 )
 
 // 4) 视图层：选券变更需触发预览刷新

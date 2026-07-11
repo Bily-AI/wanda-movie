@@ -8,13 +8,10 @@ const props = defineProps<{
   totalPriceCent: number
   payablePriceCent: number
   discountPriceCent: number
-  discountRate: string
-  discountedPayablePriceCent: number
 }>()
 
 const emit = defineEmits<{
   removeSeat: [seat: SeatNode]
-  'update:discountRate': [value: string]
 }>()
 
 function formatPrice(priceCent: number): string {
@@ -47,18 +44,6 @@ const showDiscount = computed(() => props.discountPriceCent > 0)
           <span class="seat-summary-label">合计</span>
           <span class="seat-summary-total" :class="{ strike: showDiscount }">{{ formatPrice(totalPriceCent) }}</span>
           <span class="seat-summary-payable">实付 {{ formatPrice(payablePriceCent) }}</span>
-        </div>
-
-        <div class="seat-summary-calc">
-          <span class="seat-summary-times">×</span>
-          <input
-            :value="discountRate"
-            type="text"
-            inputmode="decimal"
-            class="seat-summary-input"
-            @input="emit('update:discountRate', ($event.target as HTMLInputElement).value)"
-          />
-          <span class="seat-summary-equals">= {{ formatPrice(discountedPayablePriceCent) }}</span>
         </div>
       </div>
     </template>
@@ -151,37 +136,6 @@ const showDiscount = computed(() => props.discountPriceCent > 0)
 .seat-summary-payable {
   color: #4caf50;
   font-weight: 600;
-  white-space: nowrap;
-}
-
-.seat-summary-calc {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #5a97db;
-}
-
-.seat-summary-times {
-  color: var(--app-muted);
-  font-weight: 600;
-}
-
-.seat-summary-input {
-  width: 54px;
-  height: 24px;
-  padding: 0 8px;
-  border: 1px solid var(--app-border);
-  border-radius: 4px;
-  color: var(--app-text);
-  outline: none;
-}
-
-.seat-summary-input:focus {
-  border-color: var(--el-color-primary);
-}
-
-.seat-summary-equals {
   white-space: nowrap;
 }
 </style>

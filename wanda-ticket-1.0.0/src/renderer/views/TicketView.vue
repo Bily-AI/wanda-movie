@@ -448,10 +448,6 @@ function handleRemoveSelectedSeat(seat: Parameters<typeof ticketStore.toggleSeat
   ticketStore.toggleSeat(seat)
 }
 
-function handleSelectedSeatDiscountRateChange(value: string): void {
-  ticketStore.setSelectedSeatDiscountRate(value)
-}
-
 function handleCouponSelectionChange(values: string[]): void {
   ticketStore.selectedCoupons = values
   void ticketStore.refreshSelectedCouponPreview()
@@ -885,10 +881,7 @@ watch(
           :total-price-cent="ticketStore.selectedSeatTotalPriceCent"
           :payable-price-cent="ticketStore.selectedSeatPreviewPayablePriceCent"
           :discount-price-cent="ticketStore.selectedSeatPreviewDiscountPriceCent"
-          :discount-rate="ticketStore.selectedSeatDiscountRate"
-          :discounted-payable-price-cent="ticketStore.selectedSeatDiscountedPayablePriceCent"
           @remove-seat="handleRemoveSelectedSeat"
-          @update:discount-rate="handleSelectedSeatDiscountRateChange"
         />
       </section>
     </aside>
