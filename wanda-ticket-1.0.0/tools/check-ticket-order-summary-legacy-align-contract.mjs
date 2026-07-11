@@ -18,12 +18,12 @@ for (const marker of [
   assert.ok(source.includes(marker), `${file} should include ${marker}`)
 }
 
+// 仅禁止“订单摘要面板内嵌动作块”（旧版摘要面板是纯展示，无按钮）；
+// 取消订单本身对齐旧版应存在，但放在底部动作栏，不在摘要面板 —— 故不再全局禁止。
 for (const forbidden of [
   'class="order-summary-actions"',
   '@click="handleShowPaymentInfo"',
-  '支付参数\n            </el-button>',
-  '@confirm="ticketStore.cancelCurrentOrder"',
-  '取消订单'
+  '支付参数\n            </el-button>'
 ]) {
   assert.ok(!source.includes(forbidden), `${file} should not include ${forbidden}`)
 }

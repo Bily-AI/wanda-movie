@@ -922,6 +922,23 @@ watch(
         </template>
       </el-popconfirm>
       <el-popconfirm
+        v-if="ticketStore.hasPendingCurrentOrder"
+        title="确认取消当前真实订单？将调用真实取消接口释放座位，请确认。"
+        confirm-button-text="取消订单"
+        cancel-button-text="返回"
+        @confirm="ticketStore.cancelCurrentOrder"
+      >
+        <template #reference>
+          <el-button
+            type="danger"
+            :loading="ticketStore.orderCancelling"
+            :disabled="ticketStore.orderCancelling || ticketStore.currentOrderFinalized"
+          >
+            取消订单
+          </el-button>
+        </template>
+      </el-popconfirm>
+      <el-popconfirm
         title="确认提交支付？将调用真实支付接口，请确认订单和账号无误。"
         confirm-button-text="提交支付"
         cancel-button-text="取消"
