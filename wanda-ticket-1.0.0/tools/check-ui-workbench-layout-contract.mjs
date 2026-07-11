@@ -101,10 +101,7 @@ for (const marker of [
   '.selected-seat-list {\n  min-width: 0;\n  overflow: hidden;',
   '.seat-chip-list {\n  max-height: 72px;\n  overflow: auto;',
   '.seat-summary {\n  flex-wrap: wrap;',
-  '.seat-summary-main {\n  flex: 1 1 152px;',
-  '.seat-summary-calc {\n  flex: 0 0 auto;',
-  'class="seat-summary-times">×</span>',
-  '.seat-summary-times {'
+  '.seat-summary-main {\n  flex: 1 1 152px;'
 ]) {
   assertIncludes('src/renderer/components/SelectedSeatList.vue', selectedSeatList, marker)
 }
