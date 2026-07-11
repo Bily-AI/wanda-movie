@@ -264,40 +264,6 @@ function yuanToCents(value: unknown): number {
   return Math.max(0, Math.round(toNumber(value) * 100))
 }
 
-function resolveActivityPaymentAmounts(activity: PaymentActivity | undefined, seatTotalPrice = 0) {
-  if (!activity) {
-    return {
-      externalPriceCent: 0,
-      cardPriceCent: 0
-    }
-  }
-
-  const externalPriceCent = yuanToCents(activity.price)
-  let cardPriceCent = yuanToCents(activity.channelPrice)
-
-  if (cardPriceCent <= 0) {
-    const allotSeatRecord = asRecord(activity.allotSeat)
-    const totalPayPrice = Math.max(0, Math.round(toNumber(allotSeatRecord.totalPayPrice)))
-
-    if (totalPayPrice > 0) {
-      cardPriceCent = totalPayPrice
-    } else {
-      cardPriceCent = asList(allotSeatRecord.itemList).reduce<number>((sum, item) => {
-        return sum + Math.max(0, Math.round(toNumber(asRecord(item).payPrice)))
-      }, 0)
-    }
-  }
-
-  if (cardPriceCent <= 0 && seatTotalPrice > 0) {
-    cardPriceCent = Math.max(0, seatTotalPrice - externalPriceCent)
-  }
-
-  return {
-    externalPriceCent,
-    cardPriceCent
-  }
-}
-
 function normalizeKeyword(value: string): string {
   return value.trim().toLowerCase()
 }
@@ -865,8 +831,7 @@ export const useTicketStore = defineStore('ticket', {
       const selectedActivity = state.paymentActivity
         ? state.paymentActivities.find((activity) => activity.code === state.paymentActivity || activity.name === state.paymentActivity)
         : undefined
-      const { externalPriceCent, cardPriceCent } = resolveActivityPaymentAmounts(selectedActivity, seatTotal)
-      return selectedActivity ? (externalPriceCent + cardPriceCent) : seatTotal
+      return selectedActivity ? yuanToCents(selectedActivity.price) : seatTotal
     },
     selectedSeatPreviewPayablePriceCent(state): number {
       const seatTotal = this.selectedSeatTotalPriceCent
@@ -888,22 +853,7 @@ export const useTicketStore = defineStore('ticket', {
         ? state.paymentActivities.find((activity) => activity.code === state.paymentActivity || activity.name === state.paymentActivity)
         : undefined
 
-      const { externalPriceCent, cardPriceCent } = resolveActivityPaymentAmounts(selectedActivity, seatTotal)
-      let remainingCardPrice = selectedActivity ? cardPriceCent : seatTotal
-
-      if (state.selectedPaymentCards.length > 0) {
-        for (const cardNo of state.selectedPaymentCards) {
-          if (remainingCardPrice <= 0) {
-            break
-          }
-
-          const card = state.paymentCards.find((item) => item.cardNo === cardNo)
-          const paymentPrice = Math.min(yuanToCents(card?.balance), remainingCardPrice)
-          remainingCardPrice -= Math.max(0, paymentPrice)
-        }
-      }
-
-      return Math.max(0, selectedActivity ? externalPriceCent + remainingCardPrice : remainingCardPrice)
+      return selectedActivity ? yuanToCents(selectedActivity.price) : seatTotal
     },
     selectedSeatPreviewDiscountPriceCent(): number {
       return Math.max(0, this.selectedSeatTotalPriceCent - this.selectedSeatPreviewPayablePriceCent)
@@ -938,8 +888,7 @@ export const useTicketStore = defineStore('ticket', {
       const seatTotal = this.selectedSeatTotalPriceCent
       if (seatTotal <= 0) return 0
       if (!activity) return seatTotal
-      const { externalPriceCent, cardPriceCent } = resolveActivityPaymentAmounts(activity, seatTotal)
-      return externalPriceCent + cardPriceCent
+      return yuanToCents(activity.price)
     },
     clearSeatSelection(force = false) {
       if (this.hasPendingCurrentOrder && !force) {
