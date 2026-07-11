@@ -1450,22 +1450,23 @@ export const useTicketStore = defineStore('ticket', {
         throw new Error('当前支付活动已失效，请刷新支付前置数据后重试')
       }
 
-      if (selectedActivity && selectedCards.length === 0) {
-        throw new Error('当前支付活动需要先选择支付卡')
-      }
-
       const isCouponPayment = Boolean(couponPaymentInfo)
       const primaryCard = selectedCards[0]
-      const seatTotalPrice = Math.max(0, currentOrder.amountCent)
-      const couponPayablePrice = couponPaymentInfo
-        ? couponPaymentInfo.useResult.itemList.reduce((sum, item) => sum + item.actuallyPaidAmount, 0)
-        : 0
-      const { externalPriceCent, cardPriceCent } = resolveActivityPaymentAmounts(selectedActivity, seatTotalPrice)
-      const activityCardPrice = selectedActivity ? cardPriceCent : seatTotalPrice
-      let remainingCardPrice = isCouponPayment ? 0 : activityCardPrice
+      const seatTotalPriceCent = Math.max(0, currentOrder.amountCent)
+
+      // 旧版口径：应付总盘子 = 券后价 / 活动价 / 0（单字段，分）
+      const totalPayPriceCent = couponPaymentInfo
+        ? Math.max(0, Math.round(couponPaymentInfo.useResult.price))
+        : selectedActivity
+          ? yuanToCents(selectedActivity.price)
+          : 0
+
+      // 逐卡分摊：券模式不分摊卡；否则前 5 张选中卡按 min(余额, 剩余) 递减
+      const cardsToAllot = isCouponPayment ? [] : selectedCards
+      let remainingCardPrice = totalPayPriceCent
       const storedCardPayments: TicketStoredCardPayment[] = []
 
-      for (const card of isCouponPayment ? [] : selectedCards) {
+      for (const card of cardsToAllot) {
         if (remainingCardPrice <= 0) {
           break
         }
@@ -1487,23 +1488,15 @@ export const useTicketStore = defineStore('ticket', {
         remainingCardPrice -= paymentPrice
       }
 
-      const externalPaymentPrice = couponPaymentInfo
-        ? couponPayablePrice
-        : selectedActivity
-          ? externalPriceCent + remainingCardPrice
-          : remainingCardPrice
-      const discountPrice = couponPaymentInfo
-        ? Math.max(0, seatTotalPrice - couponPayablePrice)
-        : selectedActivity
-          ? Math.max(0, seatTotalPrice - (externalPriceCent + activityCardPrice))
-          : 0
+      const externalPaymentPrice = Math.max(0, remainingCardPrice)
+      const discountPrice = Math.max(0, seatTotalPriceCent - totalPayPriceCent)
 
       const requestInfo: BuiltTicketPaymentRequestInfo = {
         contextId: '',
         currentPrice: 0,
         externalPayment: {
           paySdkId: 1057,
-          paymentPrice: Math.max(0, externalPaymentPrice),
+          paymentPrice: externalPaymentPrice,
           paymentType: 1057,
           returnUrl: 'wandafilm/pay/finished'
         },
@@ -1518,7 +1511,7 @@ export const useTicketStore = defineStore('ticket', {
         }
       }
 
-      if (!isCouponPayment && selectedActivity && primaryCard) {
+      if (!isCouponPayment && selectedActivity && selectedActivity.allotSeat && primaryCard) {
         requestInfo.activity = {
           allotJson: selectedActivity.allotSeatRaw || '{}',
           card: {

@@ -281,6 +281,19 @@ for (const label of [
   assertIncludes('src/renderer/stores/ticket.ts', requestInfoBuilderBlock, label)
 }
 
+// 旧版口径：无“选活动必须选卡”的 throw；应付总盘子为单字段活动价/券后价，外部支付=分摊后余额
+assertNotIncludes('src/renderer/stores/ticket.ts', requestInfoBuilderBlock, '当前支付活动需要先选择支付卡')
+assertNotIncludes('src/renderer/stores/ticket.ts', requestInfoBuilderBlock, 'resolveActivityPaymentAmounts')
+for (const label of [
+  'const totalPayPriceCent =',
+  'yuanToCents(selectedActivity.price)',
+  'couponPaymentInfo.useResult.price',
+  'const externalPaymentPrice = Math.max(0, remainingCardPrice)',
+  'const discountPrice = Math.max(0, seatTotalPriceCent - totalPayPriceCent)'
+]) {
+  assertIncludes('src/renderer/stores/ticket.ts', requestInfoBuilderBlock, label)
+}
+
 assertMatches(
   'src/renderer/stores/ticket.ts',
   ticketStore,
