@@ -1248,15 +1248,15 @@ onBeforeUnmount(() => {
 }
 
 .ticket-code-label {
-  font-size: 17px;
+  font-size: 13px;
   color: var(--app-subtle);
   white-space: nowrap;
 }
 
 .ticket-code-value {
-  font-size: 40px;
-  font-weight: 400;
-  letter-spacing: 2px;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 1px;
   color: #1a56a8;
 }
 
