@@ -249,12 +249,7 @@ function parseImportedAccounts(text: string, groupId: string): WandaAccount[] {
 }
 
 function formatAccountExportLine(account: WandaAccount): string {
-  const loginTime = (account.loginTime || account.loginDate || '').trim()
-  const parts = account.remark?.trim()
-    ? [account.remark.trim(), account.ck, account.phone, loginTime]
-    : [account.phone, account.ck, loginTime]
-
-  return parts.map((part) => (part ?? '').trim()).filter(Boolean).join('----')
+  return `${(account.phone || '').trim()}----${(account.ck || '').trim()}`
 }
 
 function toPlainAccountsData(data: AccountsLocalData): AccountsLocalData {
