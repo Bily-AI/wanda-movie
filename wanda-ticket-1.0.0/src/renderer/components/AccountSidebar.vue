@@ -124,7 +124,7 @@ function extractDateOnly(value: string): string {
     return `${compactMatch[1]}-${compactMatch[2]}-${compactMatch[3]}`
   }
 
-  const dateMatch = text.match(/(\d{4})[./-年](\d{1,2})[./-月](\d{1,2})/)
+  const dateMatch = text.match(/(\d{4})[-./年](\d{1,2})[-./月](\d{1,2})/)
   if (dateMatch) {
     const [, year, month, day] = dateMatch
     return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`

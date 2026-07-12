@@ -606,7 +606,7 @@ function normalizeWPlusProfile(data: Record<string, unknown>, raw: unknown): Mem
     member.endTime,
     member.payMemberStr
   )
-  const hasExpireDate = /(\d{4})[./-年](\d{1,2})[./-月](\d{1,2})|\b\d{8}\b/.test(expireAt)
+  const hasExpireDate = /(\d{4})[-./年](\d{1,2})[-./月](\d{1,2})|\b\d{8}\b/.test(expireAt)
 
   return {
     isPayMember: toBoolean(data.isPayMember ?? result.isPayMember ?? member.isPayMember) || hasExpireDate,
