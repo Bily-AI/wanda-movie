@@ -588,14 +588,6 @@ async function confirmImportAccounts(): Promise<void> {
           >
             批量删除
           </el-button>
-          <el-button
-            class="management-action-full"
-            size="small"
-            :disabled="accountsStore.selectedCount === 0"
-            @click="handleCancelSelection"
-          >
-            取消选择
-          </el-button>
         </div>
       </div>
 
@@ -1180,10 +1172,6 @@ async function confirmImportAccounts(): Promise<void> {
 .account-management-actions :deep(.el-button) {
   margin: 0;
   width: 100%;
-}
-
-.account-management-actions .management-action-full {
-  grid-column: 1 / -1;
 }
 
 .login-card-tools {
