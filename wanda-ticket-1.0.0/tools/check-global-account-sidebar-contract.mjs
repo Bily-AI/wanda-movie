@@ -128,7 +128,7 @@ for (const text of [
   assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, text)
 }
 
-for (const text of ['handleToggleSelectAll', 'handleInvertSelection', ':indeterminate="someAccountsChecked"', '反选']) {
+for (const text of ['handleToggleSelectAll', ':indeterminate="someAccountsChecked"']) {
   assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, text)
 }
 for (const text of ['refreshingSelectedSummaries', 'handleRefreshSelectedSummaries', '批量刷新']) {

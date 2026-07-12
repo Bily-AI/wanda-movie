@@ -184,12 +184,6 @@ function handleToggleSelectAll(): void {
   }
 }
 
-function handleInvertSelection(): void {
-  const selected = new Set(accountsStore.selectedAccountIds)
-  accountsStore.setSelectedAccountIds(
-    accountsStore.accounts.filter((account) => !selected.has(account.id)).map((account) => account.id)
-  )
-}
 
 function getCurrentGradeSummary(groups: MemberGradeGroup[]): { memberGradeName: string; growthValue: number | null } {
   if (groups.length === 0) {
@@ -538,7 +532,6 @@ async function confirmImportAccounts(): Promise<void> {
           >
             全选
           </el-checkbox>
-          <el-button size="small" text @click="handleInvertSelection">反选</el-button>
         </div>
         <div class="account-row-list">
           <button
