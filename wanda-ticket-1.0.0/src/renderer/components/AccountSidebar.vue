@@ -475,6 +475,7 @@ async function confirmImportAccounts(): Promise<void> {
 
       <div class="account-toolbar">
         <el-select v-model="accountsStore.selectedGroupId" size="small" placeholder="分组">
+          <el-option label="全部分组" value="" />
           <el-option
             v-for="group in accountsStore.groups"
             :key="group.id"

@@ -620,7 +620,7 @@ export const useAccountsStore = defineStore('accounts', {
           remark: '登录成功',
           status: 'normal',
           statusText: '正常',
-          groupId: this.selectedGroupId,
+          groupId: this.selectedGroupId || 'default',
           ck: result.userToken,
           userIdentifier: result.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER,
           loginDate: now.toISOString().slice(0, 10),
