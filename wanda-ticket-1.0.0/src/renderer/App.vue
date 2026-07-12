@@ -311,11 +311,11 @@ function registerAutoOrderListener(): void {
 }
 
 .titlebar {
-  height: 36px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-left: 16px;
+  padding-left: 14px;
   user-select: none;
   -webkit-app-region: drag;
 }
@@ -329,14 +329,14 @@ function registerAutoOrderListener(): void {
 }
 
 .brand-mark {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   display: grid;
   place-items: center;
   border-radius: 4px;
   background: color-mix(in srgb, var(--app-accent) 10%, transparent);
   color: var(--app-accent);
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -359,14 +359,14 @@ function registerAutoOrderListener(): void {
 }
 
 .window-controls {
-  height: 36px;
+  height: 30px;
   display: inline-flex;
   -webkit-app-region: no-drag;
 }
 
 .window-button {
-  width: 46px;
-  height: 36px;
+  width: 42px;
+  height: 30px;
   border: 0;
   display: grid;
   place-items: center;
@@ -389,12 +389,12 @@ function registerAutoOrderListener(): void {
 }
 
 .toolbar {
-  min-height: 62px;
+  min-height: 42px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 8px 16px 12px;
+  gap: 12px;
+  padding: 2px 14px 6px;
   -webkit-app-region: no-drag;
 }
 
@@ -402,21 +402,22 @@ function registerAutoOrderListener(): void {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 .nav-button {
-  height: 42px;
-  min-width: 82px;
-  padding: 0 12px;
+  height: 32px;
+  min-width: 0;
+  padding: 0 9px;
   border-radius: 6px;
   color: var(--app-subtle);
+  font-size: 13px;
   font-weight: 500;
 }
 
 .nav-button :deep(.el-icon) {
-  margin-right: 6px;
-  font-size: 18px;
+  margin-right: 5px;
+  font-size: 15px;
 }
 
 .nav-button:hover {
@@ -443,13 +444,13 @@ function registerAutoOrderListener(): void {
 }
 
 .account-item {
-  min-height: 32px;
+  min-height: 26px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   padding: 0 8px;
   color: var(--app-subtle);
-  font-size: 13px;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -466,7 +467,7 @@ function registerAutoOrderListener(): void {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  padding: 14px;
+  padding: 10px;
   overflow: hidden;
   background:
     linear-gradient(180deg, var(--app-bg) 0%, var(--app-bg-soft) 100%);
