@@ -33,7 +33,29 @@ const targetGroupId = ref('')
 const importAccountsDialogVisible = ref(false)
 const importAccountsText = ref('')
 const importAccountsPlaceholder =
-  '支持格式：手机号---ck、备注---ck---手机号---登录时间、JSON 数组\n[{"phone":"13800138000","ck":"..."}]'
+  '支持格式：手机号----ck、备注----ck----手机号----登录时间、JSON 数组\n[{"phone":"13800138000","ck":"..."}]'
+
+const exportDialogVisible = ref(false)
+const exportText = ref('')
+
+function handleExportAccounts(): void {
+  if (accountsStore.accounts.length === 0) {
+    ElMessage.warning('暂无账号可导出')
+    return
+  }
+
+  exportText.value = accountsStore.exportAccountsToText()
+  exportDialogVisible.value = true
+}
+
+async function handleCopyExportText(): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(exportText.value)
+    ElMessage.success('已复制到剪贴板')
+  } catch {
+    ElMessage.error('复制失败，请手动选择文本复制')
+  }
+}
 
 function handleRowClick(row: WandaAccount): void {
   accountsStore.setCurrentAccount(row.id)
@@ -530,6 +552,14 @@ async function confirmImportAccounts(): Promise<void> {
         <div class="login-card-actions">
           <el-button size="small" text @click="handleImportAccounts">导入账号</el-button>
           <el-button
+            size="small"
+            text
+            :disabled="accountsStore.accounts.length === 0"
+            @click="handleExportAccounts"
+          >
+            导出账号
+          </el-button>
+          <el-button
             v-if="!hasNoAccounts"
             class="login-toggle-button"
             size="small"
@@ -679,6 +709,22 @@ async function confirmImportAccounts(): Promise<void> {
         <span class="dialog-footer">
           <el-button @click="importAccountsDialogVisible = false">取消</el-button>
           <el-button type="primary" @click="confirmImportAccounts">导入</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="exportDialogVisible"
+      title="导出账号"
+      width="620px"
+      append-to-body
+      class="legacy-account-import-dialog"
+    >
+      <el-input v-model="exportText" type="textarea" :rows="12" resize="none" readonly />
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="exportDialogVisible = false">关闭</el-button>
+          <el-button type="primary" @click="handleCopyExportText">复制</el-button>
         </span>
       </template>
     </el-dialog>
