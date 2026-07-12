@@ -32,6 +32,8 @@ export interface WandaAccount {
   couponCount: number | null
   memberGradeName: string
   growthValue: number | null
+  lastLoginAt?: string
+  loginInvalid?: boolean
 }
 
 export interface AccountGroup {

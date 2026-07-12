@@ -135,4 +135,9 @@ for (const text of ['refreshingSelectedSummaries', 'handleRefreshSelectedSummari
   assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, text)
 }
 
+for (const text of ['lastLoginAt', 'loginInvalid']) {
+  assertIncludes('src/shared/localData.ts', localData, text)
+}
+assertIncludes('src/renderer/stores/accounts.ts', accountsStore, 'async setAccountLoginState(')
+
 console.log('全局账号侧栏契约检查通过')

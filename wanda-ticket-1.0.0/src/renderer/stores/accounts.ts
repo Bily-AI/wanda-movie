@@ -139,7 +139,9 @@ function normalizeImportedAccount(source: Partial<ImportedAccountSource>, groupI
     storedCardCount: null,
     couponCount: null,
     memberGradeName: '',
-    growthValue: null
+    growthValue: null,
+    lastLoginAt: now.toISOString(),
+    loginInvalid: false
   }
 }
 
@@ -474,6 +476,21 @@ export const useAccountsStore = defineStore('accounts', {
       }
       await this.saveAccounts()
     },
+    async setAccountLoginState(accountId: string, valid: boolean) {
+      const index = this.accounts.findIndex((acc) => acc.id === accountId)
+
+      if (index === -1) {
+        return
+      }
+
+      this.accounts[index] = {
+        ...this.accounts[index],
+        loginInvalid: !valid,
+        status: valid ? 'normal' : 'expired',
+        statusText: valid ? '正常' : '异常'
+      }
+      await this.saveAccounts()
+    },
     setSelectedAccountIds(ids: string[]) {
       this.selectedAccountIds = ids
 
@@ -633,7 +650,9 @@ export const useAccountsStore = defineStore('accounts', {
           storedCardCount: null,
           couponCount: null,
           memberGradeName: '',
-          growthValue: null
+          growthValue: null,
+          lastLoginAt: now.toISOString(),
+          loginInvalid: false
         }
         const index = this.accounts.findIndex((item) => item.id === account.id || item.phone === phone)
 
