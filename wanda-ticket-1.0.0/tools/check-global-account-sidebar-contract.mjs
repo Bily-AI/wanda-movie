@@ -142,5 +142,10 @@ assertIncludes('src/renderer/stores/accounts.ts', accountsStore, 'async setAccou
 for (const text of ['function accountStatusInfo(', "'account-state--warn'", '天后到期']) {
   assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, text)
 }
+assertIncludes(
+  'src/renderer/components/AccountSidebar.vue',
+  accountSidebar,
+  'setAccountLoginState(account.id, loginStatusResult.status === '
+)
 
 console.log('全局账号侧栏契约检查通过')

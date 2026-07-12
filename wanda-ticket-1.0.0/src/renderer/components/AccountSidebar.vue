@@ -300,6 +300,8 @@ async function refreshAccountSummary(account: WandaAccount): Promise<void> {
   if (Object.keys(summary).length > 0) {
     await accountsStore.updateAccountProfileSummary(account.id, summary)
   }
+
+  await accountsStore.setAccountLoginState(account.id, loginStatusResult.status === 'fulfilled')
 }
 
 async function handleRefreshAccountSummaries(): Promise<void> {
