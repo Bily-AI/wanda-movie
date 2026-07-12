@@ -86,8 +86,7 @@ const viewRequirements = [
     [
       'useAccountsStore',
       'useTicketStore',
-      'v-model="accountsStore.loginForm.phone"',
-      'v-model="ticketStore.query.keyword"'
+      'v-model="accountsStore.loginForm.phone"'
     ]
   ],
   [

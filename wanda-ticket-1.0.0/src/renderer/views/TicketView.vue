@@ -671,9 +671,6 @@ watch(
 
         <div class="query-layout">
           <div class="query-form">
-            <label>搜索：</label>
-            <el-input v-model="ticketStore.query.keyword" placeholder="使用首字母或者汉字搜索" />
-
             <label>城市：</label>
             <el-select
               ref="citySelectRef"
