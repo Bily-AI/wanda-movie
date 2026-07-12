@@ -1445,17 +1445,14 @@ export const useTicketStore = defineStore('ticket', {
         }
       }
 
-      if (!isCouponPayment && selectedActivity && selectedActivity.allotSeat && primaryCard) {
+      if (!isCouponPayment && selectedActivity && selectedActivity.allotSeat) {
         requestInfo.activity = {
           allotJson: selectedActivity.allotSeatRaw || '{}',
-          card: {
-            cardNumber: primaryCard.cardNo,
-            quantity: 0
-          },
+          ...(primaryCard ? { card: { cardNumber: primaryCard.cardNo, quantity: 0 } } : {}),
           discountPrice,
           integral: 0,
           ticketType: selectedActivity.code,
-          ticketTypeName: primaryCard.cardTypeName,
+          ticketTypeName: primaryCard?.cardTypeName ?? '',
           type: selectedActivity.detailType
         }
       }
