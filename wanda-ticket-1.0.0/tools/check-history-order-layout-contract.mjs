@@ -29,9 +29,9 @@ for (const marker of [
   'class="history-table-panel panel"',
   'class="history-table-header"',
   'class="history-table-title"',
-  'class="order-primary-cell"',
-  'class="order-primary-title"',
-  'class="order-primary-meta"',
+  'label="影片"',
+  'label="影院"',
+  'label="场次"',
   'class="order-action-group"',
   'getOrderStatusTagType(row)'
 ]) {
@@ -45,8 +45,6 @@ for (const marker of [
   '.history-table-panel {\n  min-height: 0;\n  display: flex;\n  flex-direction: column;\n  overflow: hidden;',
   '.history-table-header {\n  min-height: 48px;',
   '.order-table-wrapper {\n  flex: 1;\n  min-height: 0;',
-  '.order-primary-cell {\n  min-width: 0;',
-  '.order-primary-title {\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;',
   '.order-pagination {\n  min-height: 54px;'
 ]) {
   assertIncludes('src/renderer/views/OrderHistoryView.vue', orderHistoryView, marker)

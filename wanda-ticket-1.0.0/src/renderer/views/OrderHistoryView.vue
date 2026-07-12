@@ -675,14 +675,14 @@ onBeforeUnmount(() => {
             </template>
           </el-table-column>
 
-          <el-table-column label="订单信息" min-width="360">
-            <template #default="{ row }">
-              <div class="order-primary-cell">
-                <strong class="order-primary-title">{{ row.movieName || '-' }}</strong>
-                <span class="order-primary-meta">{{ row.cinema || '-' }}</span>
-                <span class="order-primary-meta">{{ formatShowtimeRange(row.showtime) || '-' }}</span>
-              </div>
-            </template>
+          <el-table-column prop="movieName" label="影片" min-width="170" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.movieName || '-' }}</template>
+          </el-table-column>
+          <el-table-column prop="cinema" label="影院" min-width="190" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.cinema || '-' }}</template>
+          </el-table-column>
+          <el-table-column label="场次" width="180" show-overflow-tooltip>
+            <template #default="{ row }">{{ formatShowtimeRange(row.showtime) || '-' }}</template>
           </el-table-column>
 
           <el-table-column prop="amount" label="金额" width="110" align="right">
@@ -1056,30 +1056,6 @@ onBeforeUnmount(() => {
 .order-table-wrapper :deep(.el-table__body tr) {
   cursor: pointer;
   transition: background-color 160ms ease;
-}
-
-.order-primary-cell {
-  min-width: 0;
-  display: grid;
-  gap: 3px;
-  line-height: 1.35;
-}
-
-.order-primary-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--app-text);
-  font-weight: 700;
-}
-
-.order-primary-meta {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--app-muted);
-  font-size: 12px;
 }
 
 .order-no {
