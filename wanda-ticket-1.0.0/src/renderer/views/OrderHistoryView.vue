@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Download, Refresh, Search, Tickets } from '@element-plus/icons-vue'
+import { Close, DocumentCopy, Download, Refresh, Search, Tickets } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { fetchCinemaDetail } from '@renderer/services/cinemaApi'
@@ -781,10 +781,23 @@ onBeforeUnmount(() => {
           @click.stop
         >
           <div class="ticket-header" @mousedown="handleDragStart">
-            <button class="ticket-back-btn" @click="closeTicketDialog">←</button>
-            <span class="ticket-title">取票码</span>
-            <button class="ticket-screenshot-btn" @click.stop="handleCaptureTicket">截图</button>
-            <button class="ticket-close-btn" @click="closeTicketDialog">✕</button>
+            <div class="ticket-header__actions">
+              <el-button
+                link
+                :icon="Download"
+                title="保存图片"
+                :disabled="!canCaptureHistoryTicketCode"
+                @click.stop="handleCaptureHistoryTicketCode"
+              />
+              <el-button
+                link
+                :icon="DocumentCopy"
+                title="复制图片"
+                :disabled="!canCaptureHistoryTicketCode"
+                @click.stop="handleCopyHistoryTicketCode"
+              />
+              <el-button link :icon="Close" title="关闭" @click.stop="closeTicketDialog" />
+            </div>
           </div>
 
           <template v-if="ticketTemplate === DEFAULT_TEMPLATE">
@@ -836,6 +849,8 @@ onBeforeUnmount(() => {
                     <div v-if="ticketDetail.electronicQRs.length === 0" class="film-ticket__no-qr">{{ ticketDetail.ticketTip }}</div>
                   </div>
 
+                  <div class="film-ticket__mobile">手机号：{{ ticketMaskedMobile }}</div>
+
                   <div v-if="ticketDetail.electronicCodes.length" class="film-ticket__code">
                     取票码：<strong>{{ groupTicketCode(ticketDetail.electronicCodes.join('')) }}</strong>
                   </div>
@@ -845,11 +860,6 @@ onBeforeUnmount(() => {
               </div>
               <div class="film-ticket__sprockets film-ticket__sprockets--bottom">
                 <span v-for="n in 10" :key="`ft-bot-${n}`" />
-              </div>
-
-              <div class="history-ticket-code-dialog__actions">
-                <el-button :disabled="!canCaptureHistoryTicketCode" @click="handleCaptureHistoryTicketCode">截图保存</el-button>
-                <el-button type="primary" :disabled="!canCaptureHistoryTicketCode" @click="handleCopyHistoryTicketCode">复制截图</el-button>
               </div>
             </div>
           </template>
@@ -905,11 +915,6 @@ onBeforeUnmount(() => {
               <div class="wo-order-row"><span class="wo-order-label">手机号码</span><span>{{ ticketMaskedMobile }}</span></div>
               <div class="wo-order-divider" />
               <div class="wo-order-row wo-order-pay"><span class="wo-order-label">实付金额</span><strong>{{ formatMoney(ticketDetail.totalPrice) }}</strong></div>
-            </div>
-
-            <div class="history-ticket-code-dialog__actions">
-              <el-button :disabled="!canCaptureHistoryTicketCode" @click="handleCaptureHistoryTicketCode">截图保存</el-button>
-              <el-button type="primary" :disabled="!canCaptureHistoryTicketCode" @click="handleCopyHistoryTicketCode">复制截图</el-button>
             </div>
           </div>
         </div>
@@ -1159,13 +1164,24 @@ onBeforeUnmount(() => {
 .ticket-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
+  justify-content: flex-end;
+  padding: 8px 12px;
   background: var(--app-surface);
   border-bottom: 1px solid var(--app-border);
   cursor: move;
   user-select: none;
   flex-shrink: 0;
+}
+
+.ticket-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ticket-header__actions :deep(.el-button) {
+  margin: 0;
+  font-size: 17px;
 }
 
 .ticket-back-btn,
@@ -1569,9 +1585,16 @@ onBeforeUnmount(() => {
 }
 
 .film-ticket__qr-img {
-  width: 210px !important;
-  height: 210px !important;
+  width: 150px !important;
+  height: 150px !important;
   object-fit: contain;
+}
+
+.film-ticket__mobile {
+  text-align: center;
+  color: #8a9099;
+  font-size: 13px;
+  margin-bottom: 10px;
 }
 
 .film-ticket__no-qr {
@@ -1714,8 +1737,8 @@ onBeforeUnmount(() => {
 }
 
 .wo-qr {
-  width: 200px !important;
-  height: 200px !important;
+  width: 150px !important;
+  height: 150px !important;
   object-fit: contain;
 }
 

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, ipcMain, type IpcMainInvokeEvent, type NativeImage, type Rectangle } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, type IpcMainInvokeEvent, type NativeImage, type Rectangle } from 'electron'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
@@ -51,14 +51,26 @@ function imageFileName(): string {
   return `取票码-${new Date().toISOString().replace(/[:.]/g, '-')}.png`
 }
 
-async function saveCapturedImage(png: Buffer): Promise<string> {
+async function saveCapturedImage(png: Buffer, window: BrowserWindow | null): Promise<string | null> {
   const dir = join(app.getPath('pictures'), '万达快速出票')
-  const filePath = join(dir, imageFileName())
 
   await mkdir(dir, { recursive: true })
-  await writeFile(filePath, png)
 
-  return filePath
+  const result = window
+    ? await dialog.showSaveDialog(window, {
+        title: '保存取票码截图',
+        defaultPath: join(dir, imageFileName()),
+        filters: [{ name: 'PNG 图片', extensions: ['png'] }]
+      })
+    : { canceled: false, filePath: join(dir, imageFileName()) }
+
+  if (result.canceled || !result.filePath) {
+    return null
+  }
+
+  await writeFile(result.filePath, png)
+
+  return result.filePath
 }
 
 async function queryElementRect(event: IpcMainInvokeEvent, selector: string): Promise<ElementRect | null> {
@@ -175,7 +187,14 @@ export async function captureElement(
 
     const image = await window.webContents.capturePage(toCaptureRect(rect))
     const png = image.toPNG()
-    const filePath = await saveCapturedImage(png)
+    const filePath = await saveCapturedImage(png, window)
+
+    if (!filePath) {
+      return {
+        ok: false,
+        error: '已取消保存'
+      }
+    }
 
     return {
       ok: true,
