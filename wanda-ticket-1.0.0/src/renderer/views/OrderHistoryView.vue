@@ -264,12 +264,18 @@ const qrCodes = computed(() => normalizeTextList(ordersStore.currentPayInfo?.qrC
 const canCaptureHistoryTicketCode = computed(() => ticketDialogVisible.value && (ticketCodes.value.length > 0 || qrCodes.value.length > 0))
 
 
-function resetDialogPosition() {
+async function resetDialogPosition() {
   const width = 440
-  dialogPosition.value = {
-    x: Math.max(0, (window.innerWidth - width) / 2),
-    y: 24
-  }
+  const centerX = Math.max(0, (window.innerWidth - width) / 2)
+  dialogPosition.value = { x: centerX, y: 24 }
+
+  await nextTick()
+
+  const dialogEl = document.querySelector('.ticket-dialog') as HTMLElement | null
+  const height = dialogEl?.offsetHeight ?? 0
+  const centerY = height > 0 ? Math.max(12, (window.innerHeight - height) / 2) : 24
+
+  dialogPosition.value = { x: centerX, y: centerY }
 }
 
 function handleDragStart(event: MouseEvent) {
