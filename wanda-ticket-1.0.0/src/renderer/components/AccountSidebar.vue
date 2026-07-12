@@ -168,6 +168,28 @@ function handleAccountCheckedChange(account: WandaAccount, checked: string | num
   accountsStore.setSelectedAccountIds([...ids])
 }
 
+const allAccountsChecked = computed(
+  () => accountsStore.accounts.length > 0 && accountsStore.selectedCount === accountsStore.accounts.length
+)
+const someAccountsChecked = computed(
+  () => accountsStore.selectedCount > 0 && accountsStore.selectedCount < accountsStore.accounts.length
+)
+
+function handleToggleSelectAll(): void {
+  if (allAccountsChecked.value) {
+    accountsStore.setSelectedAccountIds([])
+  } else {
+    accountsStore.setSelectedAccountIds(accountsStore.accounts.map((account) => account.id))
+  }
+}
+
+function handleInvertSelection(): void {
+  const selected = new Set(accountsStore.selectedAccountIds)
+  accountsStore.setSelectedAccountIds(
+    accountsStore.accounts.filter((account) => !selected.has(account.id)).map((account) => account.id)
+  )
+}
+
 function getCurrentGradeSummary(groups: MemberGradeGroup[]): { memberGradeName: string; growthValue: number | null } {
   if (groups.length === 0) {
     return { memberGradeName: '', growthValue: null }
@@ -473,6 +495,16 @@ async function confirmImportAccounts(): Promise<void> {
         class="account-tab-panel account-list-panel"
         role="tabpanel"
       >
+        <div class="account-list-toolbar">
+          <el-checkbox
+            :model-value="allAccountsChecked"
+            :indeterminate="someAccountsChecked"
+            @change="handleToggleSelectAll"
+          >
+            全选
+          </el-checkbox>
+          <el-button size="small" text @click="handleInvertSelection">反选</el-button>
+        </div>
         <div class="account-row-list">
           <button
             v-for="account in accountsStore.filteredAccounts"

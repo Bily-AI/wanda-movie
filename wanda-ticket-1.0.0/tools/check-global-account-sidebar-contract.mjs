@@ -128,4 +128,8 @@ for (const text of [
   assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, text)
 }
 
+for (const text of ['handleToggleSelectAll', 'handleInvertSelection', ':indeterminate="someAccountsChecked"', '反选']) {
+  assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, text)
+}
+
 console.log('全局账号侧栏契约检查通过')
