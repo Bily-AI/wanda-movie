@@ -801,14 +801,14 @@ async function confirmImportAccounts(): Promise<void> {
     <el-dialog
       v-model="importAccountsDialogVisible"
       title="导入旧版账号"
-      width="620px"
+      width="680px"
       append-to-body
       class="legacy-account-import-dialog"
     >
       <el-input
         v-model="importAccountsText"
         type="textarea"
-        :rows="12"
+        :rows="18"
         resize="none"
         :placeholder="importAccountsPlaceholder"
       />
