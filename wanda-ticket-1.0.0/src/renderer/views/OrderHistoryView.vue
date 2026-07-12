@@ -33,6 +33,7 @@ interface TicketDetail {
   electronicQRs: string[]
   ticketTip: string
   moviePoster: string
+  createdAtLabel: string
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -230,7 +231,12 @@ function buildTicketDetail(order: OrderRecord, payInfo: OrderPayInfoResult, phon
     electronicQRs: qrCodes,
     ticketTip: '请持取票码至自助机取票',
     moviePoster: firstText(movie.coverUrl, movie.moviePoster),
+    createdAtLabel: order.createdAt ? formatDateTime(order.createdAt) : '-',
   }
+}
+
+function groupTicketCode(code: string): string {
+  return String(code || '').replace(/\s/g, '').replace(/(.{4})(?=.)/g, '$1 ')
 }
 
 const accountsStore = useAccountsStore()
