@@ -1099,6 +1099,21 @@ async function confirmImportAccounts(): Promise<void> {
   flex-direction: column;
 }
 
+.account-list-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 6px;
+}
+
+.account-list-toolbar :deep(.el-checkbox) {
+  margin: 0;
+}
+
+.account-list-toolbar :deep(.el-button) {
+  margin: 0;
+}
+
 .account-row-list {
   min-height: 0;
   flex: 1;
