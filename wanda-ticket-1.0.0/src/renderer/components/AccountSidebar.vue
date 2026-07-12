@@ -823,7 +823,7 @@ async function confirmImportAccounts(): Promise<void> {
     <el-dialog
       v-model="exportDialogVisible"
       title="导出账号"
-      width="860px"
+      width="680px"
       append-to-body
       class="legacy-account-import-dialog"
     >
