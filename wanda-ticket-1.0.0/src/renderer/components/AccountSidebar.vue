@@ -595,7 +595,12 @@ async function confirmImportAccounts(): Promise<void> {
           >
             批量删除
           </el-button>
-          <el-button size="small" :disabled="accountsStore.selectedCount === 0" @click="handleCancelSelection">
+          <el-button
+            class="management-action-full"
+            size="small"
+            :disabled="accountsStore.selectedCount === 0"
+            @click="handleCancelSelection"
+          >
             取消选择
           </el-button>
         </div>
@@ -664,15 +669,6 @@ async function confirmImportAccounts(): Promise<void> {
           万达账号登录
         </span>
         <div class="login-card-actions">
-          <el-button size="small" text @click="handleImportAccounts">导入账号</el-button>
-          <el-button
-            size="small"
-            text
-            :disabled="accountsStore.accounts.length === 0"
-            @click="handleExportAccounts"
-          >
-            导出账号
-          </el-button>
           <el-button
             v-if="!hasNoAccounts"
             class="login-toggle-button"
@@ -684,6 +680,18 @@ async function confirmImportAccounts(): Promise<void> {
           </el-button>
         </div>
       </header>
+
+      <div class="login-card-tools">
+        <el-button size="small" text @click="handleImportAccounts">导入账号</el-button>
+        <el-button
+          size="small"
+          text
+          :disabled="accountsStore.accounts.length === 0"
+          @click="handleExportAccounts"
+        >
+          导出账号
+        </el-button>
+      </div>
 
       <div v-if="loginCardExpanded || hasNoAccounts" class="login-panel-body">
         <div class="login-form">
@@ -879,6 +887,7 @@ async function confirmImportAccounts(): Promise<void> {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  white-space: nowrap;
 }
 
 .account-section-header :deep(.el-icon) {
@@ -1157,6 +1166,26 @@ async function confirmImportAccounts(): Promise<void> {
   gap: 8px;
   padding: 10px 14px 14px;
   border-top: 1px solid var(--app-border);
+}
+
+.account-management-actions :deep(.el-button) {
+  margin: 0;
+  width: 100%;
+}
+
+.account-management-actions .management-action-full {
+  grid-column: 1 / -1;
+}
+
+.login-card-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px 0;
+}
+
+.login-card-tools :deep(.el-button) {
+  margin: 0;
 }
 
 .account-login-card {
