@@ -131,5 +131,8 @@ for (const text of [
 for (const text of ['handleToggleSelectAll', 'handleInvertSelection', ':indeterminate="someAccountsChecked"', '反选']) {
   assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, text)
 }
+for (const text of ['refreshingSelectedSummaries', 'handleRefreshSelectedSummaries', '批量刷新']) {
+  assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, text)
+}
 
 console.log('全局账号侧栏契约检查通过')

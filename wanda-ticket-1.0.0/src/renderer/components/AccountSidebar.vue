@@ -24,6 +24,7 @@ const hasNoAccounts = computed(() => accountsStore.accounts.length === 0)
 const activeAccountTab = ref<'list' | 'current'>('list')
 const loginCardExpanded = ref(false)
 const refreshingAccountSummaries = ref(false)
+const refreshingSelectedSummaries = ref(false)
 const contextMenuVisible = ref(false)
 const contextMenuX = ref(0)
 const contextMenuY = ref(0)
@@ -300,6 +301,40 @@ async function handleRefreshAccountSummaries(): Promise<void> {
   ElMessage.success(`账号摘要刷新完成：成功 ${successCount} 个，失败 ${failCount} 个`)
 }
 
+async function handleRefreshSelectedSummaries(): Promise<void> {
+  if (refreshingSelectedSummaries.value) {
+    return
+  }
+
+  const selected = new Set(accountsStore.selectedAccountIds)
+  const accounts = accountsStore.accounts.filter((account) => selected.has(account.id) && account.ck)
+
+  if (accounts.length === 0) {
+    ElMessage.warning('选中账号里没有已登录的可刷新')
+    return
+  }
+
+  refreshingSelectedSummaries.value = true
+  let successCount = 0
+  let failCount = 0
+
+  try {
+    for (const account of accounts) {
+      try {
+        await refreshAccountSummary(account)
+        successCount += 1
+      } catch (error) {
+        failCount += 1
+        logsStore.addLog('账号摘要', account.phone, `刷新失败：${getErrorMessage(error, '刷新失败')}`)
+      }
+    }
+  } finally {
+    refreshingSelectedSummaries.value = false
+  }
+
+  ElMessage.success(`批量刷新完成：成功 ${successCount} 个，失败 ${failCount} 个`)
+}
+
 function handleRowContextMenu(row: WandaAccount, _column: unknown, event: MouseEvent): void {
   event.preventDefault()
   contextMenuAccount.value = row
@@ -540,6 +575,14 @@ async function confirmImportAccounts(): Promise<void> {
         <div class="account-management-actions">
           <el-button size="small" :disabled="accountsStore.selectedCount === 0" @click="handleMoveSelectedToGroup">
             移动分组
+          </el-button>
+          <el-button
+            size="small"
+            :loading="refreshingSelectedSummaries"
+            :disabled="accountsStore.selectedCount === 0"
+            @click="handleRefreshSelectedSummaries"
+          >
+            批量刷新
           </el-button>
           <el-button size="small" :disabled="accountsStore.selectedCount === 0" @click="handleBatchExportAccounts">
             批量导出
