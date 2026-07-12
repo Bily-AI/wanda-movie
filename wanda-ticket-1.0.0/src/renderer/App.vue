@@ -495,17 +495,11 @@ function registerAutoOrderListener(): void {
 
 @media (max-width: 1360px) {
   .toolbar {
-    align-items: stretch;
-    flex-direction: column;
+    align-items: flex-start;
   }
 
-  .top-nav,
-  .account-strip {
-    width: 100%;
-  }
-
-  .account-strip {
-    justify-content: flex-end;
+  .top-nav {
+    flex-wrap: wrap;
   }
 }
 </style>

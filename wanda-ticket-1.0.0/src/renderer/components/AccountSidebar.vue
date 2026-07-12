@@ -33,8 +33,7 @@ const moveGroupDialogVisible = ref(false)
 const targetGroupId = ref('')
 const importAccountsDialogVisible = ref(false)
 const importAccountsText = ref('')
-const importAccountsPlaceholder =
-  '支持格式：手机号----ck、备注----ck----手机号----登录时间、JSON 数组\n[{"phone":"13800138000","ck":"..."}]'
+const importAccountsPlaceholder = '格式：手机号----ck，每行一个\n13800138000----xxxxxxxx'
 
 const exportDialogVisible = ref(false)
 const exportText = ref('')

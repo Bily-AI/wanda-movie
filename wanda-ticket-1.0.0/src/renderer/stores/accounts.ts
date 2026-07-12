@@ -145,81 +145,15 @@ function normalizeImportedAccount(source: Partial<ImportedAccountSource>, groupI
   }
 }
 
-function buildImportedAccountFromRecord(value: unknown, groupId: string): WandaAccount | null {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return null
-  }
-
-  const record = value as Record<string, unknown>
-
-  return normalizeImportedAccount(
-    {
-      phone: firstText(record, 'phone', 'mobile', 'mobilePhone', '手机号'),
-      ck: firstText(record, 'ck', 'CK', 'token', 'userToken'),
-      remark: firstText(record, 'remark', '备注', 'name'),
-      loginDate: firstText(record, 'loginDate', '登录日期'),
-      loginTime: firstText(record, 'loginTime', '登录时间'),
-      userIdentifier: firstText(record, 'userIdentifier', 'user', 'USER', '用户标识')
-    },
-    groupId
-  )
-}
-
 function buildImportedAccount(line: string, groupId: string): WandaAccount | null {
-  const phone = line.match(/1\d{10}/)?.[0] ?? ''
+  const [rawPhone = '', rawCk = ''] = line.split('----').map((part) => part.trim())
+  const phone = /^1\d{10}$/.test(rawPhone) ? rawPhone : ''
 
-  if (!phone) {
+  if (!phone || !rawCk) {
     return null
   }
 
-  const legacyParts = line
-    .split('----')
-    .map((part) => part.trim())
-    .filter(Boolean)
-
-  if (legacyParts.length >= 2) {
-    const phoneIndex = legacyParts.findIndex((part) => /1\d{10}/.test(part))
-
-    if (phoneIndex === 0) {
-      return normalizeImportedAccount(
-        {
-          phone,
-          ck: legacyParts[1],
-          loginTime: legacyParts[2]
-        },
-        groupId
-      )
-    }
-
-    if (phoneIndex >= 2) {
-      return normalizeImportedAccount(
-        {
-          phone,
-          remark: legacyParts[phoneIndex - 2],
-          ck: legacyParts[phoneIndex - 1],
-          loginTime: legacyParts[phoneIndex + 1]
-        },
-        groupId
-      )
-    }
-  }
-
-  const ckMatch = line.match(/(?:CK|ck)[:：]?\s*([^\s,，|]+)/)
-  const userMatch = line.match(/(?:USER|user|userIdentifier|用户标识)[:：]?\s*([A-Za-z0-9_-]+)/)
-  const parts = line
-    .split(/[\s,，|]+/)
-    .map((part) => part.trim())
-    .filter(Boolean)
-  const ck = ckMatch?.[1] ?? parts.find((part) => part !== phone && part.length >= 20) ?? ''
-
-  return normalizeImportedAccount(
-    {
-      phone,
-      ck,
-      userIdentifier: userMatch?.[1]
-    },
-    groupId
-  )
+  return normalizeImportedAccount({ phone, ck: rawCk }, groupId)
 }
 
 function parseImportedAccounts(text: string, groupId: string): WandaAccount[] {
@@ -227,19 +161,6 @@ function parseImportedAccounts(text: string, groupId: string): WandaAccount[] {
 
   if (!trimmed) {
     return []
-  }
-
-  if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
-    try {
-      const parsed = JSON.parse(trimmed)
-      const records = Array.isArray(parsed) ? parsed : [parsed]
-
-      return records
-        .map((record) => buildImportedAccountFromRecord(record, groupId))
-        .filter((account): account is WandaAccount => Boolean(account))
-    } catch {
-      return []
-    }
   }
 
   return trimmed
