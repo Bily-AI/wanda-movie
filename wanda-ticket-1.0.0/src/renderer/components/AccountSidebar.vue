@@ -535,7 +535,7 @@ async function confirmImportAccounts(): Promise<void> {
         </div>
         <div class="account-row-list">
           <button
-            v-for="account in accountsStore.filteredAccounts"
+            v-for="(account, index) in accountsStore.filteredAccounts"
             :key="account.id"
             type="button"
             class="account-row"
@@ -549,9 +549,7 @@ async function confirmImportAccounts(): Promise<void> {
               @click.stop
               @change="handleAccountCheckedChange(account, $event)"
             />
-            <span class="row-avatar">
-              <el-icon><UserFilled /></el-icon>
-            </span>
+            <span class="row-avatar row-avatar--index">{{ index + 1 }}</span>
             <span class="row-main">
               <strong>{{ maskPhone(account.phone) }}</strong>
               <em>{{ formatLoginDate(account) }}</em>
@@ -1142,6 +1140,12 @@ async function confirmImportAccounts(): Promise<void> {
   width: 34px;
   height: 34px;
   font-size: 19px;
+}
+
+.row-avatar--index {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .row-main strong {
