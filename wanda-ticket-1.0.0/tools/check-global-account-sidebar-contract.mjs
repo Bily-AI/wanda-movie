@@ -118,5 +118,14 @@ for (const text of ['formatAccountExportLine', 'exportAccountsToText', 'async de
 for (const text of ['手机号----ck', '导出账号', 'handleExportAccounts', 'handleCopyExportText', 'exportDialogVisible']) {
   assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, text)
 }
+for (const text of [
+  '批量删除',
+  '批量导出',
+  'handleBatchDeleteAccounts',
+  'handleBatchExportAccounts',
+  'deleteAccounts(accountsStore.selectedAccountIds'
+]) {
+  assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, text)
+}
 
 console.log('全局账号侧栏契约检查通过')

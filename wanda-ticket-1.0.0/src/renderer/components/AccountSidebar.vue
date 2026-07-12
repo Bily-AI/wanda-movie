@@ -57,6 +57,34 @@ async function handleCopyExportText(): Promise<void> {
   }
 }
 
+function handleBatchExportAccounts(): void {
+  if (accountsStore.selectedCount === 0) {
+    return
+  }
+
+  exportText.value = accountsStore.exportAccountsToText(accountsStore.selectedAccountIds)
+  exportDialogVisible.value = true
+}
+
+async function handleBatchDeleteAccounts(): Promise<void> {
+  if (accountsStore.selectedCount === 0) {
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(`确定删除选中的 ${accountsStore.selectedCount} 个账号吗？`, '批量删除账号', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+  } catch {
+    return
+  }
+
+  const count = await accountsStore.deleteAccounts(accountsStore.selectedAccountIds)
+  ElMessage.success(`已删除 ${count} 个账号`)
+}
+
 function handleRowClick(row: WandaAccount): void {
   accountsStore.setCurrentAccount(row.id)
   activeAccountTab.value = 'current'
@@ -480,6 +508,17 @@ async function confirmImportAccounts(): Promise<void> {
         <div class="account-management-actions">
           <el-button size="small" :disabled="accountsStore.selectedCount === 0" @click="handleMoveSelectedToGroup">
             移动分组
+          </el-button>
+          <el-button size="small" :disabled="accountsStore.selectedCount === 0" @click="handleBatchExportAccounts">
+            批量导出
+          </el-button>
+          <el-button
+            size="small"
+            type="danger"
+            :disabled="accountsStore.selectedCount === 0"
+            @click="handleBatchDeleteAccounts"
+          >
+            批量删除
           </el-button>
           <el-button size="small" :disabled="accountsStore.selectedCount === 0" @click="handleCancelSelection">
             取消选择
