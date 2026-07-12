@@ -139,5 +139,8 @@ for (const text of ['lastLoginAt', 'loginInvalid']) {
   assertIncludes('src/shared/localData.ts', localData, text)
 }
 assertIncludes('src/renderer/stores/accounts.ts', accountsStore, 'async setAccountLoginState(')
+for (const text of ['function accountStatusInfo(', "'account-state--warn'", '天后到期']) {
+  assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, text)
+}
 
 console.log('全局账号侧栏契约检查通过')

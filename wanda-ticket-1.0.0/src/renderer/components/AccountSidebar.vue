@@ -192,10 +192,37 @@ function handleToggleSelectAll(): void {
   }
 }
 
-function accountMetaLabel(account: WandaAccount): string {
-  const groupName = accountsStore.groups.find((group) => group.id === account.groupId)?.name || ''
-  const state = account.isPayMember ? 'W+' : account.statusText || '-'
-  return groupName ? `${groupName} · ${state}` : state
+function accountGroupName(account: WandaAccount): string {
+  return accountsStore.groups.find((group) => group.id === account.groupId)?.name || ''
+}
+
+function accountStatusInfo(account: WandaAccount): { text: string; warn: boolean } {
+  if (!account.ck) {
+    return { text: '待登录', warn: false }
+  }
+
+  if (account.loginInvalid) {
+    return { text: '异常', warn: true }
+  }
+
+  const base = Date.parse(account.lastLoginAt || account.createdAt || '')
+
+  if (!Number.isFinite(base)) {
+    return { text: '正常', warn: false }
+  }
+
+  const dayMs = 24 * 60 * 60 * 1000
+  const daysLeft = Math.ceil((base + 30 * dayMs - Date.now()) / dayMs)
+
+  if (daysLeft <= 0) {
+    return { text: '已过期', warn: true }
+  }
+
+  if (daysLeft <= 3) {
+    return { text: `${daysLeft}天后到期`, warn: true }
+  }
+
+  return { text: '正常', warn: false }
 }
 
 
@@ -572,7 +599,10 @@ async function confirmImportAccounts(): Promise<void> {
             </span>
             <span class="row-meta">
               <strong>{{ account.remark || '-' }}</strong>
-              <em>{{ accountMetaLabel(account) }}</em>
+              <em>
+                <template v-if="accountGroupName(account)">{{ accountGroupName(account) }} · </template>
+                <span :class="{ 'account-state--warn': accountStatusInfo(account).warn }">{{ accountStatusInfo(account).text }}</span>
+              </em>
             </span>
           </button>
 
@@ -1167,6 +1197,11 @@ async function confirmImportAccounts(): Promise<void> {
   font-size: 15px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+.account-state--warn {
+  color: var(--el-color-danger, #f56c6c);
+  font-weight: 600;
 }
 
 .row-main strong {
