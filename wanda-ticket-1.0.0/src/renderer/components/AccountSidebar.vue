@@ -176,6 +176,14 @@ const someAccountsChecked = computed(
   () => accountsStore.selectedCount > 0 && accountsStore.selectedCount < accountsStore.accounts.length
 )
 
+const currentGroupLabel = computed(() => {
+  const id = accountsStore.selectedGroupId
+  if (!id) {
+    return '全部分组'
+  }
+  return accountsStore.groups.find((group) => group.id === id)?.name || '全部分组'
+})
+
 function handleToggleSelectAll(): void {
   if (allAccountsChecked.value) {
     accountsStore.setSelectedAccountIds([])
@@ -539,6 +547,7 @@ async function confirmImportAccounts(): Promise<void> {
           >
             全选
           </el-checkbox>
+          <span class="account-list-group-label">{{ currentGroupLabel }}</span>
         </div>
         <div class="account-row-list">
           <button
@@ -1099,6 +1108,11 @@ async function confirmImportAccounts(): Promise<void> {
 
 .account-list-toolbar :deep(.el-checkbox) {
   margin: 0;
+}
+
+.account-list-group-label {
+  color: var(--app-muted);
+  font-size: 12px;
 }
 
 .account-list-toolbar :deep(.el-button) {
