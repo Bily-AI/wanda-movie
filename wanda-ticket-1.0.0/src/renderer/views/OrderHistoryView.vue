@@ -681,7 +681,7 @@ onBeforeUnmount(() => {
           <el-table-column prop="cinema" label="影院" min-width="190" show-overflow-tooltip>
             <template #default="{ row }">{{ row.cinema || '-' }}</template>
           </el-table-column>
-          <el-table-column label="场次" width="180" show-overflow-tooltip>
+          <el-table-column label="场次" width="230" show-overflow-tooltip>
             <template #default="{ row }">{{ formatShowtimeRange(row.showtime) || '-' }}</template>
           </el-table-column>
 
@@ -699,7 +699,7 @@ onBeforeUnmount(() => {
             </template>
           </el-table-column>
 
-          <el-table-column prop="createdAt" label="创建时间" width="160">
+          <el-table-column prop="createdAt" label="创建时间" width="180" show-overflow-tooltip>
             <template #default="{ row }">
               {{ formatDateTime(row.createdAt) }}
             </template>
