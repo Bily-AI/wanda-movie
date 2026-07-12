@@ -841,59 +841,62 @@ onBeforeUnmount(() => {
             </div>
           </template>
 
-          <div v-else class="wanda-official-content">
-            <div class="wanda-cinema-card">
-              <div class="wanda-cinema-name">{{ ticketDetail.cinemaName }}</div>
-              <div class="wanda-cinema-address">{{ ticketDetail.cinemaAddress || '请到影院现场查看详细地址' }}</div>
+          <div v-else class="wanda-official-content history-ticket-code-dialog">
+            <div class="wo-cinema-card">
+              <div class="wo-cinema-name">{{ ticketDetail.cinemaName }}</div>
+              <div class="wo-cinema-address">{{ ticketDetail.cinemaAddress || '请到影院现场查看详细地址' }}</div>
             </div>
 
-            <div class="wanda-movie-section">
-              <div class="wanda-movie-left">
-                <div class="wanda-movie-title">{{ ticketDetail.movieName }}</div>
-                <div class="wanda-movie-meta">{{ ticketDetail.movieLanguage }}/{{ ticketDetail.movieVersion }}/1张</div>
-                <div class="wanda-show-time">{{ ticketDetail.showTimeStr }} ~ {{ ticketDetail.showEndTimeStr }}</div>
-                <div class="wanda-mobile-last4">{{ ticketMobileLast4 }}</div>
+            <div class="wo-movie-card">
+              <div class="wo-movie-main">
+                <div class="wo-movie-title">{{ ticketDetail.movieName }}</div>
+                <div class="wo-movie-meta">
+                  {{ [ticketDetail.movieLanguage, ticketDetail.movieVersion].filter(Boolean).join(' ') }}
+                  {{ ticketDetail.electronicCodes.length || 1 }}张
+                </div>
+                <div class="wo-movie-time">
+                  {{ ticketDetail.showTimeStr }}<template v-if="ticketDetail.showEndTimeStr"> ~ {{ ticketDetail.showEndTimeStr }}</template>
+                </div>
+                <div class="wo-movie-hallseat">
+                  <span v-if="ticketDetail.hallName">{{ ticketDetail.hallName }}</span>
+                  <span v-if="ticketDetail.seats" class="wo-seat">{{ ticketDetail.seats }}</span>
+                </div>
               </div>
-
-              <div class="wanda-movie-poster">
-                <img :src="ticketDetail.moviePoster || '/default-poster.png'" alt="电影海报" />
-              </div>
-            </div>
-
-            <div class="wanda-divider" />
-
-            <div class="wanda-hall-seat-row">
-              <div class="wanda-hall-item">
-                <div class="wanda-item-label">影厅</div>
-                <div class="wanda-item-value">{{ ticketDetail.hallName }}</div>
-              </div>
-
-              <div class="wanda-seat-item">
-                <div class="wanda-item-label">座位</div>
-                <div class="wanda-item-value">{{ ticketDetail.seats }}</div>
+              <div class="wo-movie-poster">
+                <img v-if="ticketDetail.moviePoster" :src="ticketDetail.moviePoster" alt="电影海报" />
               </div>
             </div>
 
-            <div class="wanda-qr-area history-ticket-code-panel">
-              <template v-for="(qrCode, index) in ticketDetail.electronicQRs" :key="`wanda-qr-${index}`">
-                <img v-if="isImageQrCode(qrCode)" :src="formatQrImage(qrCode)" class="wanda-qr-code" alt="取票二维码" />
-              </template>
-              <div v-if="ticketDetail.electronicQRs.length === 0" class="wanda-no-qr">
-                {{ ticketDetail.ticketTip }}
+            <div class="wo-dashed" />
+
+            <div class="wo-voucher history-ticket-code-panel">
+              <div class="wo-section-label">取票凭证</div>
+              <div class="wo-qr-box">
+                <template v-for="(qrCode, index) in ticketDetail.electronicQRs" :key="`wo-qr-${index}`">
+                  <img v-if="isImageQrCode(qrCode)" :src="formatQrImage(qrCode)" class="wo-qr" alt="取票二维码" />
+                </template>
+                <div v-if="ticketDetail.electronicQRs.length === 0" class="wo-no-qr">{{ ticketDetail.ticketTip }}</div>
+              </div>
+              <div v-if="ticketDetail.electronicCodes.length" class="wo-code">
+                取票码：{{ groupTicketCode(ticketDetail.electronicCodes.join('')) }}
               </div>
             </div>
 
-            <div class="wanda-code-area">
-              <span class="wanda-code-label">取票码：</span>
-              <span class="wanda-code-number">{{ ticketDetail.electronicCodes.join(' ') }}</span>
+            <div class="wo-order-card">
+              <div class="wo-order-head">
+                <span>影票订单</span>
+                <span class="wo-order-status">{{ ticketDetail.showOrderStatus }}</span>
+              </div>
+              <div class="wo-order-row"><span class="wo-order-label">订单编号</span><span>{{ ticketDetail.orderId }}</span></div>
+              <div class="wo-order-row"><span class="wo-order-label">下单时间</span><span>{{ ticketDetail.createdAtLabel }}</span></div>
+              <div class="wo-order-row"><span class="wo-order-label">手机号码</span><span>{{ ticketMaskedMobile }}</span></div>
+              <div class="wo-order-divider" />
+              <div class="wo-order-row wo-order-pay"><span class="wo-order-label">实付金额</span><strong>{{ formatMoney(ticketDetail.totalPrice) }}</strong></div>
             </div>
 
-            <div class="wanda-bottom-tip">请到影院内万达电影取票机取票</div>
             <div class="history-ticket-code-dialog__actions">
               <el-button :disabled="!canCaptureHistoryTicketCode" @click="handleCaptureHistoryTicketCode">截图保存</el-button>
-              <el-button type="primary" :disabled="!canCaptureHistoryTicketCode" @click="handleCopyHistoryTicketCode">
-                复制截图
-              </el-button>
+              <el-button type="primary" :disabled="!canCaptureHistoryTicketCode" @click="handleCopyHistoryTicketCode">复制截图</el-button>
             </div>
           </div>
         </div>
@@ -1392,162 +1395,174 @@ onBeforeUnmount(() => {
 }
 
 .wanda-official-content {
-  background: var(--app-surface);
-  margin: 10px 12px 12px;
-  border-radius: var(--radius-base);
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.wanda-cinema-card {
-  background: linear-gradient(135deg, #1b6fd4, #2196f3);
-  color: #fff;
-  padding: 18px 20px;
-}
-
-.wanda-cinema-name {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.wanda-cinema-address {
-  font-size: 12px;
-  opacity: 0.8;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.wanda-movie-section {
   display: flex;
-  padding: 16px 20px;
-  align-items: flex-start;
-  gap: 16px;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  background: #f4f5f7;
 }
 
-.wanda-movie-left {
-  flex: 1;
+.wo-cinema-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.wo-cinema-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2329;
+}
+
+.wo-cinema-address {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #8a9099;
+}
+
+.wo-movie-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.wo-movie-main {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.wanda-movie-title {
-  font-size: 20px;
+.wo-movie-title {
+  font-size: 18px;
   font-weight: 700;
-  color: var(--app-text);
+  color: #1f2329;
 }
 
-.wanda-movie-meta {
+.wo-movie-meta {
+  font-size: 12px;
+  color: #8a9099;
+}
+
+.wo-movie-time {
   font-size: 13px;
-  color: var(--app-muted);
+  color: #4e5561;
 }
 
-.wanda-show-time {
-  font-size: 14px;
-  color: var(--app-subtle);
-}
-
-.wanda-mobile-last4 {
-  font-size: 13px;
-  color: var(--app-muted);
-  margin-top: 2px;
-}
-
-.wanda-movie-poster {
-  width: 72px;
-  height: 96px;
-  border-radius: 6px;
-  overflow: hidden;
-  background: var(--app-bg-soft);
-  flex-shrink: 0;
-}
-
-.wanda-movie-poster img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.wanda-divider {
-  height: 1px;
-  background: var(--app-border);
-  margin: 0 20px;
-}
-
-.wanda-hall-seat-row {
+.wo-movie-hallseat {
   display: flex;
-  padding: 16px 20px;
-  gap: 40px;
+  gap: 12px;
+  font-size: 13px;
+  color: #4e5561;
 }
 
-.wanda-hall-item,
-.wanda-seat-item {
+.wo-movie-poster {
+  flex: 0 0 auto;
+}
+
+.wo-movie-poster img {
+  width: 88px;
+  height: 118px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.wo-dashed {
+  border-top: 1px dashed #e3e5e9;
+  margin: 2px 6px;
+}
+
+.wo-voucher {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px 16px;
 }
 
-.wanda-item-label {
-  font-size: 13px;
-  color: var(--app-muted);
-}
-
-.wanda-item-value {
+.wo-section-label {
+  align-self: flex-start;
   font-size: 15px;
-  color: var(--app-text);
-  font-weight: 500;
+  font-weight: 700;
+  color: #1f2329;
 }
 
-.wanda-qr-area {
-  display: flex;
-  justify-content: center;
-  padding: 8px 20px 16px;
+.wo-qr-box {
+  display: grid;
+  place-items: center;
 }
 
-.wanda-qr-code {
-  width: 160px !important;
-  height: 160px !important;
+.wo-qr {
+  width: 200px !important;
+  height: 200px !important;
   object-fit: contain;
-  background: var(--app-surface);
-  border: 1px solid var(--app-border);
-  border-radius: 4px;
 }
 
-.wanda-no-qr {
-  font-size: 24px;
-  color: rgb(200 80 80 / 50%);
-  font-weight: 700;
-  letter-spacing: 4px;
-}
-
-.wanda-code-area {
-  display: flex;
-  justify-content: center;
-  align-items: baseline;
-  padding: 4px 20px 20px;
-  gap: 8px;
-}
-
-.wanda-code-label {
-  font-size: 15px;
-  color: var(--app-subtle);
-}
-
-.wanda-code-number {
-  font-size: 28px;
-  font-weight: 700;
-  color: #e67e22;
-  letter-spacing: 2px;
-}
-
-.wanda-bottom-tip {
-  background: var(--panel-soft-bg);
-  text-align: center;
-  padding: 14px 20px;
+.wo-no-qr {
+  min-height: 120px;
+  display: grid;
+  place-items: center;
+  color: #8a9099;
   font-size: 13px;
-  color: var(--app-muted);
-  border-top: 1px solid var(--app-border);
+}
+
+.wo-code {
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: #f4f5f7;
+  color: #8a9099;
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+.wo-order-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.wo-order-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2329;
+}
+
+.wo-order-status {
+  font-size: 12px;
+  font-weight: 500;
+  color: #8a9099;
+}
+
+.wo-order-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  font-size: 13px;
+  color: #4e5561;
+}
+
+.wo-order-label {
+  color: #8a9099;
+}
+
+.wo-order-divider {
+  border-top: 1px solid #f0f1f3;
+  margin: 8px 0;
+}
+
+.wo-order-pay strong {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1f2329;
 }
 </style>
