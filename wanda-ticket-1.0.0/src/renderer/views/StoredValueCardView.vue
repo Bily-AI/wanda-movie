@@ -579,14 +579,14 @@ watch(cardDisplayMode, (mode) => {
               <span class="stored-card-holder">{{ row.ownerPhone || row.holder || '-' }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="卡信息" min-width="360">
-            <template #default="{ row }">
-              <div class="stored-card-primary-cell">
-                <strong class="stored-card-primary-title">{{ row.name || '储值卡' }}</strong>
-                <span class="stored-card-primary-meta">{{ row.cardNo || '-' }}</span>
-                <span class="stored-card-primary-meta">{{ row.categoryName || '未分类' }}</span>
-              </div>
-            </template>
+          <el-table-column prop="name" label="卡名称" min-width="200" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.name || '储值卡' }}</template>
+          </el-table-column>
+          <el-table-column prop="cardNo" label="卡号" width="188" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.cardNo || '-' }}</template>
+          </el-table-column>
+          <el-table-column prop="categoryName" label="分类" width="120">
+            <template #default="{ row }">{{ row.categoryName || '未分类' }}</template>
           </el-table-column>
           <el-table-column label="余额" width="118" align="right">
             <template #default="{ row }">
@@ -929,24 +929,6 @@ watch(cardDisplayMode, (mode) => {
   vertical-align: top;
 }
 
-.stored-card-primary-cell {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  line-height: 1.35;
-}
-
-.stored-card-primary-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-primary, var(--app-text));
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.stored-card-primary-meta,
 .stored-card-holder {
   overflow: hidden;
   color: var(--text-secondary, var(--app-muted));

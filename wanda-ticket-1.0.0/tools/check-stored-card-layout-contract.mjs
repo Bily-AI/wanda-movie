@@ -28,9 +28,9 @@ for (const marker of [
   'class="stored-card-action-panel panel"',
   'class="stored-card-content-panel panel"',
   'class="stored-card-panel-header"',
-  'class="stored-card-primary-cell"',
-  'class="stored-card-primary-title"',
-  'class="stored-card-primary-meta"',
+  'label="卡名称"',
+  'label="卡号"',
+  'label="分类"',
   'class="stored-card-view-toggle"',
   'availableCardCount'
 ]) {
@@ -44,7 +44,6 @@ for (const marker of [
   '.stored-card-action-panel {\n  min-width: 0;',
   '.stored-card-content-panel {\n  min-height: 0;\n  display: flex;\n  flex-direction: column;\n  overflow: hidden;',
   '.stored-card-table-wrapper {\n  flex: 1;\n  min-height: 0;',
-  '.stored-card-primary-title {\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;',
   '.stored-card-grid-panel {\n  flex: 1;\n  min-height: 0;'
 ]) {
   assertIncludes('src/renderer/views/StoredValueCardView.vue', storedCardView, marker)
