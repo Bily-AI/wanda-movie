@@ -184,6 +184,12 @@ function handleToggleSelectAll(): void {
   }
 }
 
+function accountMetaLabel(account: WandaAccount): string {
+  const groupName = accountsStore.groups.find((group) => group.id === account.groupId)?.name || ''
+  const state = account.isPayMember ? 'W+' : account.statusText || '-'
+  return groupName ? `${groupName} · ${state}` : state
+}
+
 
 function getCurrentGradeSummary(groups: MemberGradeGroup[]): { memberGradeName: string; growthValue: number | null } {
   if (groups.length === 0) {
@@ -556,7 +562,7 @@ async function confirmImportAccounts(): Promise<void> {
             </span>
             <span class="row-meta">
               <strong>{{ account.remark || '-' }}</strong>
-              <em>{{ account.isPayMember ? 'W+' : account.statusText || '-' }}</em>
+              <em>{{ accountMetaLabel(account) }}</em>
             </span>
           </button>
 
