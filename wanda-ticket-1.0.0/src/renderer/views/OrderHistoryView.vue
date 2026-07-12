@@ -14,7 +14,7 @@ import type { OrderPayInfoResult, OrderRecord } from '@shared/wandaTicketTypes'
 const DEFAULT_TEMPLATE = 'default'
 const WANDA_TEMPLATE = 'wanda'
 const DEFAULT_USER_IDENTIFIER = 'YYDDJDKYHA'
-const historyTicketCodePanelSelector = '.ticket-dialog'
+const historyTicketCodePanelSelector = '.history-ticket-code-dialog'
 
 interface TicketDetail {
   orderId: string
