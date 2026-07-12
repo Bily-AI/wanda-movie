@@ -353,33 +353,6 @@ function formatCentAmount(value: number): string {
   return `¥${(Math.max(0, value) / 100).toFixed(2)}`
 }
 
-const statusTiles = computed(() => [
-  {
-    key: 'flow',
-    label: '当前流程',
-    value: ticketStore.selectedSeatCount > 0 ? '选座中' : ticketStore.currentOrder ? '待支付' : '待查询',
-    tone: 'blue'
-  },
-  {
-    key: 'ocr',
-    label: 'OCR 匹配',
-    value: ticketStore.showtimeError ? '已匹配' : '待识别',
-    tone: ticketStore.showtimeError ? 'green' : 'blue'
-  },
-  {
-    key: 'order',
-    label: '当前订单',
-    value: ticketStore.currentOrderFinalized ? '已完成' : ticketStore.currentOrder ? '待提交' : '未创建',
-    tone: ticketStore.currentOrder ? 'orange' : 'blue'
-  },
-  {
-    key: 'risk',
-    label: '风险提示',
-    value: ticketStore.paymentPrerequisiteError || ticketStore.currentOrderMessage || '0 条',
-    tone: ticketStore.paymentPrerequisiteError || ticketStore.currentOrderMessage ? 'red' : 'green'
-  }
-])
-
 function isImageQrCode(value: string): boolean {
   return /^data:image\//.test(value) || /^[A-Za-z0-9+/]+={0,2}$/.test(value)
 }
@@ -647,18 +620,6 @@ watch(
 
 <template>
   <section class="ticket-workbench">
-    <section class="ticket-status-grid" aria-label="购票状态摘要">
-      <article
-        v-for="item in statusTiles"
-        :key="item.key"
-        class="status-tile"
-        :class="`status-tile--${item.tone}`"
-      >
-        <span>{{ item.label }}</span>
-        <strong>{{ item.value }}</strong>
-      </article>
-    </section>
-
     <section class="ticket-center">
       <section class="panel query-panel">
         <header class="panel-header">
@@ -1051,50 +1012,10 @@ watch(
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(560px, 1fr) 380px;
-  grid-template-rows: 86px minmax(0, 1fr) 64px;
+  grid-template-rows: minmax(0, 1fr) 64px;
   gap: 12px;
   overflow: hidden;
 }
-
-.ticket-status-grid {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.status-tile {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 7px;
-  padding: 13px 16px;
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: var(--app-surface);
-  box-shadow: var(--shadow-panel);
-}
-
-.status-tile span {
-  color: var(--app-muted);
-  font-size: 12px;
-}
-
-.status-tile strong {
-  min-width: 0;
-  color: var(--app-text);
-  font-size: 18px;
-  font-weight: 800;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.status-tile--blue { border-color: var(--summary-blue-border); background: var(--summary-blue-bg); }
-.status-tile--green { border-color: var(--summary-green-border); background: var(--summary-green-bg); }
-.status-tile--orange { border-color: var(--summary-amber-border); background: var(--summary-amber-bg); }
-.status-tile--red { border-color: var(--summary-red-border); background: var(--summary-red-bg); }
 
 .ticket-center,
 .order-column {

@@ -34,8 +34,6 @@ for (const marker of [
 
 for (const marker of [
   'class="ticket-workbench"',
-  'class="ticket-status-grid"',
-  'status-tile',
   'ticket-context-column',
   'context-card',
   'context-panel',
