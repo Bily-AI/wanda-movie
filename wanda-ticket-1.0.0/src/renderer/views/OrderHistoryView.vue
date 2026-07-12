@@ -8,6 +8,7 @@ import { cancelTicketOrder, refundTicketOrder } from '@renderer/services/seatApi
 import { useAccountsStore } from '@renderer/stores/accounts'
 import { useLogsStore } from '@renderer/stores/logs'
 import { useOrdersStore } from '@renderer/stores/orders'
+import { useSettingsStore } from '@renderer/stores/settings'
 import type { OrderPayInfoResult, OrderRecord } from '@shared/wandaTicketTypes'
 
 const DEFAULT_TEMPLATE = 'default'
@@ -242,9 +243,12 @@ function groupTicketCode(code: string): string {
 const accountsStore = useAccountsStore()
 const logsStore = useLogsStore()
 const ordersStore = useOrdersStore()
+const settingsStore = useSettingsStore()
 
 const ticketDialogVisible = ref(false)
-const ticketTemplate = ref<string>(DEFAULT_TEMPLATE)
+const ticketTemplate = computed(() =>
+  settingsStore.ticketCodeTemplate === '万达风格' ? WANDA_TEMPLATE : DEFAULT_TEMPLATE
+)
 const ticketDetail = ref<TicketDetail | null>(null)
 const dialogPosition = ref({ x: 0, y: 24 })
 const payInfoDialogVisible = ticketDialogVisible
@@ -259,10 +263,6 @@ const ticketCodes = computed(() => normalizeTextList(ordersStore.currentPayInfo?
 const qrCodes = computed(() => normalizeTextList(ordersStore.currentPayInfo?.qrCodes))
 const canCaptureHistoryTicketCode = computed(() => ticketDialogVisible.value && (ticketCodes.value.length > 0 || qrCodes.value.length > 0))
 
-function loadTicketTemplate() {
-  const saved = localStorage.getItem('setting_ticket_template')
-  ticketTemplate.value = saved === WANDA_TEMPLATE ? WANDA_TEMPLATE : DEFAULT_TEMPLATE
-}
 
 function resetDialogPosition() {
   const width = 440
@@ -587,9 +587,16 @@ watch(ticketDialogVisible, (visible) => {
 })
 
 onMounted(() => {
-  loadTicketTemplate()
   void ordersStore.loadOrders()
 })
+
+async function handleTicketTemplateChange(): Promise<void> {
+  try {
+    await settingsStore.saveSettings()
+  } catch (error) {
+    ElMessage.error(error instanceof Error && error.message ? error.message : '取票样式保存失败')
+  }
+}
 
 onBeforeUnmount(() => {
   handleDragEnd()
@@ -661,7 +668,20 @@ onBeforeUnmount(() => {
           </span>
           <em>{{ ordersStore.filteredOrders.length }} / {{ ordersStore.total }} 条</em>
         </div>
-        <span class="history-table-hint">双击订单可查看取票信息</span>
+        <div class="history-table-right">
+          <div class="ticket-template-switch">
+            <span class="ticket-template-label">取票样式</span>
+            <el-radio-group
+              v-model="settingsStore.ticketCodeTemplate"
+              size="small"
+              @change="handleTicketTemplateChange"
+            >
+              <el-radio-button value="默认">默认</el-radio-button>
+              <el-radio-button value="万达风格">万达风格</el-radio-button>
+            </el-radio-group>
+          </div>
+          <span class="history-table-hint">双击订单可查看取票信息</span>
+        </div>
       </header>
 
       <div class="order-table-wrapper">
@@ -1034,6 +1054,23 @@ onBeforeUnmount(() => {
   font-size: 12px;
   font-style: normal;
   font-weight: 400;
+}
+
+.history-table-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ticket-template-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ticket-template-label {
+  color: var(--app-muted);
+  font-size: 12px;
 }
 
 .order-table-wrapper {
