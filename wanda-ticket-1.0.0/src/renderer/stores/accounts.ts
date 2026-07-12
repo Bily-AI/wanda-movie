@@ -171,7 +171,7 @@ function buildImportedAccount(line: string, groupId: string): WandaAccount | nul
   }
 
   const legacyParts = line
-    .split('---')
+    .split('----')
     .map((part) => part.trim())
     .filter(Boolean)
 
@@ -246,6 +246,15 @@ function parseImportedAccounts(text: string, groupId: string): WandaAccount[] {
     .filter(Boolean)
     .map((line) => buildImportedAccount(line, groupId))
     .filter((account): account is WandaAccount => Boolean(account))
+}
+
+function formatAccountExportLine(account: WandaAccount): string {
+  const loginTime = (account.loginTime || account.loginDate || '').trim()
+  const parts = account.remark?.trim()
+    ? [account.remark.trim(), account.ck, account.phone, loginTime]
+    : [account.phone, account.ck, loginTime]
+
+  return parts.map((part) => (part ?? '').trim()).filter(Boolean).join('----')
 }
 
 function toPlainAccountsData(data: AccountsLocalData): AccountsLocalData {
@@ -411,6 +420,32 @@ export const useAccountsStore = defineStore('accounts', {
         await this.saveAccounts()
         this.loginForm.message = '账号已删除'
       }
+    },
+    exportAccountsToText(ids?: string[]): string {
+      const idSet = ids && ids.length > 0 ? new Set(ids) : null
+      const list = idSet ? this.accounts.filter((account) => idSet.has(account.id)) : this.accounts
+
+      return list.map((account) => formatAccountExportLine(account)).join('\n')
+    },
+    async deleteAccounts(ids: string[]) {
+      const idSet = new Set(ids)
+      const removed = this.accounts.filter((account) => idSet.has(account.id)).length
+
+      if (removed === 0) {
+        return 0
+      }
+
+      this.accounts = this.accounts.filter((account) => !idSet.has(account.id))
+
+      if (idSet.has(this.currentAccountId)) {
+        this.currentAccountId = ''
+      }
+
+      this.selectedAccountIds = this.selectedAccountIds.filter((selId) => !idSet.has(selId))
+      await this.saveAccounts()
+      this.loginForm.message = `已删除 ${removed} 个账号`
+      useLogsStore().addLog('账号删除', '批量', this.loginForm.message)
+      return removed
     },
     async createGroup(name: string) {
       const id = 'group_' + Date.now()

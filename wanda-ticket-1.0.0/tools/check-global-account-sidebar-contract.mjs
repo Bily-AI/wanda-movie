@@ -109,4 +109,11 @@ assertNotIncludes('src/renderer/views/TicketView.vue', ticketView, '<aside class
 assertNotIncludes('src/renderer/views/TicketView.vue', ticketView, 'handleAccountSelectionChange')
 assertNotIncludes('src/renderer/views/TicketView.vue', ticketView, 'handleImportAccounts')
 
+// 账号导入分隔符改为 ----（不兼容三杠）
+assertIncludes('src/renderer/stores/accounts.ts', accountsStore, ".split('----')")
+assertNotIncludes('src/renderer/stores/accounts.ts', accountsStore, ".split('---')")
+for (const text of ['formatAccountExportLine', 'exportAccountsToText', 'async deleteAccounts(']) {
+  assertIncludes('src/renderer/stores/accounts.ts', accountsStore, text)
+}
+
 console.log('全局账号侧栏契约检查通过')
