@@ -789,12 +789,16 @@ onBeforeUnmount(() => {
 
           <template v-if="ticketTemplate === DEFAULT_TEMPLATE">
             <div class="film-ticket history-ticket-code-dialog">
-              <div class="film-ticket__perf film-ticket__perf--top" />
+              <div class="film-ticket__sprockets film-ticket__sprockets--top">
+                <span v-for="n in 10" :key="`ft-top-${n}`" />
+              </div>
               <div class="film-ticket__inner history-ticket-code-panel">
                 <div class="film-ticket__head">
+                  <div class="film-ticket__watermark">万达电影</div>
                   <div class="film-ticket__cinema">{{ ticketDetail.cinemaName }}</div>
                   <div class="film-ticket__address">{{ ticketDetail.cinemaAddress || '请到影院现场查看详细地址' }}</div>
                 </div>
+                <div class="film-ticket__notch" />
 
                 <div class="film-ticket__body">
                   <div class="film-ticket__movie">
@@ -839,7 +843,9 @@ onBeforeUnmount(() => {
                   <div class="film-ticket__tip">请到影院内万达电影取票机取票</div>
                 </div>
               </div>
-              <div class="film-ticket__perf film-ticket__perf--bottom" />
+              <div class="film-ticket__sprockets film-ticket__sprockets--bottom">
+                <span v-for="n in 10" :key="`ft-bot-${n}`" />
+              </div>
 
               <div class="history-ticket-code-dialog__actions">
                 <el-button :disabled="!canCaptureHistoryTicketCode" @click="handleCaptureHistoryTicketCode">截图保存</el-button>
@@ -1395,51 +1401,92 @@ onBeforeUnmount(() => {
 
 .film-ticket {
   padding: 0;
-  background: #081a41;
-  background-image:
-    radial-gradient(circle at 12% 22%, rgba(74, 120, 224, 0.45), transparent 42%),
-    radial-gradient(circle at 88% 8%, rgba(40, 78, 170, 0.4), transparent 38%);
+  background: #0a1633;
 }
 
-.film-ticket__perf {
-  height: 16px;
-  background: radial-gradient(circle at center, #050f2c 3.5px, transparent 4.5px) 8px center / 20px 16px repeat-x;
+.film-ticket__sprockets {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 14px;
 }
 
-.film-ticket__perf--bottom {
-  background-color: #b25a12;
-  background-image: radial-gradient(circle at center, #050f2c 3.5px, transparent 4.5px);
-  background-size: 20px 16px;
-  background-position: 8px center;
-  background-repeat: repeat-x;
+.film-ticket__sprockets span {
+  width: 14px;
+  height: 20px;
+  border-radius: 5px;
+  background: #05102a;
+}
+
+.film-ticket__sprockets--bottom {
+  background: #c15a10;
+}
+
+.film-ticket__sprockets--bottom span {
+  background: #3a1a05;
 }
 
 .film-ticket__inner {
-  margin: 4px 14px;
-  border-radius: 14px;
+  margin: 0 12px;
+  border-radius: 16px;
   overflow: hidden;
   background: #fff;
 }
 
 .film-ticket__head {
-  padding: 18px 20px;
+  position: relative;
+  padding: 22px 22px 26px;
   color: #fff;
-  background: linear-gradient(120deg, #1152c4 0%, #2f7be6 100%);
+  background: linear-gradient(135deg, #0e2f7a 0%, #1a63d6 70%, #2f7be6 100%);
+  overflow: hidden;
+}
+
+.film-ticket__watermark {
+  position: absolute;
+  right: -10px;
+  top: 10px;
+  font-size: 46px;
+  font-weight: 900;
+  color: rgb(255 255 255 / 10%);
+  letter-spacing: 2px;
 }
 
 .film-ticket__cinema {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 800;
 }
 
 .film-ticket__address {
-  margin-top: 6px;
+  margin-top: 8px;
   font-size: 12px;
-  opacity: 0.85;
+  color: rgb(255 255 255 / 85%);
+}
+
+.film-ticket__notch {
+  position: relative;
+  height: 0;
+}
+
+.film-ticket__notch::before,
+.film-ticket__notch::after {
+  content: '';
+  position: absolute;
+  top: -11px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #0a1633;
+}
+
+.film-ticket__notch::before {
+  left: -11px;
+}
+
+.film-ticket__notch::after {
+  right: -11px;
 }
 
 .film-ticket__body {
-  padding: 16px 20px 20px;
+  padding: 18px 20px 20px;
 }
 
 .film-ticket__movie {
@@ -1452,25 +1499,24 @@ onBeforeUnmount(() => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .film-ticket__movie-title {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
-  color: #1f2329;
+  color: #1c2026;
 }
 
 .film-ticket__movie-meta {
-  font-size: 13px;
-  color: #8a9099;
+  font-size: 14px;
+  color: #9aa0a8;
 }
 
 .film-ticket__time {
   align-self: flex-start;
-  margin-top: 2px;
-  padding: 5px 10px;
-  border-radius: 6px;
+  padding: 6px 12px;
+  border-radius: 7px;
   background: #fdf0e2;
   color: #e2820f;
   font-size: 13px;
@@ -1482,15 +1528,15 @@ onBeforeUnmount(() => {
 }
 
 .film-ticket__poster img {
-  width: 92px;
-  height: 122px;
+  width: 96px;
+  height: 128px;
   object-fit: cover;
   border-radius: 8px;
 }
 
 .film-ticket__dashed {
   border-top: 1px dashed #dfe2e7;
-  margin: 16px 0;
+  margin: 18px 0;
 }
 
 .film-ticket__hallseat {
@@ -1502,24 +1548,24 @@ onBeforeUnmount(() => {
 .film-ticket__cell {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .film-ticket__label {
-  font-size: 13px;
-  color: #8a9099;
+  font-size: 14px;
+  color: #9aa0a8;
 }
 
 .film-ticket__value {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
-  color: #1f2329;
+  color: #1c2026;
 }
 
 .film-ticket__qr {
   display: grid;
   place-items: center;
-  margin: 18px 0 12px;
+  margin: 20px 0 14px;
 }
 
 .film-ticket__qr-img {
@@ -1532,34 +1578,36 @@ onBeforeUnmount(() => {
   min-height: 130px;
   display: grid;
   place-items: center;
-  color: #8a9099;
+  color: #9aa0a8;
   font-size: 13px;
 }
 
 .film-ticket__code {
   text-align: center;
-  padding: 8px 16px;
+  padding: 10px 16px;
   border-radius: 8px;
-  background: #fdf0e2;
-  color: #e2820f;
-  font-size: 13px;
+  background: #faf6f2;
+  color: #9aa0a8;
+  font-size: 15px;
 }
 
 .film-ticket__code strong {
-  font-size: 18px;
+  margin-left: 6px;
+  font-size: 20px;
   font-weight: 800;
   letter-spacing: 1px;
+  color: #e2820f;
 }
 
 .film-ticket__tip {
-  margin-top: 12px;
+  margin-top: 14px;
   text-align: center;
-  color: #b0b4bb;
+  color: #b7bcc4;
   font-size: 13px;
 }
 
 .film-ticket .history-ticket-code-dialog__actions {
-  padding: 0 14px 14px;
+  padding: 14px;
 }
 
 .wanda-official-content {
