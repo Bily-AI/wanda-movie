@@ -274,7 +274,9 @@ const wplusStatusTextSafe = computed(() => {
     return '未检测'
   }
 
-  return wplusStatusProfile.value.isPayMember ? '已开通' : '未开通'
+  const profile = wplusStatusProfile.value
+  // 有有效的 W+到期日期即视为已开通（到期日期只有 W+ 会员才有），与 normalizeWPlusProfile 口径一致
+  return profile.isPayMember || hasWPlusExpireDate(profile.expireAt) ? '已开通' : '未开通'
 })
 
 const wplusStatusHintSafe = computed(() => {
