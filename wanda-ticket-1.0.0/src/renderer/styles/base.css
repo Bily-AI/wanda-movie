@@ -349,6 +349,11 @@ button {
   box-shadow: var(--shadow-panel-strong);
 }
 
+/* 取票弹窗等自定义遮罩层 z-index 高达 10000，Element Plus 消息条默认 2000+ 会被盖住，这里强制置顶 */
+.el-message {
+  z-index: 20000 !important;
+}
+
 .el-message-box__header,
 .el-message-box__content,
 .el-message-box__btns {
