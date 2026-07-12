@@ -791,14 +791,6 @@ onBeforeUnmount(() => {
                   </div>
                 </div>
               </div>
-
-              <div class="ticket-ad-banner">
-                <div class="ad-left">
-                  <span class="ad-title">W+会员开通赠3张IMAX券</span>
-                  <span class="ad-desc">每天1杯免费可乐、会员价购票、优选座席等八大特权</span>
-                </div>
-                <el-button size="small" type="primary" round>去开通 ›</el-button>
-              </div>
             </div>
 
             <div class="ticket-detail">
@@ -1196,12 +1188,12 @@ onBeforeUnmount(() => {
 }
 
 .ticket-tip-bar {
-  background: linear-gradient(135deg, #1a4a9e, #2563b8);
-  color: #fff;
-  text-align: center;
+  padding: 10px 14px;
   font-size: 14px;
-  padding: 11px 16px;
-  letter-spacing: 0.5px;
+  font-weight: 700;
+  color: var(--app-text);
+  background: transparent;
+  border-bottom: 1px solid var(--app-border);
 }
 
 .ticket-body {
@@ -1266,32 +1258,6 @@ onBeforeUnmount(() => {
   font-weight: 700;
   letter-spacing: 4px;
   line-height: 1.4;
-}
-
-.ticket-ad-banner {
-  background: linear-gradient(135deg, #2c1810 0%, #3d2518 100%);
-  border-radius: 0 0 10px 10px;
-  padding: 12px 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.ad-left {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.ad-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #f5d77a;
-}
-
-.ad-desc {
-  font-size: 11px;
-  color: rgb(255 255 255 / 60%);
 }
 
 .ticket-detail {
