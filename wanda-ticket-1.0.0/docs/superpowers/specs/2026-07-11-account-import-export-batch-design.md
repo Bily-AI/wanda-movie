@@ -14,7 +14,7 @@
 
 ## 2. 需求
 
-1. **分隔符 `---` → `----`**:导入解析与占位符提示改用 4 个连字符;**保留 `---` 作为兼容回退**(旧的三杠文本仍可导入)。
+1. **分隔符 `---` → `----`**:导入解析与占位符提示**直接**由 3 个连字符改为 4 个连字符,**不保留 `---` 兼容**。
 2. **新增「导出账号」按钮**:与「导入账号」并排(`AccountSidebar.vue:530` 登录卡头部动作区),导出**全部账号**为 `----` 文本。
 3. **批量删除**:动作行加「批量删除」,删除选中账号,带二次确认。
 4. **批量导出**:动作行加「批量导出」,只导出选中账号。
@@ -37,11 +37,7 @@
 
 ## 5. store 改动(`accounts.ts`)
 
-- `buildImportedAccount`(`:174`):分隔符改为优先 `----`,回退 `---`。实现:
-  ```ts
-  const sep = line.includes('----') ? '----' : '---'
-  const legacyParts = line.split(sep).map((p) => p.trim()).filter(Boolean)
-  ```
+- `buildImportedAccount`(`:174`):`.split('---')` 直接改为 `.split('----')`(不保留三杠兼容)。
 - 新增 helper `function formatAccountExportLine(account: WandaAccount): string`:按第 3 节格式拼行。
 - 新增 action `exportAccountsToText(ids?: string[]): string`:`ids` 为空导出全部,否则导出匹配 `ids` 的账号;逐个 `formatAccountExportLine` 用 `\n` 连接。
 - 新增 action `async deleteAccounts(ids: string[])`:遍历删除(复用 `deleteAccount` 逻辑或直接过滤 `this.accounts`),清理 `selectedAccountIds`,`saveAccounts()`,写日志,返回删除数量。
@@ -67,5 +63,5 @@
 
 ## 9. 风险
 
-- 分隔符若同时出现在 ck/备注中会误分割;`----` 比 `---` 更不易撞车,且保留 `---` 兼容。
+- 分隔符若同时出现在 ck/备注中会误分割;`----` 比 `---` 更不易撞车。**直接改为 `----` 后,旧的三杠文本将不再能导入**(用户明确要求,不做兼容)。
 - `check:global-account-sidebar` 若锁定动作行按钮集合,需同步放开/更新。
