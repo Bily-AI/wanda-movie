@@ -788,68 +788,63 @@ onBeforeUnmount(() => {
           </div>
 
           <template v-if="ticketTemplate === DEFAULT_TEMPLATE">
-            <div class="ticket-card history-ticket-code-dialog">
-              <div class="ticket-tip-bar">取票二维码</div>
-
-              <div class="ticket-body history-ticket-code-panel">
-                <div class="ticket-code-row">
-                  <span class="ticket-code-label">取票码</span>
-                  <span class="ticket-code-value">{{ ticketDetail.electronicCodes.join(' ') }}</span>
+            <div class="film-ticket history-ticket-code-dialog">
+              <div class="film-ticket__perf film-ticket__perf--top" />
+              <div class="film-ticket__inner history-ticket-code-panel">
+                <div class="film-ticket__head">
+                  <div class="film-ticket__cinema">{{ ticketDetail.cinemaName }}</div>
+                  <div class="film-ticket__address">{{ ticketDetail.cinemaAddress || '请到影院现场查看详细地址' }}</div>
                 </div>
 
-                <div class="ticket-mobile-row">
-                  <span class="ticket-mobile-label">手机号：</span>
-                  <span>{{ ticketMaskedMobile }}</span>
-                </div>
-
-                <div class="ticket-qr-wrapper">
-                  <template v-for="(qrCode, index) in ticketDetail.electronicQRs" :key="`default-qr-${index}`">
-                    <img v-if="isImageQrCode(qrCode)" :src="formatQrImage(qrCode)" class="ticket-qr-img" alt="取票二维码" />
-                  </template>
-                  <div v-if="ticketDetail.electronicQRs.length === 0" class="ticket-status-stamp-text">
-                    {{ ticketDetail.ticketTip }}
+                <div class="film-ticket__body">
+                  <div class="film-ticket__movie">
+                    <div class="film-ticket__movie-main">
+                      <div class="film-ticket__movie-title">{{ ticketDetail.movieName }}</div>
+                      <div class="film-ticket__movie-meta">
+                        {{ [ticketDetail.movieLanguage, ticketDetail.movieVersion].filter(Boolean).join('/') }}/{{ ticketDetail.electronicCodes.length || 1 }}张
+                      </div>
+                      <div class="film-ticket__time">
+                        {{ ticketDetail.showTimeStr }}<template v-if="ticketDetail.showEndTimeStr"> ~ {{ ticketDetail.showEndTimeStr }}</template>
+                      </div>
+                    </div>
+                    <div class="film-ticket__poster">
+                      <img v-if="ticketDetail.moviePoster" :src="ticketDetail.moviePoster" alt="电影海报" />
+                    </div>
                   </div>
+
+                  <div class="film-ticket__dashed" />
+
+                  <div class="film-ticket__hallseat">
+                    <div class="film-ticket__cell">
+                      <span class="film-ticket__label">影厅</span>
+                      <span class="film-ticket__value">{{ ticketDetail.hallName || '-' }}</span>
+                    </div>
+                    <div class="film-ticket__cell">
+                      <span class="film-ticket__label">座位</span>
+                      <span class="film-ticket__value">{{ ticketDetail.seats || '-' }}</span>
+                    </div>
+                  </div>
+
+                  <div class="film-ticket__qr">
+                    <template v-for="(qrCode, index) in ticketDetail.electronicQRs" :key="`film-qr-${index}`">
+                      <img v-if="isImageQrCode(qrCode)" :src="formatQrImage(qrCode)" class="film-ticket__qr-img" alt="取票二维码" />
+                    </template>
+                    <div v-if="ticketDetail.electronicQRs.length === 0" class="film-ticket__no-qr">{{ ticketDetail.ticketTip }}</div>
+                  </div>
+
+                  <div v-if="ticketDetail.electronicCodes.length" class="film-ticket__code">
+                    取票码：<strong>{{ groupTicketCode(ticketDetail.electronicCodes.join('')) }}</strong>
+                  </div>
+
+                  <div class="film-ticket__tip">请到影院内万达电影取票机取票</div>
                 </div>
               </div>
-            </div>
+              <div class="film-ticket__perf film-ticket__perf--bottom" />
 
-            <div class="ticket-detail">
-              <div class="detail-header">
-                <span>订单号：{{ ticketDetail.orderId }}</span>
-                <span class="detail-status">{{ ticketDetail.showOrderStatus }}</span>
+              <div class="history-ticket-code-dialog__actions">
+                <el-button :disabled="!canCaptureHistoryTicketCode" @click="handleCaptureHistoryTicketCode">截图保存</el-button>
+                <el-button type="primary" :disabled="!canCaptureHistoryTicketCode" @click="handleCopyHistoryTicketCode">复制截图</el-button>
               </div>
-
-              <div class="movie-info-section">
-                <div class="movie-name-line">
-                  {{ ticketDetail.movieName }}
-                  <span class="movie-version-tag">{{ ticketDetail.movieVersion }} {{ ticketDetail.movieLanguage }}</span>
-                </div>
-
-                <div class="info-row">
-                  <span class="info-label">时间：</span>
-                  <span>{{ ticketDetail.showTimeStr }} - {{ ticketDetail.showEndTimeStr }}</span>
-                </div>
-
-                <div class="info-row">
-                  <span class="info-label">影院：</span>
-                  <span>{{ ticketDetail.cinemaName }}</span>
-                </div>
-
-                <div class="info-row">
-                  <span class="info-label">影厅：</span>
-                  <span>{{ ticketDetail.hallName }}</span>
-                </div>
-
-                <div class="info-row">
-                  <span class="info-label">座位：</span>
-                  <span class="seat-tag">{{ ticketDetail.seats }}</span>
-                </div>
-              </div>
-
-              <button class="custom-slogan-btn">
-                <el-icon><Tickets /></el-icon>
-                请到影院现场用万达取票机取票
-              </button>
             </div>
           </template>
 
@@ -1148,6 +1143,7 @@ onBeforeUnmount(() => {
   z-index: 10000;
 }
 
+.film-ticket,
 .ticket-dialog .ticket-card,
 .ticket-dialog .ticket-detail,
 .wanda-official-content {
@@ -1395,6 +1391,175 @@ onBeforeUnmount(() => {
 
 .wanda-dialog {
   background: var(--app-bg) !important;
+}
+
+.film-ticket {
+  padding: 0;
+  background: #081a41;
+  background-image:
+    radial-gradient(circle at 12% 22%, rgba(74, 120, 224, 0.45), transparent 42%),
+    radial-gradient(circle at 88% 8%, rgba(40, 78, 170, 0.4), transparent 38%);
+}
+
+.film-ticket__perf {
+  height: 16px;
+  background: radial-gradient(circle at center, #050f2c 3.5px, transparent 4.5px) 8px center / 20px 16px repeat-x;
+}
+
+.film-ticket__perf--bottom {
+  background-color: #b25a12;
+  background-image: radial-gradient(circle at center, #050f2c 3.5px, transparent 4.5px);
+  background-size: 20px 16px;
+  background-position: 8px center;
+  background-repeat: repeat-x;
+}
+
+.film-ticket__inner {
+  margin: 4px 14px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.film-ticket__head {
+  padding: 18px 20px;
+  color: #fff;
+  background: linear-gradient(120deg, #1152c4 0%, #2f7be6 100%);
+}
+
+.film-ticket__cinema {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.film-ticket__address {
+  margin-top: 6px;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.film-ticket__body {
+  padding: 16px 20px 20px;
+}
+
+.film-ticket__movie {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.film-ticket__movie-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.film-ticket__movie-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #1f2329;
+}
+
+.film-ticket__movie-meta {
+  font-size: 13px;
+  color: #8a9099;
+}
+
+.film-ticket__time {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: #fdf0e2;
+  color: #e2820f;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.film-ticket__poster {
+  flex: 0 0 auto;
+}
+
+.film-ticket__poster img {
+  width: 92px;
+  height: 122px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.film-ticket__dashed {
+  border-top: 1px dashed #dfe2e7;
+  margin: 16px 0;
+}
+
+.film-ticket__hallseat {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.film-ticket__cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.film-ticket__label {
+  font-size: 13px;
+  color: #8a9099;
+}
+
+.film-ticket__value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2329;
+}
+
+.film-ticket__qr {
+  display: grid;
+  place-items: center;
+  margin: 18px 0 12px;
+}
+
+.film-ticket__qr-img {
+  width: 210px !important;
+  height: 210px !important;
+  object-fit: contain;
+}
+
+.film-ticket__no-qr {
+  min-height: 130px;
+  display: grid;
+  place-items: center;
+  color: #8a9099;
+  font-size: 13px;
+}
+
+.film-ticket__code {
+  text-align: center;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: #fdf0e2;
+  color: #e2820f;
+  font-size: 13px;
+}
+
+.film-ticket__code strong {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.film-ticket__tip {
+  margin-top: 12px;
+  text-align: center;
+  color: #b0b4bb;
+  font-size: 13px;
+}
+
+.film-ticket .history-ticket-code-dialog__actions {
+  padding: 0 14px 14px;
 }
 
 .wanda-official-content {
