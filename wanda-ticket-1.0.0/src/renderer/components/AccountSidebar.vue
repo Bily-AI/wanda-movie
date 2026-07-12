@@ -1103,7 +1103,8 @@ async function confirmImportAccounts(): Promise<void> {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px 6px;
+  /* 左内边距 = 列表 padding(10) + 账号行 padding(8)，使“全选”框与账号行复选框左对齐 */
+  padding: 8px 10px 6px 18px;
 }
 
 .account-list-toolbar :deep(.el-checkbox) {
