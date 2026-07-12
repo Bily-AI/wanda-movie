@@ -823,11 +823,11 @@ async function confirmImportAccounts(): Promise<void> {
     <el-dialog
       v-model="exportDialogVisible"
       title="导出账号"
-      width="620px"
+      width="860px"
       append-to-body
       class="legacy-account-import-dialog"
     >
-      <el-input v-model="exportText" type="textarea" :rows="12" resize="none" readonly />
+      <el-input v-model="exportText" type="textarea" :rows="18" resize="none" readonly />
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="exportDialogVisible = false">关闭</el-button>
