@@ -1136,18 +1136,18 @@ watch(
 }
 
 .screen-line {
-  margin: 38px 28px 0;
+  margin: 8px 28px 0;
   border-top: 3px solid #e2e8f2;
   color: var(--app-muted);
   text-align: center;
-  line-height: 30px;
+  line-height: 26px;
 }
 
 .seat-stage {
   flex: 1;
   min-height: 0;
   display: grid;
-  place-items: center;
+  place-items: start center;
 }
 
 .seat-scroll {
