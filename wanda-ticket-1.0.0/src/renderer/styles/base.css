@@ -460,3 +460,54 @@ html.dark .detail-json {
   margin: 0;
   color: var(--app-subtle);
 }
+
+/* 全局统一窄滚动条：细、圆角、悬停加深、去掉原生箭头按钮 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(31 42 68 / 22%) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background-color: rgb(31 42 68 / 22%);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(31 42 68 / 40%);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+html.dark *,
+.theme-dark * {
+  scrollbar-color: rgb(230 237 247 / 26%) transparent;
+}
+
+html.dark ::-webkit-scrollbar-thumb,
+.theme-dark ::-webkit-scrollbar-thumb {
+  background-color: rgb(230 237 247 / 26%);
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover,
+.theme-dark ::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(230 237 247 / 45%);
+}
