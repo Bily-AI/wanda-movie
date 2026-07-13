@@ -121,7 +121,7 @@ for (const label of ['ticketStore.applyOcrTicketText']) {
 assertMatches(
   'src/renderer/stores/ticket.ts',
   ticketStore,
-  /this\.query\.cinema = cinema\.id\n\s*\/\/[\s\S]*?this\.query\.keyword = ''/,
+  /this\.query\.cinema = cinema\.id\s+\/\/[\s\S]{0,160}?this\.query\.keyword = ''/,
   'OCR 精确匹配影院后必须清空 query.keyword，否则城市/影院下拉被影院名过滤住无法切换城市'
 )
 
