@@ -1228,10 +1228,6 @@ watch(
 }
 
 @media (max-width: 1480px) {
-  .activity-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .activity-page {
     grid-template-rows: auto auto minmax(0, 1fr);
   }
@@ -1250,10 +1246,6 @@ watch(
 }
 
 @media (max-width: 760px) {
-  .activity-summary-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .activity-toolbar-row {
     align-items: stretch;
     flex-direction: column;

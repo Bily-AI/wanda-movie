@@ -728,10 +728,6 @@ async function handleClearCacheData() {
     grid-template-rows: auto minmax(0, 1fr);
   }
 
-  .settings-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .settings-workbench {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -748,10 +744,6 @@ async function handleClearCacheData() {
 }
 
 @media (max-width: 720px) {
-  .settings-summary-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .setting-row {
     align-items: stretch;
     flex-direction: column;

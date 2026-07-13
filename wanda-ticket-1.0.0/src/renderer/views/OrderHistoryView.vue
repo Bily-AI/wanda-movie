@@ -624,10 +624,6 @@ onBeforeUnmount(() => {
         <span class="stat-label">已完成</span>
         <strong class="stat-value">{{ ordersStore.summary.completed }}</strong>
       </article>
-      <article class="history-summary-card history-summary-card--red">
-        <span class="stat-label">总金额</span>
-        <strong class="stat-value">{{ ordersStore.totalAmountText }}</strong>
-      </article>
     </section>
 
     <section class="history-filter-panel panel">
@@ -950,7 +946,7 @@ onBeforeUnmount(() => {
 
 .history-summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 

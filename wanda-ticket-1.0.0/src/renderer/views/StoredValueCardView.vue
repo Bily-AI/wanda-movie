@@ -1036,11 +1036,6 @@ watch(cardDisplayMode, (mode) => {
 }
 
 @media (max-width: 1360px) {
-  .stored-card-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-auto-rows: 96px;
-  }
-
   .stored-card-page {
     grid-template-rows: auto auto minmax(0, 1fr);
   }

@@ -17,7 +17,7 @@ const expectedViews = [
     route: '/orders',
     file: 'OrderHistoryView.vue',
     component: 'OrderHistoryView',
-    markers: ['历史订单', '今日订单', '总金额']
+    markers: ['历史订单', '今日订单', '已完成']
   },
   {
     route: '/stored-card',

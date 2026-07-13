@@ -2414,10 +2414,6 @@ onMounted(() => {
 }
 
 @media (max-width: 1360px) {
-  .member-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .member-summary-card {
     height: 96px;
   }
@@ -2442,10 +2438,6 @@ onMounted(() => {
 }
 
 @media (max-width: 980px) {
-  .member-summary-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .vip-subtab-list,
   .vip-subtab {
     width: 100%;
