@@ -31,7 +31,7 @@ for (const text of [
   'settings-card settings-card--network',
   'autoPaymentStatusText',
   'proxyStatusText',
-  'grid-template-rows: 100px minmax(0, 1fr);',
+  'grid-template-rows: 72px minmax(0, 1fr);',
   'grid-template-columns: repeat(4, minmax(0, 1fr));',
   'grid-template-columns: minmax(0, 1fr) minmax(360px, 480px);'
 ]) {

@@ -1717,7 +1717,7 @@ onMounted(() => {
 
 .member-summary-card {
   min-width: 0;
-  height: 64px;
+  min-height: 64px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1733,7 +1733,7 @@ onMounted(() => {
 .member-summary-card em {
   overflow: hidden;
   color: var(--text-secondary, var(--app-muted));
-  font-size: 13px;
+  font-size: 12px;
   font-style: normal;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1742,7 +1742,7 @@ onMounted(() => {
 .member-summary-card strong {
   overflow: hidden;
   color: var(--text-primary, var(--app-text));
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.18;
   text-overflow: ellipsis;
   white-space: nowrap;

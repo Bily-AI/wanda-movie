@@ -31,7 +31,7 @@ for (const text of [
   'activity-workspace',
   'payableGiftOrderCount',
   'selectedCinemaName',
-  'grid-template-rows: 100px auto minmax(0, 1fr);',
+  'grid-template-rows: 72px auto minmax(0, 1fr);',
   'grid-template-columns: repeat(4, minmax(0, 1fr));',
   'display: flex;\n  flex-wrap: wrap;',
   'activity-toolbar-section--location {\n  flex: 1 1 620px;',

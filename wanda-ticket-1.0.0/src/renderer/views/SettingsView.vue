@@ -465,7 +465,7 @@ async function handleClearCacheData() {
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-rows: 100px minmax(0, 1fr);
+  grid-template-rows: 72px minmax(0, 1fr);
   gap: 12px;
   padding: 14px;
   overflow: hidden;
@@ -481,7 +481,6 @@ async function handleClearCacheData() {
 
 .settings-summary-card {
   min-width: 0;
-  height: 64px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -497,7 +496,7 @@ async function handleClearCacheData() {
 .settings-summary-card em {
   overflow: hidden;
   color: var(--text-secondary, var(--app-muted));
-  font-size: 13px;
+  font-size: 12px;
   font-style: normal;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -506,7 +505,7 @@ async function handleClearCacheData() {
 .settings-summary-card strong {
   overflow: hidden;
   color: var(--text-primary, var(--app-text));
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.18;
   text-overflow: ellipsis;
   white-space: nowrap;
