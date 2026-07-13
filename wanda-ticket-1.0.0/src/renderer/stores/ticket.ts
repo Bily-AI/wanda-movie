@@ -1388,12 +1388,13 @@ export const useTicketStore = defineStore('ticket', {
       const primaryCard = selectedCards[0]
       const seatTotalPriceCent = Math.max(0, currentOrder.amountCent)
 
-      // 旧版口径：应付总盘子 = 券后价 / 活动价 / 0（单字段，分）
+      // 旧版口径：应付总盘子 = 券后价 / 活动价 / 座位全价（单字段，分）
+      // 无券无活动时全价走外部支付，若不给全价 externalPayment 会是 0 导致后端「支付失败」
       const totalPayPriceCent = couponPaymentInfo
         ? Math.max(0, Math.round(couponPaymentInfo.useResult.price))
         : selectedActivity
           ? yuanToCents(selectedActivity.price)
-          : 0
+          : seatTotalPriceCent
 
       // 逐卡分摊：券模式不分摊卡；否则前 5 张选中卡按 min(余额, 剩余) 递减
       const cardsToAllot = isCouponPayment ? [] : selectedCards

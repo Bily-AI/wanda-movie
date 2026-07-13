@@ -289,7 +289,9 @@ for (const label of [
   'yuanToCents(selectedActivity.price)',
   'couponPaymentInfo.useResult.price',
   'const externalPaymentPrice = Math.max(0, remainingCardPrice)',
-  'const discountPrice = Math.max(0, seatTotalPriceCent - totalPayPriceCent)'
+  'const discountPrice = Math.max(0, seatTotalPriceCent - totalPayPriceCent)',
+  // 无券无活动时全价盘子必须回落到座位全价，否则外部支付为 0 导致「支付失败」
+  ': seatTotalPriceCent'
 ]) {
   assertIncludes('src/renderer/stores/ticket.ts', requestInfoBuilderBlock, label)
 }
