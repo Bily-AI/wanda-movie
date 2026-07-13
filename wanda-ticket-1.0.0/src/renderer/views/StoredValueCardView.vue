@@ -521,7 +521,7 @@ watch(cardDisplayMode, (mode) => {
       <article class="stored-summary-card stored-summary-card--blue">
         <span>储值卡</span>
         <strong>{{ cardRows.length }}</strong>
-        <em>可用 {{ availableCardCount }} 张</em>
+        <em>可用 {{ availableCardCount }} 张 · 不可用 {{ unavailableCardCount }} 张</em>
       </article>
       <article class="stored-summary-card stored-summary-card--green">
         <span>总余额</span>
