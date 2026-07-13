@@ -574,7 +574,7 @@ watch(cardDisplayMode, (mode) => {
           highlight-current-row
           :empty-text="cardsMessage || '暂无数据'"
         >
-          <el-table-column prop="holder" label="持有人" width="100" show-overflow-tooltip>
+          <el-table-column prop="holder" label="持有人" min-width="104" show-overflow-tooltip>
             <template #default="{ row }">
               <span class="stored-card-holder">{{ row.ownerPhone || row.holder || '-' }}</span>
             </template>
@@ -582,26 +582,26 @@ watch(cardDisplayMode, (mode) => {
           <el-table-column prop="name" label="卡名称" min-width="150" show-overflow-tooltip>
             <template #default="{ row }">{{ row.name || '储值卡' }}</template>
           </el-table-column>
-          <el-table-column prop="cardNo" label="卡号" width="172" show-overflow-tooltip>
+          <el-table-column prop="cardNo" label="卡号" min-width="172" show-overflow-tooltip>
             <template #default="{ row }">{{ row.cardNo || '-' }}</template>
           </el-table-column>
-          <el-table-column prop="categoryName" label="分类" width="64">
+          <el-table-column prop="categoryName" label="分类" width="69">
             <template #default="{ row }">{{ row.categoryName || '未分类' }}</template>
           </el-table-column>
-          <el-table-column label="余额" width="100" align="right">
+          <el-table-column label="余额" min-width="100" align="right">
             <template #default="{ row }">
               <span class="stored-card-amount">{{ formatMoney(row.balance) }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="赠送" width="90" align="right">
+          <el-table-column label="赠送" min-width="90" align="right">
             <template #default="{ row }">{{ formatMoney(row.presentBalance) }}</template>
           </el-table-column>
-          <el-table-column label="状态" width="88" align="center">
+          <el-table-column label="状态" min-width="80" align="center">
             <template #default="{ row }">
               <el-tag size="small" class="stored-card-status-tag" :class="{ 'stored-card-status-tag--disabled': isStoredCardDisabled(row) }" :type="getStoredCardStatusTagType(row)">{{ row.statusDesc || row.status || '-' }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="150" align="right" fixed="right">
+          <el-table-column label="操作" width="130" align="center" fixed="right">
             <template #default="{ row }">
               <div class="stored-card-action-group">
                 <el-button link type="primary" size="small" @click="showCardDetail(row)">详情</el-button>
@@ -840,7 +840,6 @@ watch(cardDisplayMode, (mode) => {
 .stored-card-action-group {
   display: flex;
   align-items: center;
-  gap: 10px;
   min-width: 0;
 }
 
