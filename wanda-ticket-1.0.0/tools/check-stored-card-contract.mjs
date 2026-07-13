@@ -130,7 +130,7 @@ for (const label of [
   'safeMobile',
   'formatMoney',
   "function getStoredCardStatusTagType(row: StoredCardRow): 'success' | 'danger'",
-  "return row.available ? 'success' : 'danger'",
+  "return isStoredCardDisabled(row) ? 'danger' : 'success'",
   ':type="getStoredCardStatusTagType(row)"',
   '@click="showCardDetail(row)"',
   '@click="openRechargeDialog(row)"',

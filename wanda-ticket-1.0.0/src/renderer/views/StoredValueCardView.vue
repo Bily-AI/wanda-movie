@@ -58,8 +58,8 @@ const paymentResult = ref<PaymentDialogData | null>(null)
 let loadSerial = 0
 
 const cardRows = computed(() => cards.value)
-const availableCardCount = computed(() => cards.value.filter((card) => card.available).length)
-const unavailableCardCount = computed(() => Math.max(cards.value.length - availableCardCount.value, 0))
+const availableCardCount = computed(() => cards.value.filter((card) => !isStoredCardDisabled(card)).length)
+const unavailableCardCount = computed(() => cards.value.filter((card) => isStoredCardDisabled(card)).length)
 const normalBalance = computed(
   () => balanceInfo.value?.balance ?? cards.value.reduce((sum, card) => sum + card.balance, 0)
 )
@@ -97,7 +97,7 @@ function isStoredCardDisabled(row: StoredCardRow): boolean {
 }
 
 function getStoredCardStatusTagType(row: StoredCardRow): 'success' | 'danger' {
-  return row.available ? 'success' : 'danger'
+  return isStoredCardDisabled(row) ? 'danger' : 'success'
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
