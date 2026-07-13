@@ -67,6 +67,7 @@ for (const text of [
 for (const text of [
   'class="coupon-filter-search"',
   'class="coupon-filter-name"',
+  'class="coupon-filter-category"',
   'class="coupon-gift-tag"',
   'gift-form--spaced',
   'class="cat-name-input"',

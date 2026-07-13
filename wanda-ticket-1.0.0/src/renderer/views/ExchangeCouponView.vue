@@ -867,6 +867,9 @@ watch(
         <el-select v-model="nameFilter" placeholder="券名称" clearable class="coupon-filter-name">
           <el-option v-for="name in nameOptions" :key="name" :label="name" :value="name" />
         </el-select>
+        <el-select v-model="categoryFilter" placeholder="分类" clearable class="coupon-filter-category">
+          <el-option v-for="category in couponCategories" :key="category.id" :label="category.name" :value="category.id" />
+        </el-select>
         <el-button :type="statsMode ? 'warning' : 'default'" @click="showStats">
           {{ statsMode ? '明细' : '统计' }}
         </el-button>
@@ -935,7 +938,7 @@ watch(
           @selection-change="handleSelectionChange"
         >
           <el-table-column type="selection" width="44" />
-          <el-table-column prop="couponTypeName" label="券信息" min-width="420" sortable="custom">
+          <el-table-column prop="couponTypeName" label="券信息" min-width="300" sortable="custom">
             <template #default="{ row }">
               <div class="coupon-primary-cell">
                 <strong class="coupon-primary-title" :title="`点击复制: ${row.couponTypeName || row.name || '-'}`" @click="copyCouponName(row.couponTypeName || row.name || '-')">
@@ -945,24 +948,24 @@ watch(
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="类型" width="116" align="center">
+          <el-table-column label="类型" min-width="116" align="center">
             <template #default="{ row }">
               <el-tag size="small">{{ row.couponCategoryName || '-' }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="状态" width="104" align="center">
+          <el-table-column label="状态" min-width="104" align="center">
             <template #default="{ row }">
               <el-tag :type="row.giftStatus === 1 ? 'success' : 'info'" size="small">
                 {{ row.giftStatus === 1 ? '可赠送' : '不可赠送' }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="endTime" label="有效期" width="150" show-overflow-tooltip sortable="custom">
+          <el-table-column prop="endTime" label="有效期" min-width="150" show-overflow-tooltip sortable="custom">
             <template #default="{ row }">
               <span :class="{ 'expiring-date': isExpiringSoon(row) }">{{ formatCouponValidity(row) }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="220" align="right" fixed="right">
+          <el-table-column label="操作" min-width="120" align="center">
             <template #default="{ row }">
               <div class="coupon-action-group">
                 <el-button size="small" type="primary" link @click="handleGenerateCouponLink(row)">
@@ -1297,6 +1300,10 @@ watch(
 
 .coupon-filter-name {
   width: 170px;
+}
+
+.coupon-filter-category {
+  width: 150px;
 }
 
 .coupon-table-panel {
