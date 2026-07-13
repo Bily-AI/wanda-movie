@@ -945,7 +945,6 @@ watch(
                   {{ row.couponTypeName || row.name || '-' }}
                 </strong>
                 <span class="coupon-primary-meta">券号：<span class="coupon-code">{{ row.couponId || '-' }}</span></span>
-                <span class="coupon-primary-meta">couponNo：<span class="coupon-code">{{ row.couponNo || '-' }}</span></span>
               </div>
             </template>
           </el-table-column>
