@@ -118,4 +118,11 @@ for (const label of ['ticketStore.applyOcrTicketText']) {
   assertIncludes('src/renderer/views/TicketView.vue', ticketView, label)
 }
 
+assertMatches(
+  'src/renderer/stores/ticket.ts',
+  ticketStore,
+  /this\.query\.cinema = cinema\.id\n\s*\/\/[\s\S]*?this\.query\.keyword = ''/,
+  'OCR 精确匹配影院后必须清空 query.keyword，否则城市/影院下拉被影院名过滤住无法切换城市'
+)
+
 console.log('AI OCR 兜底契约检查通过')

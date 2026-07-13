@@ -2416,6 +2416,8 @@ export const useTicketStore = defineStore('ticket', {
         }
 
         this.query.cinema = cinema.id
+        // \u5f71\u9662\u5df2\u7cbe\u786e\u5339\u914d\uff0c\u6e05\u7a7a\u641c\u7d22\u5173\u952e\u8bcd\uff0c\u5426\u5219\u57ce\u5e02/\u5f71\u9662\u4e0b\u62c9\u4f1a\u4e00\u76f4\u88ab\u5f71\u9662\u540d\u8fc7\u6ee4\u4f4f\u5bfc\u81f4\u65e0\u6cd5\u5207\u6362\u57ce\u5e02
+        this.query.keyword = ''
         applied.push('\u5f71\u9662')
         await this.loadCinemaShowtimes()
 
