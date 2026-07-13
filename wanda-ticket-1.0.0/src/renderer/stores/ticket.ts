@@ -319,6 +319,18 @@ function findUniqueOptionByText(options: TicketOption[], text: string): TicketOp
   return undefined
 }
 
+function resolveOcrCityId(cities: CityRecord[], cityName: string): string {
+  const target = (cityName || '').replace(/[市\s]/g, '')
+
+  if (!target || cities.length === 0) {
+    return ''
+  }
+
+  const matched = cities.find((city) => (city.name || '').replace(/[市\s]/g, '') === target)
+
+  return matched?.id ?? ''
+}
+
 function findUniqueCinemaByText(cinemas: CinemaRecord[], text: string): CinemaRecord | undefined {
   if (!text || cinemas.length === 0) return undefined
 
@@ -2394,7 +2406,14 @@ export const useTicketStore = defineStore('ticket', {
       }
 
       if (parsed.cinemaName) {
-        const cinema = findUniqueCinemaByText(this.cinemaRecords, parsed.cinemaName)
+        // 影院名可能多城市重名（如「万达广场IMAX店」），优先用 OCR 里的城市缩小范围再匹配
+        const ocrCityId = resolveOcrCityId(this.cityRecords, parsed.cityName)
+        const cinemaPool = ocrCityId
+          ? this.cinemaRecords.filter((item) => item.cityId === ocrCityId)
+          : this.cinemaRecords
+        const cinema =
+          findUniqueCinemaByText(cinemaPool, parsed.cinemaName) ||
+          (ocrCityId ? findUniqueCinemaByText(this.cinemaRecords, parsed.cinemaName) : undefined)
 
         if (!cinema) {
           const cinemaKeyword = parsed.cinemaName.replace(/\s+/g, '').slice(0, 8)

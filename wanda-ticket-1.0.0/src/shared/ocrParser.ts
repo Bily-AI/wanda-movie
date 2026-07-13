@@ -7,6 +7,7 @@ export interface ParsedOcrSeat {
 export interface ParsedOcrTicket {
   rawText: string
   words: string[]
+  cityName: string
   cinemaName: string
   movieName: string
   date: string
@@ -510,6 +511,18 @@ export function isLikelySeatSelectionOcrText(text: string): boolean {
   )
 }
 
+function findCity(words: string[]): string {
+  for (const line of words) {
+    const value = valueAfterLabel(line, ['城市', '所在城市'])
+
+    if (value) {
+      return value.replace(/\s+/g, '')
+    }
+  }
+
+  return ''
+}
+
 export function parseOcrTicketText(text: string): ParsedOcrTicket {
   const rawText = text.trim()
   const words = splitWords(rawText)
@@ -518,6 +531,7 @@ export function parseOcrTicketText(text: string): ParsedOcrTicket {
   return {
     rawText,
     words,
+    cityName: findCity(words),
     cinemaName: findCinemaEnhanced(words),
     movieName: findMovieEnhanced(words),
     date: seatSelectionContext

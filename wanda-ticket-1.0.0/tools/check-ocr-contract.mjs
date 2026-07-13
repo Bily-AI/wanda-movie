@@ -119,11 +119,11 @@ for (const label of ['百度 OCR 设置', 'settingsStore.baiduOcr.apiKey', 'sett
   assertIncludes('src/renderer/views/SettingsView.vue', settingsView, label)
 }
 
-for (const label of ['parseOcrTicketText', 'ParsedOcrSeat', 'ParsedOcrTicket']) {
+for (const label of ['parseOcrTicketText', 'ParsedOcrSeat', 'ParsedOcrTicket', 'function findCity', 'cityName: findCity(words)']) {
   assertIncludes('src/shared/ocrParser.ts', ocrParser, label)
 }
 
-for (const label of ['parseOcrTicketText', 'applyOcrTicketText', 'applyParsedOcrTicket', 'findUniqueOptionByText', 'findUniqueCinemaByText']) {
+for (const label of ['parseOcrTicketText', 'applyOcrTicketText', 'applyParsedOcrTicket', 'findUniqueOptionByText', 'findUniqueCinemaByText', 'resolveOcrCityId']) {
   assertIncludes('src/renderer/stores/ticket.ts', ticketStore, label)
 }
 
@@ -171,6 +171,17 @@ if (parsed.time !== '14:35') {
 
 if (parsed.seats.length !== 2 || parsed.seats[0].rowName !== '6' || parsed.seats[1].columnName !== '9') {
   throw new Error('OCR 解析未提取多座位')
+}
+
+const cityParsed = parseOcrTicketText(`
+  城市：淄博
+  影院：万达影城（万达广场IMAX店）
+  影片：八仙
+  场次：2026-07-13 20:20:00
+`)
+
+if (cityParsed.cityName !== '淄博') {
+  throw new Error('OCR 解析未提取城市，重名影院无法按城市区分')
 }
 
 const seatSelectionParsed = parseOcrTicketText(`
