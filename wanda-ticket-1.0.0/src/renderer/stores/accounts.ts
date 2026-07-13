@@ -78,7 +78,9 @@ function toPlainAccount(account: WandaAccount): WandaAccount {
     storedCardCount: toNullableNumber(account.storedCardCount),
     couponCount: toNullableNumber(account.couponCount),
     memberGradeName: String(account.memberGradeName || ''),
-    growthValue: toNullableNumber(account.growthValue)
+    growthValue: toNullableNumber(account.growthValue),
+    todayTicketCount: toNullableNumber(account.todayTicketCount) ?? 0,
+    todayTicketDate: String(account.todayTicketDate || '')
   }
 }
 
@@ -409,6 +411,24 @@ export const useAccountsStore = defineStore('accounts', {
         loginInvalid: !valid,
         status: valid ? 'normal' : 'expired',
         statusText: valid ? '正常' : '异常'
+      }
+      await this.saveAccounts()
+    },
+    async incrementTodayTicketCount(accountId: string) {
+      const index = this.accounts.findIndex((acc) => acc.id === accountId)
+
+      if (index === -1) {
+        return
+      }
+
+      const today = new Date().toLocaleDateString('en-CA')
+      const account = this.accounts[index]
+      const base = account.todayTicketDate === today ? account.todayTicketCount ?? 0 : 0
+
+      this.accounts[index] = {
+        ...account,
+        todayTicketDate: today,
+        todayTicketCount: base + 1
       }
       await this.saveAccounts()
     },

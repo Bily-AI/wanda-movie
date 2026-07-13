@@ -111,6 +111,11 @@ function formatAccountNumber(value: number | null | undefined): string {
   return value === null || value === undefined ? '-' : String(value)
 }
 
+function formatTodayTicketCount(row: WandaAccount): number {
+  const today = new Date().toLocaleDateString('en-CA')
+  return row.todayTicketDate === today ? row.todayTicketCount ?? 0 : 0
+}
+
 function extractDateOnly(value: string): string {
   const text = value.trim()
 
@@ -684,6 +689,10 @@ async function confirmImportAccounts(): Promise<void> {
             <div class="account-metric">
               <span>成长值</span>
               <strong>{{ formatAccountNumber(accountsStore.currentAccount.growthValue) }}</strong>
+            </div>
+            <div class="account-metric">
+              <span>今日出票</span>
+              <strong>{{ formatTodayTicketCount(accountsStore.currentAccount) }} 张</strong>
             </div>
           </div>
         </div>

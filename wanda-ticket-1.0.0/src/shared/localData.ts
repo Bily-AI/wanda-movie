@@ -34,6 +34,8 @@ export interface WandaAccount {
   growthValue: number | null
   lastLoginAt?: string
   loginInvalid?: boolean
+  todayTicketCount?: number
+  todayTicketDate?: string
 }
 
 export interface AccountGroup {

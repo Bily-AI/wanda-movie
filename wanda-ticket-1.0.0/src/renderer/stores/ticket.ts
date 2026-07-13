@@ -2712,6 +2712,7 @@ export const useTicketStore = defineStore('ticket', {
         })
         this.currentOrderMessage = result.bizMsg || '订单创建成功'
         useLogsStore().addLog('订单', snapshot.phone, `订单创建成功：${result.orderId}`)
+        void useAccountsStore().incrementTodayTicketCount(snapshot.accountId)
         await this.refreshPaymentPrerequisites()
       } catch (error) {
         if (requestSerial !== this.orderRequestSerial || useAccountsStore().currentAccount?.id !== snapshot.accountId) {

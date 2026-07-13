@@ -69,10 +69,14 @@ for (const text of [
   '储值卡',
   '可用券',
   '等级',
-  '成长值'
+  '成长值',
+  '今日出票',
+  'formatTodayTicketCount'
 ]) {
   assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, text)
 }
+
+assertIncludes('src/renderer/stores/accounts.ts', accountsStore, 'async incrementTodayTicketCount(accountId: string)')
 
 assertIncludes(
   'src/renderer/components/AccountSidebar.vue',
