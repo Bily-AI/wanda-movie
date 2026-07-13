@@ -234,58 +234,58 @@ function registerAutoOrderListener(): void {
 
 <template>
   <div class="app-shell" :class="{ 'theme-dark': settingsStore.themeMode === '深色' }">
-    <header class="app-header">
-      <div class="titlebar">
-        <div class="brand-block" aria-label="万达快速出票">
-          <div class="brand-mark">W</div>
-          <div class="brand-copy">
-            <span class="brand-name">万达快速出票</span>
-            <span class="brand-version">v{{ version }}</span>
-          </div>
-        </div>
-
-        <div class="window-controls" aria-label="窗口控制">
-          <button class="window-button" type="button" aria-label="最小化" @click="invokeWindowAction('minimize')">
-            <el-icon><Minus /></el-icon>
-          </button>
-          <button class="window-button" type="button" aria-label="最大化或还原" @click="invokeWindowAction('maximize')">
-            <el-icon><FullScreen /></el-icon>
-          </button>
-          <button class="window-button window-button--close" type="button" aria-label="关闭" @click="invokeWindowAction('close')">
-            <el-icon><Close /></el-icon>
-          </button>
+    <div class="titlebar">
+      <div class="brand-block" aria-label="万达快速出票">
+        <div class="brand-mark">W</div>
+        <div class="brand-copy">
+          <span class="brand-name">万达快速出票</span>
+          <span class="brand-version">v{{ version }}</span>
         </div>
       </div>
 
-      <div class="toolbar">
-        <nav class="top-nav" aria-label="主导航">
-          <el-button
-            v-for="item in navItems"
-            :key="item.path"
-            class="nav-button"
-            :class="{ 'nav-button--active': isActive(item.path) }"
-            text
-            @click="navigate(item.path)"
-          >
-            <el-icon><component :is="item.icon" /></el-icon>
-            <span>{{ item.label }}</span>
-          </el-button>
-        </nav>
-
-        <div class="account-strip" aria-label="账号状态">
-          <span class="account-item account-item--user">
-            <el-icon><UserFilled /></el-icon>
-            <span>本地模式 / 鉴权未启用</span>
-          </span>
-        </div>
+      <div class="window-controls" aria-label="窗口控制">
+        <button class="window-button" type="button" aria-label="最小化" @click="invokeWindowAction('minimize')">
+          <el-icon><Minus /></el-icon>
+        </button>
+        <button class="window-button" type="button" aria-label="最大化或还原" @click="invokeWindowAction('maximize')">
+          <el-icon><FullScreen /></el-icon>
+        </button>
+        <button class="window-button window-button--close" type="button" aria-label="关闭" @click="invokeWindowAction('close')">
+          <el-icon><Close /></el-icon>
+        </button>
       </div>
-    </header>
+    </div>
 
     <main class="app-main">
       <div class="workspace-layout">
         <AccountSidebar />
         <section class="workspace-content">
-          <router-view :key="workspaceViewKey" />
+          <div class="toolbar">
+            <nav class="top-nav" aria-label="主导航">
+              <el-button
+                v-for="item in navItems"
+                :key="item.path"
+                class="nav-button"
+                :class="{ 'nav-button--active': isActive(item.path) }"
+                text
+                @click="navigate(item.path)"
+              >
+                <el-icon><component :is="item.icon" /></el-icon>
+                <span>{{ item.label }}</span>
+              </el-button>
+            </nav>
+
+            <div class="account-strip" aria-label="账号状态">
+              <span class="account-item account-item--user">
+                <el-icon><UserFilled /></el-icon>
+                <span>本地模式 / 鉴权未启用</span>
+              </span>
+            </div>
+          </div>
+
+          <div class="workspace-view">
+            <router-view :key="workspaceViewKey" />
+          </div>
         </section>
       </div>
     </main>
@@ -301,21 +301,15 @@ function registerAutoOrderListener(): void {
   color: var(--app-text);
 }
 
-.app-header {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  border-bottom: 1px solid var(--app-border);
-  background: var(--app-header-bg);
-  box-shadow: 0 8px 24px rgb(31 42 68 / 6%);
-}
-
 .titlebar {
+  flex: 0 0 auto;
   height: 30px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding-left: 14px;
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-header-bg);
   user-select: none;
   -webkit-app-region: drag;
 }
@@ -389,12 +383,18 @@ function registerAutoOrderListener(): void {
 }
 
 .toolbar {
-  min-height: 42px;
+  flex: 0 0 auto;
+  min-height: 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 2px 14px 6px;
+  margin-bottom: 10px;
+  padding: 3px 12px;
+  border: 1px solid var(--app-border);
+  border-radius: var(--radius-base);
+  background: var(--app-header-bg);
+  box-shadow: var(--shadow-panel);
   -webkit-app-region: no-drag;
 }
 
@@ -483,6 +483,15 @@ function registerAutoOrderListener(): void {
 }
 
 .workspace-content {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.workspace-view {
+  flex: 1;
   min-width: 0;
   min-height: 0;
   display: flex;
