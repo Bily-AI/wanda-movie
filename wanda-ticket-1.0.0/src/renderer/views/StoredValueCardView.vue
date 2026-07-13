@@ -574,7 +574,7 @@ watch(cardDisplayMode, (mode) => {
           highlight-current-row
           :empty-text="cardsMessage || '暂无数据'"
         >
-          <el-table-column prop="holder" label="持有人" width="114" show-overflow-tooltip>
+          <el-table-column prop="holder" label="持有人" width="100" show-overflow-tooltip>
             <template #default="{ row }">
               <span class="stored-card-holder">{{ row.ownerPhone || row.holder || '-' }}</span>
             </template>
@@ -585,7 +585,7 @@ watch(cardDisplayMode, (mode) => {
           <el-table-column prop="cardNo" label="卡号" width="172" show-overflow-tooltip>
             <template #default="{ row }">{{ row.cardNo || '-' }}</template>
           </el-table-column>
-          <el-table-column prop="categoryName" label="分类" width="80">
+          <el-table-column prop="categoryName" label="分类" width="64">
             <template #default="{ row }">{{ row.categoryName || '未分类' }}</template>
           </el-table-column>
           <el-table-column label="余额" width="100" align="right">
