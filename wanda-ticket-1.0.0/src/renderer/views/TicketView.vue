@@ -810,7 +810,7 @@ watch(
         />
       </section>
 
-      <section class="context-panel panel side-panel">
+      <section class="context-panel panel side-panel context-panel--push-down">
         <PayCardList
           :items="paymentCardItems"
           :selected-values="ticketStore.selectedPaymentCards"
@@ -1198,6 +1198,11 @@ watch(
 .context-card,
 .context-panel {
   box-shadow: none;
+}
+
+/* 支付卡/兑换券/已选座位 三张卡沉到右栏底部，空白留在上方 */
+.context-panel--push-down {
+  margin-top: auto;
 }
 
 .side-empty {
