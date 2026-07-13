@@ -931,7 +931,7 @@ onBeforeUnmount(() => {
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-rows: 86px auto minmax(0, 1fr);
+  grid-template-rows: 64px auto minmax(0, 1fr);
   gap: 12px;
   overflow: hidden;
 }
@@ -955,8 +955,8 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 7px;
-  padding: 13px 16px;
+  gap: 3px;
+  padding: 8px 14px;
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);

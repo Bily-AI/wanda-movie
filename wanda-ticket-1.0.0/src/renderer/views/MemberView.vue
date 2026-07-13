@@ -1717,12 +1717,12 @@ onMounted(() => {
 
 .member-summary-card {
   min-width: 0;
-  height: 100px;
+  height: 64px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 7px;
-  padding: 14px 16px;
+  gap: 3px;
+  padding: 8px 14px;
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--bg-primary, var(--app-surface));
@@ -1742,7 +1742,7 @@ onMounted(() => {
 .member-summary-card strong {
   overflow: hidden;
   color: var(--text-primary, var(--app-text));
-  font-size: 22px;
+  font-size: 18px;
   line-height: 1.18;
   text-overflow: ellipsis;
   white-space: nowrap;

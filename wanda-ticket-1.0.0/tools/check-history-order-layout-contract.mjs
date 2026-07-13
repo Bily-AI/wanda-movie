@@ -39,7 +39,7 @@ for (const marker of [
 }
 
 for (const marker of [
-  '.history-order-page {\n  min-width: 0;\n  height: 100%;\n  min-height: 0;\n  display: grid;\n  grid-template-rows: 86px auto minmax(0, 1fr);',
+  '.history-order-page {\n  min-width: 0;\n  height: 100%;\n  min-height: 0;\n  display: grid;\n  grid-template-rows: 64px auto minmax(0, 1fr);',
   '.history-summary-grid {\n  display: grid;\n  grid-template-columns: repeat(3, minmax(0, 1fr));',
   '.history-filter-panel {\n  min-width: 0;\n  display: flex;',
   '.history-table-panel {\n  min-height: 0;\n  display: flex;\n  flex-direction: column;\n  overflow: hidden;',
