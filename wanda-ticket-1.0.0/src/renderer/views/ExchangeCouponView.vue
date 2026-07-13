@@ -867,9 +867,6 @@ watch(
         <el-select v-model="nameFilter" placeholder="券名称" clearable class="coupon-filter-name">
           <el-option v-for="name in nameOptions" :key="name" :label="name" :value="name" />
         </el-select>
-        <el-select v-model="categoryFilter" placeholder="分类" clearable class="coupon-filter-category">
-          <el-option v-for="category in couponCategories" :key="category.id" :label="category.name" :value="category.id" />
-        </el-select>
         <el-button :type="statsMode ? 'warning' : 'default'" @click="showStats">
           {{ statsMode ? '明细' : '统计' }}
         </el-button>
@@ -1302,10 +1299,6 @@ watch(
   width: 170px;
 }
 
-.coupon-filter-category {
-  width: 150px;
-}
-
 .coupon-table-panel {
   min-height: 0;
   display: flex;
@@ -1404,11 +1397,10 @@ watch(
 }
 
 .coupon-primary-meta {
-  overflow: hidden;
   color: var(--text-secondary, var(--app-muted));
   font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
 .coupon-code {
