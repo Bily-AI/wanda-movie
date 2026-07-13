@@ -702,7 +702,7 @@ watch(cardDisplayMode, (mode) => {
     <el-dialog v-model="transferDialogVisible" title="赠送储值卡" width="500px">
       <el-form label-width="90px">
         <el-form-item label="卡号">
-          <el-input :model-value="selectedCard?.cardNo || ''" readonly />
+          <el-input :model-value="selectedCard?.cardNo || ''" disabled />
         </el-form-item>
         <el-form-item label="接收手机号">
           <el-input v-model="transferMobile" maxlength="11" placeholder="请输入接收手机号" />
