@@ -778,7 +778,7 @@ watch(
     </section>
 
     <aside class="ticket-context-column order-column">
-      <section class="context-card panel side-panel">
+      <section class="context-card panel side-panel context-card--grow">
         <header class="panel-header">
           <span>
             <el-icon><Connection /></el-icon>
@@ -810,7 +810,7 @@ watch(
         />
       </section>
 
-      <section class="context-panel panel side-panel context-panel--push-down">
+      <section class="context-panel panel side-panel">
         <PayCardList
           :items="paymentCardItems"
           :selected-values="ticketStore.selectedPaymentCards"
@@ -1200,9 +1200,10 @@ watch(
   box-shadow: none;
 }
 
-/* 支付卡/兑换券/已选座位 三张卡沉到右栏底部，空白留在上方 */
-.context-panel--push-down {
-  margin-top: auto;
+/* 顶部全局订单信息卡自适应吃掉多余高度，支付活动/支付卡/兑换券/已选座位整组沉到底部 */
+.context-card--grow {
+  flex: 1;
+  min-height: 86px;
 }
 
 .side-empty {
