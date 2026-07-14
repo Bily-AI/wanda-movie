@@ -672,40 +672,6 @@ async function confirmImportAccounts(): Promise<void> {
             </span>
           </div>
 
-          <div class="account-metric-grid">
-            <div class="account-metric">
-              <span>积分</span>
-              <strong>{{ formatAccountNumber(accountsStore.currentAccount.pointsBalance) }}</strong>
-            </div>
-            <div class="account-metric">
-              <span>W+到期</span>
-              <strong>{{ formatWPlusExpire(accountsStore.currentAccount) }}</strong>
-            </div>
-            <div class="account-metric">
-              <span>可用券</span>
-              <strong>{{ formatAccountNumber(accountsStore.currentAccount.couponCount) }}</strong>
-            </div>
-            <div class="account-metric">
-              <span>储值卡</span>
-              <strong>{{ formatAccountNumber(accountsStore.currentAccount.storedCardCount) }}</strong>
-            </div>
-            <div class="account-metric">
-              <span>入库</span>
-              <strong>{{ formatAccountAgeDays(accountsStore.currentAccount) }}</strong>
-            </div>
-            <div class="account-metric">
-              <span>等级</span>
-              <strong>{{ accountsStore.currentAccount.memberGradeName || '-' }}</strong>
-            </div>
-            <div class="account-metric">
-              <span>成长值</span>
-              <strong>{{ formatAccountNumber(accountsStore.currentAccount.growthValue) }}</strong>
-            </div>
-            <div class="account-metric">
-              <span>今日出票</span>
-              <strong>{{ formatTodayTicketCount(accountsStore.currentAccount) }} 张</strong>
-            </div>
-          </div>
         </div>
 
         <div v-else class="account-empty">请选择或登录万达账号</div>
@@ -777,6 +743,17 @@ async function confirmImportAccounts(): Promise<void> {
       <div v-else class="login-compact-row">
         <span class="status-dot" />
         <span>{{ accountsStore.loginStatusText }}</span>
+      </div>
+
+      <div v-if="accountsStore.currentAccount" class="account-metric-text">
+        <span>积分：{{ formatAccountNumber(accountsStore.currentAccount.pointsBalance) }}</span>
+        <span>可用券：{{ formatAccountNumber(accountsStore.currentAccount.couponCount) }} 张</span>
+        <span>储值卡：{{ formatAccountNumber(accountsStore.currentAccount.storedCardCount) }} 张</span>
+        <span>成长值：{{ formatAccountNumber(accountsStore.currentAccount.growthValue) }}</span>
+        <span>等级：{{ accountsStore.currentAccount.memberGradeName || '-' }}</span>
+        <span>W+到期：{{ formatWPlusExpire(accountsStore.currentAccount) }}</span>
+        <span>入库：{{ formatAccountAgeDays(accountsStore.currentAccount) }}</span>
+        <span>今日出票：{{ formatTodayTicketCount(accountsStore.currentAccount) }} 张</span>
       </div>
     </section>
 
@@ -1090,45 +1067,14 @@ async function confirmImportAccounts(): Promise<void> {
   color: #168a3d;
 }
 
-.account-metric-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  margin-top: 10px;
-}
-
-.account-metric {
-  min-width: 0;
-  padding: 6px 8px;
-  border: 1px solid var(--app-border);
-  border-radius: 7px;
-  background: var(--panel-soft-bg);
-}
-
-.account-metric span {
-  display: block;
-  margin-bottom: 2px;
-  color: var(--app-muted);
+.account-metric-text {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  padding: 6px 14px 10px;
+  color: var(--app-subtle);
   font-size: 12px;
-}
-
-.account-metric strong {
-  display: block;
-  min-width: 0;
-  color: var(--app-text);
-  font-size: 13px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.account-metric-grid .account-metric:nth-child(2) strong {
-  font-size: 12px;
-  overflow: visible;
-  text-overflow: clip;
-  white-space: normal;
-  line-height: 1.25;
-  word-break: break-word;
+  line-height: 1.7;
 }
 
 .account-list-card {

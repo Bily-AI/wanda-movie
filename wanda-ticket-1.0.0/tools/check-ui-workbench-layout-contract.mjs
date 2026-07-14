@@ -137,7 +137,6 @@ for (const marker of [
 
 for (const marker of [
   'grid-template-rows: minmax(480px, 1fr) auto',
-  'grid-template-columns: repeat(3, minmax(0, 1fr))',
   'scrollbar-width: thin'
 ]) {
   assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, marker)
