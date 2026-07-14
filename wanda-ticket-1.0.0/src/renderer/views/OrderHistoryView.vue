@@ -721,9 +721,7 @@ onBeforeUnmount(() => {
           :empty-text="ordersStore.message || '暂无数据'"
           @row-dblclick="handleViewOrderDetail"
         >
-          <el-table-column prop="phone" label="手机号" min-width="118" />
-
-          <el-table-column prop="movieName" label="影片" min-width="120" show-overflow-tooltip>
+          <el-table-column prop="movieName" label="影片" min-width="130" show-overflow-tooltip>
             <template #default="{ row }">{{ row.movieName || '-' }}</template>
           </el-table-column>
           <el-table-column prop="cinema" label="影院" min-width="140" show-overflow-tooltip>
