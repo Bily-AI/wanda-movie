@@ -724,20 +724,20 @@ onBeforeUnmount(() => {
           <el-table-column prop="movieName" label="影片" min-width="130" show-overflow-tooltip>
             <template #default="{ row }">{{ row.movieName || '-' }}</template>
           </el-table-column>
-          <el-table-column prop="cinema" label="影院" min-width="140" show-overflow-tooltip>
+          <el-table-column prop="cinema" label="影院" min-width="160" show-overflow-tooltip>
             <template #default="{ row }">{{ row.cinema || '-' }}</template>
           </el-table-column>
-          <el-table-column label="场次" min-width="150" show-overflow-tooltip>
+          <el-table-column label="场次" min-width="200" show-overflow-tooltip>
             <template #default="{ row }">{{ formatShowtimeRange(row.showtime) || '-' }}</template>
           </el-table-column>
 
-          <el-table-column prop="amount" label="金额" min-width="88" align="right">
+          <el-table-column prop="amount" label="金额" min-width="84" align="right">
             <template #default="{ row }">
               <span class="amount">{{ formatMoney(row.amount) }}</span>
             </template>
           </el-table-column>
 
-          <el-table-column label="状态" min-width="78" align="center">
+          <el-table-column label="状态" min-width="76" align="center">
             <template #default="{ row }">
               <el-tag :type="getOrderStatusTagType(row)" size="small">
                 {{ row.statusText || row.status }}
@@ -745,13 +745,13 @@ onBeforeUnmount(() => {
             </template>
           </el-table-column>
 
-          <el-table-column prop="createdAt" label="创建时间" min-width="140" show-overflow-tooltip>
+          <el-table-column prop="createdAt" label="创建时间" min-width="126" show-overflow-tooltip>
             <template #default="{ row }">
               {{ formatDateTimeNoYear(row.createdAt) }}
             </template>
           </el-table-column>
 
-          <el-table-column label="操作" min-width="120" align="center">
+          <el-table-column label="操作" min-width="108" align="center">
             <template #default="{ row }">
               <div class="order-action-group">
                 <el-button link type="primary" size="small" @click.stop="handleQueryPayInfo(row)">详情</el-button>
