@@ -478,7 +478,7 @@ function registerAutoOrderListener(): void {
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-columns: 290px minmax(0, 1fr);
   gap: 12px;
 }
 
