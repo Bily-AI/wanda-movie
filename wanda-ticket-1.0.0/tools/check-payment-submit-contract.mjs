@@ -303,6 +303,9 @@ assertMatches(
   '提交支付后必须按 tradeNo/外部支付金额分支处理'
 )
 
+// 出票成功后必须刷新今日出票计数
+assertIncludes('src/renderer/stores/ticket.ts', ticketStore, 'useAccountsStore().refreshTodayTicketCount(accountId)')
+
 assertIncludes(
   'src/renderer/stores/ticket.ts',
   ticketStore,

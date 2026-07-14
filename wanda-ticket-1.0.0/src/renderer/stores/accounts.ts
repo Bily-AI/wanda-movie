@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 
+import { queryOrderList } from '@renderer/services/seatApi'
 import { sendVerifyCode, loginWithCode, checkLoginStatus } from '@renderer/services/wandaAuthApi'
 import { DEFAULT_LOCAL_DATA, type AccountGroup, type AccountsLocalData, type WandaAccount } from '@shared/localData'
 import { useLogsStore } from './logs'
@@ -413,6 +414,47 @@ export const useAccountsStore = defineStore('accounts', {
         statusText: valid ? '正常' : '异常'
       }
       await this.saveAccounts()
+    },
+    async refreshTodayTicketCount(accountId: string) {
+      const account = this.accounts.find((acc) => acc.id === accountId)
+
+      if (!account?.ck) {
+        return
+      }
+
+      try {
+        const result = await queryOrderList(
+          1,
+          50,
+          account.phone,
+          account.ck,
+          account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
+        )
+        const now = new Date()
+        const count = result.records.filter((order) => {
+          if (order.status !== 'completed') {
+            return false
+          }
+
+          const raw = String(order.createdAt || '').trim()
+          const numMatch = raw.match(/^\d+$/)
+          const date = numMatch ? new Date(Number(numMatch[0])) : new Date(raw)
+
+          return (
+            !Number.isNaN(date.getTime()) &&
+            date.getFullYear() === now.getFullYear() &&
+            date.getMonth() === now.getMonth() &&
+            date.getDate() === now.getDate()
+          )
+        }).length
+
+        await this.updateAccountProfileSummary(accountId, {
+          todayTicketCount: count,
+          todayTicketDate: now.toLocaleDateString('en-CA')
+        })
+      } catch {
+        // 出票记录拉取失败不影响主流程
+      }
     },
     setSelectedAccountIds(ids: string[]) {
       this.selectedAccountIds = ids
