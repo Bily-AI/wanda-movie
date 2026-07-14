@@ -251,6 +251,7 @@ const ticketTemplate = computed(() =>
 )
 const ticketDetail = ref<TicketDetail | null>(null)
 const dialogPosition = ref({ x: 0, y: 24 })
+const dialogScale = ref(1)
 const payInfoDialogVisible = ticketDialogVisible
 
 let dragging = false
@@ -265,17 +266,36 @@ const canCaptureHistoryTicketCode = computed(() => ticketDialogVisible.value && 
 
 
 async function resetDialogPosition() {
-  const width = 440
-  const centerX = Math.max(0, (window.innerWidth - width) / 2)
-  dialogPosition.value = { x: centerX, y: 24 }
+  // 先还原到 1:1 再量原始尺寸，避免用上一次缩放后的尺寸
+  dialogScale.value = 1
+  dialogPosition.value = { x: 0, y: 0 }
 
   await nextTick()
 
   const dialogEl = document.querySelector('.ticket-dialog') as HTMLElement | null
-  const height = dialogEl?.offsetHeight ?? 0
-  const centerY = height > 0 ? Math.max(12, (window.innerHeight - height) / 2) : 24
+  const naturalWidth = dialogEl?.offsetWidth ?? 440
+  const naturalHeight = dialogEl?.offsetHeight ?? 0
+  const margin = 24
+  // 窗口装不下时整张票等比缩小；装得下则保持 1:1
+  const scale = Math.min(
+    1,
+    naturalWidth > 0 ? (window.innerWidth - margin) / naturalWidth : 1,
+    naturalHeight > 0 ? (window.innerHeight - margin) / naturalHeight : 1
+  )
+  dialogScale.value = scale > 0.2 ? scale : 1
 
-  dialogPosition.value = { x: centerX, y: centerY }
+  const scaledWidth = naturalWidth * dialogScale.value
+  const scaledHeight = naturalHeight * dialogScale.value
+  dialogPosition.value = {
+    x: Math.max(0, (window.innerWidth - scaledWidth) / 2),
+    y: Math.max(12, (window.innerHeight - scaledHeight) / 2)
+  }
+}
+
+function handleWindowResize() {
+  if (ticketDialogVisible.value) {
+    void resetDialogPosition()
+  }
 }
 
 function handleDragStart(event: MouseEvent) {
@@ -594,6 +614,7 @@ watch(ticketDialogVisible, (visible) => {
 
 onMounted(() => {
   void ordersStore.loadOrders()
+  window.addEventListener('resize', handleWindowResize)
 })
 
 async function handleTicketTemplateChange(): Promise<void> {
@@ -606,6 +627,7 @@ async function handleTicketTemplateChange(): Promise<void> {
 
 onBeforeUnmount(() => {
   handleDragEnd()
+  window.removeEventListener('resize', handleWindowResize)
 })
 </script>
 
@@ -779,7 +801,12 @@ onBeforeUnmount(() => {
       <div v-if="ticketDialogVisible && ticketDetail" class="ticket-overlay" @click="closeTicketDialog">
         <div
           :class="['ticket-dialog', ticketTemplate === WANDA_TEMPLATE ? 'wanda-dialog' : '']"
-          :style="{ left: `${dialogPosition.x}px`, top: `${dialogPosition.y}px` }"
+          :style="{
+            left: `${dialogPosition.x}px`,
+            top: `${dialogPosition.y}px`,
+            transform: `scale(${dialogScale})`,
+            transformOrigin: 'top left'
+          }"
           @click.stop
         >
           <div class="ticket-header" @mousedown="handleDragStart">
@@ -1145,7 +1172,6 @@ onBeforeUnmount(() => {
 .ticket-dialog {
   position: fixed;
   width: 440px;
-  max-height: 90vh;
   border: 1px solid var(--app-border);
   border-radius: var(--radius-base);
   background: var(--app-bg);
