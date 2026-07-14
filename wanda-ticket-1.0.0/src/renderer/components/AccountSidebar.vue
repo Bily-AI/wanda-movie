@@ -21,7 +21,6 @@ const accountsStore = useAccountsStore()
 const logsStore = useLogsStore()
 
 const hasNoAccounts = computed(() => accountsStore.accounts.length === 0)
-const activeAccountTab = ref<'list' | 'current'>('list')
 const loginCardExpanded = ref(false)
 const refreshingAccountSummaries = ref(false)
 const refreshingSelectedSummaries = ref(false)
@@ -87,7 +86,6 @@ async function handleBatchDeleteAccounts(): Promise<void> {
 
 function handleRowClick(row: WandaAccount): void {
   accountsStore.setCurrentAccount(row.id)
-  activeAccountTab.value = 'current'
   ElMessage.success('切换账号成功')
 }
 
@@ -550,39 +548,7 @@ async function confirmImportAccounts(): Promise<void> {
         />
       </div>
 
-      <div class="account-tabs" role="tablist" aria-label="账号池切换">
-        <button
-          type="button"
-          class="account-tab-button"
-          :class="{ 'account-tab-button--active': activeAccountTab === 'list' }"
-          role="tab"
-          :aria-selected="activeAccountTab === 'list'"
-          aria-controls="account-list-panel"
-          @click="activeAccountTab = 'list'"
-        >
-          <span>账号列表</span>
-          <span class="account-tab-count">已选 {{ accountsStore.selectedCount }}</span>
-        </button>
-        <button
-          type="button"
-          class="account-tab-button"
-          :class="{ 'account-tab-button--active': activeAccountTab === 'current' }"
-          role="tab"
-          :aria-selected="activeAccountTab === 'current'"
-          aria-controls="account-current-panel"
-          @click="activeAccountTab = 'current'"
-        >
-          <span>当前账号</span>
-          <span class="account-tab-count">{{ accountsStore.currentAccount ? '已选' : '未选' }}</span>
-        </button>
-      </div>
-
-      <div
-        v-show="activeAccountTab === 'list'"
-        id="account-list-panel"
-        class="account-tab-panel account-list-panel"
-        role="tabpanel"
-      >
+      <div id="account-list-panel" class="account-tab-panel account-list-panel" role="tabpanel">
         <div class="account-list-toolbar">
           <el-checkbox
             :model-value="allAccountsChecked"
@@ -652,30 +618,6 @@ async function confirmImportAccounts(): Promise<void> {
         </div>
       </div>
 
-      <div
-        v-show="activeAccountTab === 'current'"
-        id="account-current-panel"
-        class="account-tab-panel account-current-panel"
-        role="tabpanel"
-      >
-        <div v-if="accountsStore.currentAccount" class="current-account-card">
-          <div class="current-account-top">
-            <span class="current-avatar">
-              <el-icon><UserFilled /></el-icon>
-            </span>
-            <div class="current-account-main">
-              <strong>{{ maskPhone(accountsStore.currentAccount.phone) }}</strong>
-              <span>{{ accountsStore.currentAccount.remark || '当前账号' }}</span>
-            </div>
-            <span :class="['status-badge', accountsStore.currentAccount.ck ? 'status-badge--active' : '']">
-              {{ accountsStore.currentAccount.statusText || (accountsStore.currentAccount.ck ? '在线' : '未登录') }}
-            </span>
-          </div>
-
-        </div>
-
-        <div v-else class="account-empty">请选择或登录万达账号</div>
-      </div>
     </section>
 
     <section class="panel account-login-card">
