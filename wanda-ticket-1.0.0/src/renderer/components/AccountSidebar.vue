@@ -511,7 +511,18 @@ async function confirmImportAccounts(): Promise<void> {
           <el-icon><UserFilled /></el-icon>
           账号池
         </span>
-        <span class="account-section-count">{{ accountsStore.filteredAccounts.length }} 个账号</span>
+        <div class="account-header-actions">
+          <el-button size="small" text @click="handleImportAccounts">导入账号</el-button>
+          <el-button
+            size="small"
+            text
+            :disabled="accountsStore.accounts.length === 0"
+            @click="handleExportAccounts"
+          >
+            导出账号
+          </el-button>
+          <span class="account-section-count">{{ accountsStore.filteredAccounts.length }} 个账号</span>
+        </div>
       </header>
 
       <div class="account-toolbar">
@@ -719,18 +730,6 @@ async function confirmImportAccounts(): Promise<void> {
           </el-button>
         </div>
       </header>
-
-      <div class="login-card-tools">
-        <el-button size="small" text @click="handleImportAccounts">导入账号</el-button>
-        <el-button
-          size="small"
-          text
-          :disabled="accountsStore.accounts.length === 0"
-          @click="handleExportAccounts"
-        >
-          导出账号
-        </el-button>
-      </div>
 
       <div v-if="loginCardExpanded || hasNoAccounts" class="login-panel-body">
         <div class="login-form">
@@ -1171,7 +1170,7 @@ async function confirmImportAccounts(): Promise<void> {
   width: 100%;
   min-height: 54px;
   display: grid;
-  grid-template-columns: 24px 34px minmax(0, 1fr) auto;
+  grid-template-columns: 16px 34px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
@@ -1190,6 +1189,26 @@ async function confirmImportAccounts(): Promise<void> {
 .account-row:hover {
   border-color: var(--summary-blue-border);
   background: var(--panel-soft-bg);
+}
+
+/* Element Plus 复选框默认 margin-right:30px + 空 label 会在勾选框与序号间留大片空隙 */
+.account-row :deep(.el-checkbox) {
+  height: auto;
+  margin: 0;
+}
+
+.account-row :deep(.el-checkbox__label) {
+  display: none;
+}
+
+.account-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.account-header-actions .el-button {
+  padding: 0 4px;
 }
 
 .account-row--active {
@@ -1242,17 +1261,6 @@ async function confirmImportAccounts(): Promise<void> {
 .account-management-actions :deep(.el-button) {
   margin: 0;
   width: 100%;
-}
-
-.login-card-tools {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 14px 0;
-}
-
-.login-card-tools :deep(.el-button) {
-  margin: 0;
 }
 
 .account-login-card {
