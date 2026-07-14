@@ -1037,11 +1037,6 @@ watch(cardDisplayMode, (mode) => {
   .stored-card-page {
     grid-template-rows: auto auto minmax(0, 1fr);
   }
-
-  .stored-card-action-panel {
-    flex-direction: column;
-    align-items: flex-start;
-  }
 }
 
 @media (max-height: 720px) {
