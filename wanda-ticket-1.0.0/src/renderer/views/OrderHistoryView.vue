@@ -152,6 +152,10 @@ function formatDateTime(value: unknown): string {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
 }
 
+function formatDateTimeNoYear(value: unknown): string {
+  return formatDateTime(value).replace(/^\d{4}-/, '')
+}
+
 function maskedMobile(value: string): string {
   if (value.length >= 7) {
     return `${value.slice(0, 3)}****${value.slice(-4)}`
@@ -745,7 +749,7 @@ onBeforeUnmount(() => {
 
           <el-table-column prop="createdAt" label="创建时间" min-width="140" show-overflow-tooltip>
             <template #default="{ row }">
-              {{ formatDateTime(row.createdAt) }}
+              {{ formatDateTimeNoYear(row.createdAt) }}
             </template>
           </el-table-column>
 
