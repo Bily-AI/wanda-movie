@@ -1578,6 +1578,8 @@ export const useTicketStore = defineStore('ticket', {
           ? `提交支付完成：${result.bizMsg}`
           : '提交支付完成，已调用真实支付接口'
         useLogsStore().addLog('提交支付', account.phone, `真实支付接口提交完成：${orderId}`)
+        // 出票成功才计数：submitTicketPayment 仅在 bizCode===0 时返回，走到这里即真实成功
+        void useAccountsStore().incrementTodayTicketCount(accountId)
 
         const externalPayment = asRecord(requestInfo.externalPayment)
         const externalPaymentPrice = toNumber(externalPayment.paymentPrice)
@@ -2733,7 +2735,6 @@ export const useTicketStore = defineStore('ticket', {
         })
         this.currentOrderMessage = result.bizMsg || '订单创建成功'
         useLogsStore().addLog('订单', snapshot.phone, `订单创建成功：${result.orderId}`)
-        void useAccountsStore().incrementTodayTicketCount(snapshot.accountId)
         await this.refreshPaymentPrerequisites()
       } catch (error) {
         if (requestSerial !== this.orderRequestSerial || useAccountsStore().currentAccount?.id !== snapshot.accountId) {
