@@ -10,6 +10,7 @@ import {
   fetchWPlusProfile,
   type MemberGradeGroup
 } from '@renderer/services/featureApi'
+import { queryOrderList } from '@renderer/services/seatApi'
 import { checkLoginStatus } from '@renderer/services/wandaAuthApi'
 import { useAccountsStore } from '@renderer/stores/accounts'
 import { useLogsStore } from '@renderer/stores/logs'
@@ -251,19 +252,50 @@ function getCurrentGradeSummary(groups: MemberGradeGroup[]): { memberGradeName: 
   }
 }
 
+function isTodayDate(value: unknown): boolean {
+  if (!value) {
+    return false
+  }
+
+  const raw = String(value).trim()
+  const numMatch = raw.match(/^\d+$/)
+  const date = numMatch ? new Date(Number(numMatch[0])) : new Date(raw)
+
+  if (Number.isNaN(date.getTime())) {
+    return false
+  }
+
+  const now = new Date()
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  )
+}
+
 async function refreshAccountSummary(account: WandaAccount): Promise<void> {
   const userIdentifier = account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
-  const [loginStatusResult, storedCardResult, couponResult, gradeResult, wplusResult] = await Promise.allSettled([
-    checkLoginStatus(account.ck, userIdentifier),
-    fetchStoredCardsWithBalance(account.ck, userIdentifier),
-    fetchMemberCoupons(account.ck, userIdentifier),
-    fetchMemberGradeEquityList(account.ck, userIdentifier),
-    fetchWPlusProfile(account.ck, userIdentifier)
-  ])
+  const [loginStatusResult, storedCardResult, couponResult, gradeResult, wplusResult, orderResult] =
+    await Promise.allSettled([
+      checkLoginStatus(account.ck, userIdentifier),
+      fetchStoredCardsWithBalance(account.ck, userIdentifier),
+      fetchMemberCoupons(account.ck, userIdentifier),
+      fetchMemberGradeEquityList(account.ck, userIdentifier),
+      fetchWPlusProfile(account.ck, userIdentifier),
+      queryOrderList(1, 50, account.phone, account.ck, userIdentifier)
+    ])
   const summary: Partial<
     Pick<
       WandaAccount,
-      'pointsBalance' | 'storedCardCount' | 'couponCount' | 'memberGradeName' | 'growthValue' | 'isPayMember' | 'wplusExpireAt'
+      | 'pointsBalance'
+      | 'storedCardCount'
+      | 'couponCount'
+      | 'memberGradeName'
+      | 'growthValue'
+      | 'isPayMember'
+      | 'wplusExpireAt'
+      | 'todayTicketCount'
+      | 'todayTicketDate'
     >
   > = {}
 
@@ -297,6 +329,14 @@ async function refreshAccountSummary(account: WandaAccount): Promise<void> {
   if (wplusResult.status === 'fulfilled') {
     summary.isPayMember = wplusResult.value.isPayMember
     summary.wplusExpireAt = wplusResult.value.expireAt
+  }
+
+  if (orderResult.status === 'fulfilled') {
+    // 今日出票 = 出票记录接口里「当日 + 出票成功(completed)」的订单数
+    summary.todayTicketCount = orderResult.value.records.filter(
+      (order) => order.status === 'completed' && isTodayDate(order.createdAt)
+    ).length
+    summary.todayTicketDate = new Date().toLocaleDateString('en-CA')
   }
 
   if (Object.keys(summary).length > 0) {

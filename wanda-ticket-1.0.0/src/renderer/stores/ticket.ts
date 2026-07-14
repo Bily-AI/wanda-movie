@@ -1578,8 +1578,6 @@ export const useTicketStore = defineStore('ticket', {
           ? `提交支付完成：${result.bizMsg}`
           : '提交支付完成，已调用真实支付接口'
         useLogsStore().addLog('提交支付', account.phone, `真实支付接口提交完成：${orderId}`)
-        // 出票成功才计数：submitTicketPayment 仅在 bizCode===0 时返回，走到这里即真实成功
-        void useAccountsStore().incrementTodayTicketCount(accountId)
 
         const externalPayment = asRecord(requestInfo.externalPayment)
         const externalPaymentPrice = toNumber(externalPayment.paymentPrice)

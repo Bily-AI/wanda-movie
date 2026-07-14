@@ -75,18 +75,16 @@ for (const text of [
   assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, text)
 }
 
-assertIncludes('src/renderer/stores/accounts.ts', accountsStore, 'async incrementTodayTicketCount(accountId: string)')
+// 今日出票走出票记录接口统计：刷新概览时按「当日 + completed」计数
+assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, 'queryOrderList(1, 50, account.phone, account.ck, userIdentifier)')
+assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, "order.status === 'completed' && isTodayDate(order.createdAt)")
 
 assertIncludes(
   'src/renderer/components/AccountSidebar.vue',
   accountSidebar,
   'checkLoginStatus(account.ck, userIdentifier)'
 )
-assertIncludes(
-  'src/renderer/components/AccountSidebar.vue',
-  accountSidebar,
-  "'pointsBalance' | 'storedCardCount' | 'couponCount' | 'memberGradeName' | 'growthValue' | 'isPayMember' | 'wplusExpireAt'"
-)
+assertIncludes('src/renderer/components/AccountSidebar.vue', accountSidebar, 'summary.todayTicketCount =')
 assertIncludes(
   'src/renderer/components/AccountSidebar.vue',
   accountSidebar,
