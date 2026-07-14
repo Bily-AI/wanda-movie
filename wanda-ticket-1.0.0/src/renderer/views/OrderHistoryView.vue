@@ -717,13 +717,7 @@ onBeforeUnmount(() => {
           :empty-text="ordersStore.message || '暂无数据'"
           @row-dblclick="handleViewOrderDetail"
         >
-          <el-table-column prop="phone" label="手机号" min-width="108" />
-
-          <el-table-column prop="orderNo" label="订单号" min-width="120">
-            <template #default="{ row }">
-              <span class="order-no">{{ row.orderNo }}</span>
-            </template>
-          </el-table-column>
+          <el-table-column prop="phone" label="手机号" min-width="118" />
 
           <el-table-column prop="movieName" label="影片" min-width="120" show-overflow-tooltip>
             <template #default="{ row }">{{ row.movieName || '-' }}</template>
