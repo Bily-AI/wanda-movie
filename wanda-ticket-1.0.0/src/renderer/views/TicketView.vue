@@ -1145,8 +1145,11 @@ watch(
 
 .seat-stage {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   place-items: start center;
 }
 
