@@ -11,7 +11,7 @@ const expectedViews = [
     route: '/ticket',
     file: 'TicketView.vue',
     component: 'TicketView',
-    markers: ['购票查询', '选座信息', '万达账号登录', '刷新座位']
+    markers: ['query-panel', 'seat-panel', '万达账号登录', '刷新座位']
   },
   {
     route: '/orders',

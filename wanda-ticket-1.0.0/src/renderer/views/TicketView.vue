@@ -3,11 +3,10 @@ import { computed, nextTick, ref, toRaw, watch } from 'vue'
 
 import {
   Connection,
-  Grid,
+  Delete,
   Key,
   Picture,
-  Refresh,
-  Search
+  Refresh
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
@@ -502,12 +501,23 @@ async function openSelect(instance: SelectLikeInstance | null, enabled = true): 
   instance.toggleMenu?.()
 }
 
+// 城市/影院支持拼音与首字母搜索：把输入喂给 query.keyword，交给 store 的 matchesSearchKeyword 过滤
+function handleCitySearch(keyword: string): void {
+  ticketStore.query.keyword = keyword
+}
+
+function handleCinemaSearch(keyword: string): void {
+  ticketStore.query.keyword = keyword
+}
+
 async function handleCityChange(): Promise<void> {
+  ticketStore.query.keyword = ''
   ticketStore.selectCity()
   await openSelect(cinemaSelectRef.value, ticketStore.filteredCinemaOptions.length > 0)
 }
 
 async function handleCinemaChange(): Promise<void> {
+  ticketStore.query.keyword = ''
   await ticketStore.loadCinemaShowtimes()
   await openSelect(movieSelectRef.value, ticketStore.canSelectMovie)
 }
@@ -528,6 +538,10 @@ async function handleShowtimeChange(): Promise<void> {
   if (ticketStore.canRefreshSeats) {
     await ticketStore.loadRealTimeSeats()
   }
+}
+
+function handleClearQuery(): void {
+  ticketStore.clearTicketQuery()
 }
 
 watch(
@@ -622,14 +636,6 @@ watch(
   <section class="ticket-workbench">
     <section class="ticket-center">
       <section class="panel query-panel">
-        <header class="panel-header">
-          <span>
-            <el-icon><Search /></el-icon>
-            购票查询
-          </span>
-          <span class="ocr-state">{{ ticketStore.showtimeError || '等待 OCR 匹配' }}</span>
-        </header>
-
         <div class="query-layout">
           <div class="query-form">
             <label>城市：</label>
@@ -638,6 +644,7 @@ watch(
               v-model="ticketStore.query.city"
               filterable
               default-first-option
+              :filter-method="handleCitySearch"
               placeholder="选择或搜索城市"
               @change="handleCityChange"
             >
@@ -656,6 +663,7 @@ watch(
                 v-model="ticketStore.query.cinema"
                 filterable
                 default-first-option
+                :filter-method="handleCinemaSearch"
                 placeholder="选择或搜索影院"
                 :loading="ticketStore.loadingShowtimes"
                 @change="handleCinemaChange"
@@ -667,7 +675,7 @@ watch(
                   :value="cinema.value"
                 />
               </el-select>
-              <p class="field-tip">可直接输入影院名称或首字母搜索</p>
+              <p class="field-tip">可输入影院名称、拼音或首字母搜索</p>
             </div>
 
             <label>影片：</label>
@@ -733,25 +741,15 @@ watch(
               >
                 刷新座位
               </el-button>
+              <el-button :icon="Delete" @click="handleClearQuery">清空</el-button>
             </div>
 
-            <span />
             <p v-if="ticketStore.showtimeError" class="query-error">{{ ticketStore.showtimeError }}</p>
           </div>
         </div>
       </section>
 
       <section class="panel seat-panel">
-        <header class="seat-header">
-          <span>
-            <el-icon><Grid /></el-icon>
-            选座信息
-          </span>
-          <span>已选 {{ ticketStore.selectedSeatCount }} 座</span>
-        </header>
-
-        <div class="screen-line">银幕</div>
-
         <div class="seat-stage">
           <el-empty
             v-if="ticketStore.seatNodes.length === 0"
@@ -855,7 +853,7 @@ watch(
       </el-button>
       <el-button :icon="Picture" @click="handleImageOcr">图片识别</el-button>
       <el-button :icon="Key" @click="handleTextOcr">文本识别</el-button>
-      <span class="bottom-spacer" />
+      <span class="bottom-ocr-state">{{ ticketStore.showtimeError || '等待 OCR 匹配' }}</span>
       <el-button
         type="warning"
         :disabled="ticketStore.selectedSeatCount === 0 || ticketStore.hasPendingCurrentOrder"
@@ -1048,8 +1046,7 @@ watch(
   box-shadow: var(--shadow-panel);
 }
 
-.panel-header,
-.seat-header {
+.panel-header {
   min-height: 44px;
   display: flex;
   align-items: center;
@@ -1061,31 +1058,18 @@ watch(
   font-weight: 700;
 }
 
-.panel-header span,
-.seat-header span:first-child {
+.panel-header span {
   display: inline-flex;
   align-items: center;
   gap: 8px;
 }
 
-.panel-header :deep(.el-icon),
-.seat-header :deep(.el-icon) {
+.panel-header :deep(.el-icon) {
   color: var(--app-accent);
 }
 
 .query-panel {
-  padding-bottom: 12px;
-}
-
-.ocr-state {
-  max-width: 54%;
-  justify-content: flex-end;
-  color: #168a3d;
-  font-size: 13px;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  padding-bottom: 0;
 }
 
 .query-layout {
@@ -1111,6 +1095,7 @@ watch(
 }
 
 .query-error {
+  grid-column: 1 / -1;
   margin: 0;
   color: #f56c6c;
   font-size: 12px;
@@ -1118,35 +1103,22 @@ watch(
 
 .showtime-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 110px;
+  grid-template-columns: minmax(0, 1fr) 110px auto;
   gap: 8px;
 }
 
 .seat-panel {
-  flex: 1 0 420px;
-  min-height: 420px;
+  flex: 0 0 auto;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
-.seat-header span:last-child {
-  color: var(--app-muted);
-  font-weight: 400;
-}
-
-.screen-line {
-  margin: 8px 28px 0;
-  border-top: 3px solid #e2e8f2;
-  color: var(--app-muted);
-  text-align: center;
-  line-height: 26px;
-}
-
 .seat-stage {
-  flex: 1;
+  flex: 0 0 auto;
   min-width: 0;
   min-height: 0;
+  padding-top: 12px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
@@ -1159,7 +1131,7 @@ watch(
   min-width: 0;
   min-height: 0;
   width: 100%;
-  height: 100%;
+  max-height: 60vh;
   overflow: auto;
   scrollbar-gutter: stable both-edges;
   overscroll-behavior: contain;
@@ -1311,8 +1283,16 @@ watch(
   box-shadow: var(--shadow-panel);
 }
 
-.bottom-spacer {
+.bottom-ocr-state {
   flex: 1;
+  min-width: 0;
+  text-align: center;
+  color: #168a3d;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ticket-code-panel {

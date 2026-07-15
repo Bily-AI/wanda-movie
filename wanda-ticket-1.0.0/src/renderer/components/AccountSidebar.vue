@@ -668,6 +668,14 @@ async function confirmImportAccounts(): Promise<void> {
         </span>
         <div class="login-card-actions">
           <el-button
+            v-if="loginCardExpanded || hasNoAccounts"
+            class="login-clear-button"
+            size="small"
+            @click="accountsStore.resetLoginForm"
+          >
+            清空
+          </el-button>
+          <el-button
             v-if="!hasNoAccounts"
             class="login-toggle-button"
             size="small"
@@ -902,7 +910,7 @@ async function confirmImportAccounts(): Promise<void> {
   display: grid;
   grid-template-columns: 94px minmax(0, 1fr) 36px;
   gap: 8px;
-  padding: 12px 14px;
+  padding: 10px 14px 2px;
 }
 
 .account-pool-card {
@@ -1070,7 +1078,7 @@ async function confirmImportAccounts(): Promise<void> {
   align-items: center;
   gap: 10px;
   /* 左内边距 = 列表 padding(10) + 账号行 padding(8)，使“全选”框与账号行复选框左对齐 */
-  padding: 8px 10px 6px 18px;
+  padding: 2px 10px 6px 18px;
 }
 
 .account-list-toolbar :deep(.el-checkbox) {
@@ -1180,15 +1188,17 @@ async function confirmImportAccounts(): Promise<void> {
 
 .account-management-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  padding: 10px 14px 14px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 10px 12px 14px;
   border-top: 1px solid var(--app-border);
 }
 
 .account-management-actions :deep(.el-button) {
   margin: 0;
   width: 100%;
+  padding: 0 4px;
+  font-size: 12px;
 }
 
 .account-login-card {

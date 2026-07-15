@@ -533,6 +533,16 @@ export const useAccountsStore = defineStore('accounts', {
         }
       }, 1000)
     },
+    // 清空登录输入：手机号/验证码，并重置获取验证码倒计时与请求状态（倒计时置 0 后定时器会自行结束）
+    resetLoginForm() {
+      this.loginForm.phone = ''
+      this.loginForm.code = ''
+      this.loginForm.requestId = ''
+      this.loginForm.requestPhone = ''
+      this.loginForm.sending = false
+      this.loginForm.countdown = 0
+      this.loginForm.message = ''
+    },
     async sendLoginCode() {
       const phone = this.loginForm.phone.trim()
 

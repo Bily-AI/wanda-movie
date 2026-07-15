@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { pinyin } from 'pinyin-pro'
 
 import { fetchCinemaShowtime } from '@renderer/services/cinemaApi'
 import {
@@ -266,6 +267,19 @@ function yuanToCents(value: unknown): number {
 
 function normalizeKeyword(value: string): string {
   return value.trim().toLowerCase()
+}
+
+// 城市/影院数据本身不带拼音，用中文名现算全拼与首字母，供拼音、首字母搜索匹配
+function buildNamePinyin(name: string): { pinyin: string; firstLetter: string } {
+  if (!name) {
+    return { pinyin: '', firstLetter: '' }
+  }
+
+  const clean = (value: string): string => value.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const full = clean(pinyin(name, { toneType: 'none', nonZh: 'consecutive' }))
+  const first = clean(pinyin(name, { pattern: 'first', toneType: 'none', nonZh: 'consecutive' }))
+
+  return { pinyin: full, firstLetter: first }
 }
 
 function compactMatchText(value: string): string {
@@ -955,6 +969,13 @@ export const useTicketStore = defineStore('ticket', {
       this.seatError = ''
       this.clearSeatSelection(true)
     },
+    // 一键清空：城市、影院、影片、日期、场次及座位选择全部复位
+    clearTicketQuery() {
+      this.query.keyword = ''
+      this.query.city = ''
+      this.resetQueryAfterCityChange()
+      this.showtimeError = ''
+    },
     handleAccountChanged() {
       const hadCurrentOrder = Boolean(this.currentOrderId)
 
@@ -1618,7 +1639,8 @@ export const useTicketStore = defineStore('ticket', {
         }
 
         this.orderStatus = status
-        await this.refreshTicketCode()
+        // 储值卡/券全额支付（无外部支付）：出票需要几秒，改为轮询取票码，避免一次性查询过早取不到码导致不弹取票码
+        void this.startTicketCodePolling()
       } catch (error) {
         if (
           submitSerial !== this.paymentSubmitSerial ||
@@ -1824,11 +1846,13 @@ export const useTicketStore = defineStore('ticket', {
         return
       }
 
+      const cityPinyin = buildNamePinyin(name)
+
       cityMap.set(id, {
         id,
         name,
-        pinyin: firstText(record.pinyin),
-        firstLetter: firstText(record.firstLetter),
+        pinyin: firstText(record.pinyin) || cityPinyin.pinyin,
+        firstLetter: firstText(record.firstLetter) || cityPinyin.firstLetter,
         raw: item
       })
     },
@@ -1859,13 +1883,15 @@ export const useTicketStore = defineStore('ticket', {
         return
       }
 
+      const cinemaPinyin = buildNamePinyin(name)
+
       this.mergeCinemaRecord(cinemaMap, {
         id,
         cityId,
         name,
         address: firstText(record.address, record.CmAdd),
-        pinyin: firstText(record.pinyin),
-        firstLetter: firstText(record.firstLetter),
+        pinyin: firstText(record.pinyin) || cinemaPinyin.pinyin,
+        firstLetter: firstText(record.firstLetter) || cinemaPinyin.firstLetter,
         maoyanName: firstText(record.maoyanName, record.MyCmName),
         raw: item
       })

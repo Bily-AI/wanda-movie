@@ -299,7 +299,7 @@ for (const label of [
 assertMatches(
   'src/renderer/stores/ticket.ts',
   ticketStore,
-  /submitCurrentOrderPayment\(\)[\s\S]*?await this\.buildTicketCouponPaymentInfo\(currentOrder, account\.ck, account\.userIdentifier\)[\s\S]*?const requestInfo = this\.buildTicketPaymentRequestInfo\(currentOrder, couponPaymentInfo\)[\s\S]*?await submitTicketPayment\([\s\S]*?const externalPayment = asRecord\(requestInfo\.externalPayment\)[\s\S]*?const tradeNo = firstText\([\s\S]*?if \(externalPaymentPrice > 0 && tradeNo\)[\s\S]*?await queryPayInfoUpgrade\([\s\S]*?return[\s\S]*?await queryOrderStatus\([\s\S]*?await this\.refreshTicketCode\(\)/,
+  /submitCurrentOrderPayment\(\)[\s\S]*?await this\.buildTicketCouponPaymentInfo\(currentOrder, account\.ck, account\.userIdentifier\)[\s\S]*?const requestInfo = this\.buildTicketPaymentRequestInfo\(currentOrder, couponPaymentInfo\)[\s\S]*?await submitTicketPayment\([\s\S]*?const externalPayment = asRecord\(requestInfo\.externalPayment\)[\s\S]*?const tradeNo = firstText\([\s\S]*?if \(externalPaymentPrice > 0 && tradeNo\)[\s\S]*?await queryPayInfoUpgrade\([\s\S]*?return[\s\S]*?await queryOrderStatus\([\s\S]*?void this\.startTicketCodePolling\(\)/,
   '提交支付后必须按 tradeNo/外部支付金额分支处理'
 )
 

@@ -11,25 +11,33 @@ const emit = defineEmits<{
   select: [seat: SeatNode]
 }>()
 
-const seatWidth = 24
-const seatHeight = 20
-const seatGap = 5
-const rowLabelWidth = 26
+const seatWidth = 19
+const seatHeight = 16
+const seatGap = 4
+const rowLabelWidth = 24
 const mapPadding = 4
 
 function maxSeatCoordinate(projector: (seat: SeatNode) => number): number {
   return props.seats.reduce((max, seat) => Math.max(max, projector(seat)), 0)
 }
 
+function minSeatCoordinate(projector: (seat: SeatNode) => number): number {
+  return props.seats.reduce((min, seat) => Math.min(min, projector(seat)), Number.POSITIVE_INFINITY)
+}
+
+// 座位坐标可能带偏移（首排/首列不从 0 开始），归一化后紧贴左上角，避免上方与左右出现空白
+const originX = computed(() => (props.seats.length ? minSeatCoordinate((seat) => seat.coordx) : 0))
+const originY = computed(() => (props.seats.length ? minSeatCoordinate((seat) => seat.coordy) : 0))
+
 const mapStyle = computed<Record<string, string>>(() => {
   const maxX = maxSeatCoordinate((seat) => seat.coordx)
   const maxY = maxSeatCoordinate((seat) => seat.coordy)
-  const mapWidth = mapPadding * 2 + rowLabelWidth + maxX * (seatWidth + seatGap) + seatWidth
-  const mapHeight = mapPadding * 2 + maxY * (seatHeight + seatGap) + seatHeight
+  const mapWidth = mapPadding * 2 + rowLabelWidth + (maxX - originX.value) * (seatWidth + seatGap) + seatWidth
+  const mapHeight = mapPadding * 2 + (maxY - originY.value) * (seatHeight + seatGap) + seatHeight
 
   return {
-    width: `${Math.max(760, mapWidth)}px`,
-    height: `${Math.max(360, mapHeight)}px`
+    width: `${Math.max(560, mapWidth)}px`,
+    height: `${mapHeight}px`
   }
 })
 
@@ -59,14 +67,14 @@ function seatStyle(seat: SeatNode): Record<string, string> {
   return {
     width: `${seatWidth}px`,
     height: `${seatHeight}px`,
-    left: `${mapPadding + rowLabelWidth + seat.coordx * (seatGap + seatWidth)}px`,
-    top: `${mapPadding + seat.coordy * (seatGap + seatHeight)}px`
+    left: `${mapPadding + rowLabelWidth + (seat.coordx - originX.value) * (seatGap + seatWidth)}px`,
+    top: `${mapPadding + (seat.coordy - originY.value) * (seatGap + seatHeight)}px`
   }
 }
 
 function rowStyle(y: number): Record<string, string> {
   return {
-    top: `${mapPadding + y * (seatGap + seatHeight)}px`
+    top: `${mapPadding + (y - originY.value) * (seatGap + seatHeight)}px`
   }
 }
 </script>
@@ -93,19 +101,18 @@ function rowStyle(y: number): Record<string, string> {
 
 <style scoped>
 .seat-map {
-  min-width: 760px;
-  min-height: 360px;
+  min-width: 560px;
   position: relative;
 }
 
 .row-label {
-  width: 26px;
-  height: 18px;
+  width: 24px;
+  height: 16px;
   position: absolute;
   left: 0;
   color: var(--app-subtle);
-  font-size: 11px;
-  line-height: 18px;
+  font-size: 10px;
+  line-height: 16px;
   text-align: right;
 }
 
