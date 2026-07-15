@@ -630,6 +630,16 @@ watch(
     }
   }
 )
+
+// 出票成功查看完取票码、关闭弹窗后，清空全局订单信息与已选座位，回到等待下一单状态
+watch(
+  () => ticketCodeDialogVisible.value,
+  (visible, wasVisible) => {
+    if (wasVisible && !visible && ticketStore.currentOrderFinalized) {
+      ticketStore.resetOrderWorkspaceAfterTicket()
+    }
+  }
+)
 </script>
 
 <template>

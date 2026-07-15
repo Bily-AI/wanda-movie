@@ -1105,6 +1105,14 @@ export const useTicketStore = defineStore('ticket', {
         this.currentOrderMessage = message
       }
     },
+    // 出票成功并查看完取票码后，清空全局订单信息与已选座位，回到「暂无订单」等待下一单
+    resetOrderWorkspaceAfterTicket() {
+      this.clearCurrentOrderPaymentContext()
+      this.currentOrderPayInfo = null
+      this.orderStatus = null
+      this.currentOrderMessage = ''
+      this.clearSeatSelection(true)
+    },
     async refreshPaymentPrerequisites() {
       const account = useAccountsStore().currentAccount
       const currentOrder = this.currentOrder
