@@ -7,29 +7,29 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Card {
-  id            Int       @id @default(autoincrement())
-  code          String    @unique
-  points        Int
-  validDays     Int
-  status        String    @default("unactivated")
-  boundDeviceId Int?
-  activatedAt   DateTime?
-  createdAt     DateTime  @default(now())
-  devices       Device[]
+model User {
+  id              Int       @id @default(autoincrement())
+  username        String    @unique
+  passwordHash    String
+  remainingPoints Int       @default(0)
+  expireAt        DateTime?
+  boundFingerprint String?
+  disabledAt      DateTime?
+  createdAt       DateTime  @default(now())
+  ledger          PointLedger[]
+  cards           Card[]
 }
 
-model Device {
-  id              Int           @id @default(autoincrement())
-  fingerprint     String        @unique
-  cardId          Int
-  card            Card          @relation(fields: [cardId], references: [id])
-  remainingPoints Int
-  expireAt        DateTime
-  lastSeenAt      DateTime      @default(now())
-  disabledAt      DateTime?
-  createdAt       DateTime      @default(now())
-  ledger          PointLedger[]
+model Card {
+  id           Int       @id @default(autoincrement())
+  code         String    @unique
+  points       Int
+  validDays    Int
+  status       String    @default("unused")
+  usedByUserId Int?
+  usedBy       User?     @relation(fields: [usedByUserId], references: [id])
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
 }
 
 model AppConfig {
@@ -39,8 +39,8 @@ model AppConfig {
 
 model PointLedger {
   id        Int      @id @default(autoincrement())
-  deviceId  Int
-  device    Device   @relation(fields: [deviceId], references: [id])
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
   delta     Int
   reason    String
   orderId   String   @unique
