@@ -65,6 +65,7 @@ declare global {
       reportAutoOrderResult: (result: AutoOrderTicketResult) => Promise<AutoOrderReportResult>
       onAutoOrderProcessTicket: (listener: (request: AutoOrderTicketRequest) => void) => () => void
       onAutoOrderProcessResult: (listener: (result: AutoOrderTicketResult) => void) => () => void
+      getMachineFingerprint: () => Promise<string>
     }
   }
 }
