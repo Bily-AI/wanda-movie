@@ -2,17 +2,33 @@ import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-rou
 
 import ActivityView from '../views/ActivityView.vue'
 import ExchangeCouponView from '../views/ExchangeCouponView.vue'
+import LoginView from '../views/LoginView.vue'
 import LogView from '../views/LogView.vue'
 import MemberView from '../views/MemberView.vue'
 import OrderHistoryView from '../views/OrderHistoryView.vue'
 import SettingsView from '../views/SettingsView.vue'
 import StoredValueCardView from '../views/StoredValueCardView.vue'
 import TicketView from '../views/TicketView.vue'
+import { useAuthStore } from '../stores/auth'
+
+declare module 'vue-router' {
+  interface RouteMeta {
+    title?: string
+    public?: boolean
+    disabled?: boolean
+  }
+}
 
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
     redirect: '/ticket'
+  },
+  {
+    path: '/login',
+    name: 'login',
+    component: LoginView,
+    meta: { title: '激活', public: true }
   },
   {
     path: '/ticket',
@@ -73,6 +89,13 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHashHistory(),
   routes
+})
+
+router.beforeEach((to) => {
+  const auth = useAuthStore()
+  if (to.meta.public) return true
+  if (!auth.loggedIn) return { path: '/login' }
+  return true
 })
 
 export default router
