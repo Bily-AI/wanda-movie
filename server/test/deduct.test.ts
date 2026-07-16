@@ -29,6 +29,8 @@ describe('POST /points/deduct', () => {
     await deduct(token, 'ORDER-1')
     const res = await deduct(token, 'ORDER-1')
     expect(res.json().remainingPoints).toBe(99)
+    const count = await prisma.pointLedger.count({ where: { orderId: 'ORDER-1' } })
+    expect(count).toBe(1)
   })
   it('余额为 0 → NO_POINTS', async () => {
     const token = await activate(0, 30)
@@ -40,5 +42,11 @@ describe('POST /points/deduct', () => {
     await prisma.device.updateMany({ data: { expireAt: new Date(Date.now() - 1000) } })
     const res = await deduct(token, 'ORDER-1')
     expect(res.json()).toMatchObject({ ok: false, code: 'EXPIRED' })
+  })
+  it('缺 orderId → 400 BAD_REQUEST', async () => {
+    const token = await activate()
+    const res = await app.inject({ method: 'POST', url: '/points/deduct', headers: { authorization: `Bearer ${token}` }, payload: {} })
+    expect(res.statusCode).toBe(400)
+    expect(res.json()).toMatchObject({ ok: false, code: 'BAD_REQUEST' })
   })
 })
