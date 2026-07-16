@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { prisma } from '../db.js'
 import { loadConfig } from '../config.js'
-import { signToken } from '../jwt.js'
+import { signToken, verifyToken } from '../jwt.js'
 
 function clientConfig(cfg: Awaited<ReturnType<typeof loadConfig>>) {
   return {
@@ -44,6 +44,26 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const token = signToken({ deviceId: device.id, cardId: card.id })
     return reply.send({
       ok: true, token,
+      remainingPoints: device.remainingPoints,
+      expireAt: device.expireAt.toISOString(),
+      config: clientConfig(cfg)
+    })
+  })
+
+  app.post('/auth/heartbeat', async (req, reply) => {
+    const auth = req.headers.authorization ?? ''
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+    const claim = token ? verifyToken(token) : null
+    if (!claim) return reply.code(401).send({ ok: false, code: 'UNAUTHORIZED' })
+
+    const device = await prisma.device.findUnique({ where: { id: claim.deviceId }, include: { card: true } })
+    if (!device || device.disabledAt) return reply.code(401).send({ ok: false, code: 'DEVICE_DISABLED' })
+    if (device.card.status === 'disabled') return reply.code(401).send({ ok: false, code: 'CARD_DISABLED' })
+
+    await prisma.device.update({ where: { id: device.id }, data: { lastSeenAt: new Date() } })
+    const cfg = await loadConfig()
+    return reply.send({
+      ok: true,
       remainingPoints: device.remainingPoints,
       expireAt: device.expireAt.toISOString(),
       config: clientConfig(cfg)
