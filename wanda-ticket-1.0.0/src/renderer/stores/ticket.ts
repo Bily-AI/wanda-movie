@@ -1097,16 +1097,18 @@ export const useTicketStore = defineStore('ticket', {
       this.paymentSubmissionLocked = false
     },
     finalizeCurrentOrder(message?: string) {
-      // 出票成功 → 按 orderId 幂等扣点(失败不影响已出的票)
-      const orderIdForDeduct = this.currentOrder?.orderId
-      if (orderIdForDeduct) {
-        const auth = useAuthStore()
-        if (auth.token) {
-          void deductPoint(auth.token, orderIdForDeduct).then((res) => {
-            if (res.ok && typeof res.remainingPoints === 'number') {
-              auth.remainingPoints = res.remainingPoints
-            }
-          })
+      // 仅首次 finalize 时扣点,避免重复刷新取票码反复触发(服务端虽幂等,此处防无谓请求)
+      if (!this.currentOrderFinalized) {
+        const orderIdForDeduct = this.currentOrder?.orderId
+        if (orderIdForDeduct) {
+          const auth = useAuthStore()
+          if (auth.token) {
+            void deductPoint(auth.token, orderIdForDeduct).then((res) => {
+              if (res.ok && typeof res.remainingPoints === 'number') {
+                auth.remainingPoints = res.remainingPoints
+              }
+            })
+          }
         }
       }
 

@@ -40,12 +40,16 @@ export const useAuthStore = defineStore('auth', {
     async bootstrap() {
       const token = localStorage.getItem(TOKEN_KEY)
       if (!token) return
-      const res = await heartbeat(token)
-      if (res.ok) {
-        this.applyLogin(token, res.remainingPoints!, res.expireAt!, res.config!)
-        this.startHeartbeat()
-      } else {
-        this.logout()
+      try {
+        const res = await heartbeat(token)
+        if (res.ok) {
+          this.applyLogin(token, res.remainingPoints!, res.expireAt!, res.config!)
+          this.startHeartbeat()
+        } else {
+          this.logout()
+        }
+      } catch {
+        // 离线冷启动:不清 token,也不进登录态,等联网后重试
       }
     },
     applyLogin(token: string, points: number, expireAt: string, config: AuthConfig) {
@@ -57,11 +61,15 @@ export const useAuthStore = defineStore('auth', {
       const ms = Math.max(15, this.config.heartbeatSec) * 1000
       heartbeatTimer = setInterval(async () => {
         if (!this.token) return
-        const res = await heartbeat(this.token)
-        if (res.ok) {
-          this.remainingPoints = res.remainingPoints!; this.expireAt = res.expireAt!; this.config = res.config!
-        } else if (res.code) {
-          this.logout()
+        try {
+          const res = await heartbeat(this.token)
+          if (res.ok) {
+            this.remainingPoints = res.remainingPoints!; this.expireAt = res.expireAt!; this.config = res.config!
+          } else if (res.code) {
+            this.logout()
+          }
+        } catch {
+          // 网络抖动:忽略本次,不误登出
         }
       }, ms)
     },
