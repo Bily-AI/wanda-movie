@@ -1,9 +1,10 @@
 import type { FastifyInstance } from 'fastify'
+import bcrypt from 'bcryptjs'
 import { prisma } from '../db.js'
 import { loadConfig } from '../config.js'
 import { signToken, verifyToken } from '../jwt.js'
 
-function clientConfig(cfg: Awaited<ReturnType<typeof loadConfig>>) {
+export function clientConfig(cfg: Awaited<ReturnType<typeof loadConfig>>) {
   return {
     deductPerPayment: cfg.deductPerPayment,
     heartbeatSec: cfg.heartbeatSec,
@@ -12,42 +13,46 @@ function clientConfig(cfg: Awaited<ReturnType<typeof loadConfig>>) {
   }
 }
 
+function sessionPayload(user: { id: number; remainingPoints: number; expireAt: Date | null }, token: string, cfg: Awaited<ReturnType<typeof loadConfig>>) {
+  return {
+    ok: true, token,
+    remainingPoints: user.remainingPoints,
+    expireAt: user.expireAt ? user.expireAt.toISOString() : null,
+    config: clientConfig(cfg)
+  }
+}
+
 export async function authRoutes(app: FastifyInstance): Promise<void> {
-  app.post('/auth/activate', {
+  app.post('/auth/register', {
     config: { rateLimit: { max: 10, timeWindow: '1 minute' } }
   }, async (req, reply) => {
-    const { cardCode, fingerprint } = (req.body ?? {}) as { cardCode?: string; fingerprint?: string }
-    if (!cardCode || !fingerprint) return reply.send({ ok: false, code: 'BAD_REQUEST' })
-
+    const { username, password, fingerprint } = (req.body ?? {}) as { username?: string; password?: string; fingerprint?: string }
+    if (!username || !password || !fingerprint) return reply.code(400).send({ ok: false, code: 'BAD_REQUEST' })
+    const exists = await prisma.user.findUnique({ where: { username } })
+    if (exists) return reply.send({ ok: false, code: 'USERNAME_TAKEN' })
+    const passwordHash = await bcrypt.hash(password, 10)
+    const user = await prisma.user.create({ data: { username, passwordHash, boundFingerprint: fingerprint } })
     const cfg = await loadConfig()
-    const card = await prisma.card.findUnique({ where: { code: cardCode }, include: { devices: true } })
-    if (!card) return reply.send({ ok: false, code: 'CARD_INVALID' })
-    if (card.status === 'disabled') return reply.send({ ok: false, code: 'CARD_DISABLED' })
+    return reply.send(sessionPayload(user, signToken({ userId: user.id }), cfg))
+  })
 
-    let device = card.devices.find((d) => d.fingerprint === fingerprint)
-    if (!device) {
-      if (card.status === 'active' && card.devices.length >= cfg.maxDevicesPerCard) {
-        return reply.send({ ok: false, code: 'CARD_BOUND_OTHER' })
-      }
-      const expireAt = new Date(Date.now() + card.validDays * 86400_000)
-      device = await prisma.device.create({
-        data: { fingerprint, cardId: card.id, remainingPoints: card.points, expireAt }
-      })
-      await prisma.card.update({
-        where: { id: card.id },
-        data: { status: 'active', boundDeviceId: device.id, activatedAt: card.activatedAt ?? new Date() }
-      })
-    } else if (device.disabledAt) {
-      return reply.send({ ok: false, code: 'DEVICE_DISABLED' })
+  app.post('/auth/login', {
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } }
+  }, async (req, reply) => {
+    const { username, password, fingerprint } = (req.body ?? {}) as { username?: string; password?: string; fingerprint?: string }
+    if (!username || !password || !fingerprint) return reply.code(400).send({ ok: false, code: 'BAD_REQUEST' })
+    const user = await prisma.user.findUnique({ where: { username } })
+    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+      return reply.send({ ok: false, code: 'BAD_LOGIN' })
     }
-
-    const token = signToken({ deviceId: device.id, cardId: card.id })
-    return reply.send({
-      ok: true, token,
-      remainingPoints: device.remainingPoints,
-      expireAt: device.expireAt.toISOString(),
-      config: clientConfig(cfg)
-    })
+    if (user.disabledAt) return reply.send({ ok: false, code: 'USER_DISABLED' })
+    if (!user.boundFingerprint) {
+      await prisma.user.update({ where: { id: user.id }, data: { boundFingerprint: fingerprint } })
+    } else if (user.boundFingerprint !== fingerprint) {
+      return reply.send({ ok: false, code: 'MACHINE_BOUND_OTHER' })
+    }
+    const cfg = await loadConfig()
+    return reply.send(sessionPayload(user, signToken({ userId: user.id }), cfg))
   })
 
   app.post('/auth/heartbeat', async (req, reply) => {
@@ -55,17 +60,13 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
     const claim = token ? verifyToken(token) : null
     if (!claim) return reply.code(401).send({ ok: false, code: 'UNAUTHORIZED' })
-
-    const device = await prisma.device.findUnique({ where: { id: claim.deviceId }, include: { card: true } })
-    if (!device || device.disabledAt) return reply.code(401).send({ ok: false, code: 'DEVICE_DISABLED' })
-    if (device.card.status === 'disabled') return reply.code(401).send({ ok: false, code: 'CARD_DISABLED' })
-
-    await prisma.device.update({ where: { id: device.id }, data: { lastSeenAt: new Date() } })
+    const user = await prisma.user.findUnique({ where: { id: claim.userId } })
+    if (!user || user.disabledAt) return reply.code(401).send({ ok: false, code: 'USER_DISABLED' })
     const cfg = await loadConfig()
     return reply.send({
       ok: true,
-      remainingPoints: device.remainingPoints,
-      expireAt: device.expireAt.toISOString(),
+      remainingPoints: user.remainingPoints,
+      expireAt: user.expireAt ? user.expireAt.toISOString() : null,
       config: clientConfig(cfg)
     })
   })
