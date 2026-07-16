@@ -2,7 +2,6 @@
 import { computed, nextTick, ref, toRaw, watch } from 'vue'
 
 import {
-  Connection,
   Delete,
   Key,
   Picture,
@@ -573,8 +572,8 @@ watch(
       return
     }
 
+    // 不再弹「支付参数」窗给用户看原始 appPayParam，取到支付信息后直接自动拉起支付宝支付
     autoOpenedPayInfoOrderId.value = orderId
-    payInfoDialogVisible.value = true
     await handleOpenTicketAlipayPayment()
   }
 )
@@ -787,12 +786,6 @@ watch(
 
     <aside class="ticket-context-column order-column">
       <section class="context-card panel side-panel context-card--grow">
-        <header class="panel-header">
-          <span>
-            <el-icon><Connection /></el-icon>
-            全局订单信息
-          </span>
-        </header>
         <div v-if="ticketStore.currentOrder" class="order-summary">
           <p>订单号：{{ ticketStore.currentOrder.orderId }}</p>
           <p>{{ ticketStore.currentOrder.movieName }} / {{ ticketStore.currentOrder.cinemaName }}</p>
@@ -1202,14 +1195,15 @@ watch(
 .order-summary {
   max-height: 224px;
   overflow: auto;
-  padding: 12px 16px;
+  padding: 8px 12px;
   color: var(--app-text);
-  line-height: 1.8;
+  font-size: 12px;
+  line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
 .order-summary p {
-  margin: 0 0 8px;
+  margin: 0 0 3px;
 }
 
 .payment-info-panel {

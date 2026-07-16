@@ -332,13 +332,14 @@ for (const label of [
   assertIncludes('src/renderer/views/TicketView.vue', ticketView, label)
 }
 
-// 对齐旧版：支付参数弹窗不再走手动“支付参数”按钮，而是取到支付信息后自动弹出
+// 外部支付参数不再弹「支付参数」窗给用户看原始 appPayParam，取到支付信息后直接自动拉起支付宝支付
 assertNotIncludes('src/renderer/views/TicketView.vue', ticketView, 'handleShowPaymentInfo')
+assertNotIncludes('src/renderer/views/TicketView.vue', ticketView, 'payInfoDialogVisible.value = true')
 assertMatches(
   'src/renderer/views/TicketView.vue',
   ticketView,
-  /\(\)\s*=>\s*ticketStore\.currentOrderPayInfo[\s\S]*?payInfoDialogVisible\.value = true/,
-  '外部支付参数必须在取到支付信息后自动弹出'
+  /\(\)\s*=>\s*ticketStore\.currentOrderPayInfo[\s\S]*?await handleOpenTicketAlipayPayment\(\)/,
+  '取到外部支付信息后必须自动拉起支付宝支付'
 )
 
 assertNotIncludes('src/renderer/views/TicketView.vue', ticketView, '@click="ticketStore.checkCurrentOrderBeforePayment"')

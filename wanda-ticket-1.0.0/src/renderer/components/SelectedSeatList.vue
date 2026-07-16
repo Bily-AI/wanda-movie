@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import { useSettingsStore } from '@renderer/stores/settings'
 import type { SeatNode } from '@shared/wandaTicketTypes'
 
 const props = defineProps<{
@@ -19,6 +20,25 @@ function formatPrice(priceCent: number): string {
 }
 
 const showDiscount = computed(() => props.discountPriceCent > 0)
+
+// 实付后按折扣系数（默认 0.87，用户可改）前端估算折后价，仅展示不影响真实支付；系数持久化到设置，下次启动沿用
+const settingsStore = useSettingsStore()
+const discountRate = computed({
+  get: () => settingsStore.seatDiscountRate,
+  set: (value) => {
+    const rate = Number(value)
+    settingsStore.seatDiscountRate = Number.isFinite(rate) ? rate : 0
+  }
+})
+const discountedPriceCent = computed(() => {
+  const rate = Number(discountRate.value)
+  return Math.round(props.payablePriceCent * (Number.isFinite(rate) ? rate : 0))
+})
+
+// 输入完成（失焦/回车）后落盘，避免每次按键都写文件
+function handleDiscountCommit(): void {
+  void settingsStore.setSeatDiscountRate(settingsStore.seatDiscountRate)
+}
 </script>
 
 <template>
@@ -44,6 +64,21 @@ const showDiscount = computed(() => props.discountPriceCent > 0)
           <span class="seat-summary-label">合计</span>
           <span class="seat-summary-total" :class="{ strike: showDiscount }">{{ formatPrice(totalPriceCent) }}</span>
           <span class="seat-summary-payable">实付 {{ formatPrice(payablePriceCent) }}</span>
+          <span class="seat-summary-discount">
+            ×
+            <input
+              v-model.number="discountRate"
+              class="discount-input"
+              type="number"
+              min="0"
+              step="0.01"
+              inputmode="decimal"
+              aria-label="折扣系数"
+              @change="handleDiscountCommit"
+              @blur="handleDiscountCommit"
+            />
+            = <strong class="discount-result">{{ formatPrice(discountedPriceCent) }}</strong>
+          </span>
         </div>
       </div>
     </template>
@@ -137,5 +172,34 @@ const showDiscount = computed(() => props.discountPriceCent > 0)
   color: #4caf50;
   font-weight: 600;
   white-space: nowrap;
+}
+
+.seat-summary-discount {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--app-muted);
+  white-space: nowrap;
+}
+
+.discount-input {
+  width: 56px;
+  padding: 2px 4px;
+  border: 1px solid var(--app-border);
+  border-radius: 4px;
+  background: var(--app-surface);
+  color: var(--app-text);
+  font-size: 13px;
+  text-align: center;
+}
+
+.discount-input:focus {
+  outline: none;
+  border-color: var(--app-accent);
+}
+
+.discount-result {
+  color: #e6810a;
+  font-weight: 600;
 }
 </style>

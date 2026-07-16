@@ -771,7 +771,10 @@ export async function createTicketOrder(
     totalPrice,
     dId
   }
-  const signatureBody = toFormBody(body).replaceAll('%7C', '|')
+  // 签名串对百分号编码统一用小写（万达签名口径，与旧版一致）：座位分隔符 %7C→%7c。
+  // 此前误转成字面 '|'，单座无 '|' 侥幸可用，多座订单签名串('id1|id2')与实际发送体('id1%7Cid2')不一致，
+  // 导致后端「The signature validate failure」。实际发送体仍是大写 %7C 的 formBody，无需改动。
+  const signatureBody = toFormBody(body).replace(/%[0-9A-F]{2}/g, (match) => match.toLowerCase())
 
   const response = await wandaPost<unknown>(
     WANDA_HOSTS.GATEWAY,

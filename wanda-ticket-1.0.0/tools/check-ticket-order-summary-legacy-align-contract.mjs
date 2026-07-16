@@ -7,7 +7,6 @@ const file = 'src/renderer/views/TicketView.vue'
 const source = fs.readFileSync(path.join(root, file), 'utf8').replace(/\r\n/g, '\n')
 
 for (const marker of [
-  '全局订单信息',
   'class="order-summary"',
   'ticketStore.currentOrder.orderId',
   'ticketStore.paymentDataMessage',

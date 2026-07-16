@@ -55,6 +55,7 @@ export interface SettingsLocalData {
   autoClosePaymentWindow: boolean
   paymentCardDisplay: '列表' | '卡片'
   ticketCodeTemplate: '默认' | '万达风格'
+  seatDiscountRate: number
   autoPayment: {
     enabled: boolean
     phone: string
@@ -141,6 +142,7 @@ export const DEFAULT_LOCAL_DATA: LocalDataMap = {
     autoClosePaymentWindow: true,
     paymentCardDisplay: '列表',
     ticketCodeTemplate: '默认',
+    seatDiscountRate: 0.87,
     autoPayment: {
       enabled: false,
       phone: '',

@@ -241,7 +241,11 @@ assertNotIncludes('src/renderer/services/seatApi.ts', seatApi, 'wandaCinemaGet')
 assertNotIncludes('src/renderer/services/seatApi.ts', seatApi, 'buildCinemaHeaders')
 
 assertIncludes('src/renderer/services/seatApi.ts', seatApi, 'WANDA_API_PATHS.ORDER_CREATE_TICKET')
-assertIncludes('src/renderer/services/seatApi.ts', seatApi, "replaceAll('%7C', '|')")
+assertIncludes(
+  'src/renderer/services/seatApi.ts',
+  seatApi,
+  'toFormBody(body).replace(/%[0-9A-F]{2}/g, (match) => match.toLowerCase())'
+)
 assertIncludes('src/renderer/services/seatApi.ts', seatApi, 'totalPrice <= 0')
 assertNotIncludes(
   'src/renderer/services/seatApi.ts',

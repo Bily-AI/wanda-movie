@@ -2827,6 +2827,8 @@ export const useTicketStore = defineStore('ticket', {
         useLogsStore().addLog('订单', phone, `订单已取消：${orderId}`)
         this.currentOrderMessage = '订单已取消'
         this.clearCurrentOrderPaymentContext()
+        // 取消订单后一并清空座位勾选，避免残留高亮
+        this.clearSeatSelection(true)
       } catch (error) {
         if (
           requestSerial !== this.orderRequestSerial ||

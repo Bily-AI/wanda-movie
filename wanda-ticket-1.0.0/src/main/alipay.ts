@@ -335,8 +335,22 @@ async function openAlipayWindow(url: string, request: AlipayConvertRequest): Pro
   window.webContents.on('did-navigate-in-page', () => {
     void runAutoPaymentScript(window, request)
   })
+  window.on('closed', () => {
+    if (alipayPayWindow === window) {
+      alipayPayWindow = null
+    }
+  })
 
-  await window.loadURL(url)
+  try {
+    await window.loadURL(url)
+  } catch (error) {
+    // 用户未支付直接关闭窗口，或支付宝收银台页面自身发生跳转/重定向，都会让 loadURL 以
+    // ERR_ABORTED / ERR_FAILED 拒绝。此时窗口已打开，这类导航中断不是真正的失败，不应向用户抛错。
+    console.warn(
+      '[支付宝] 支付窗口加载被中断（通常是用户关闭窗口或页面跳转）:',
+      error instanceof Error ? error.message : error
+    )
+  }
 
   return reusedWindow
 }

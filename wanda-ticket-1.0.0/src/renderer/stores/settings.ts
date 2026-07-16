@@ -91,6 +91,7 @@ function toPlainSettingsData(data: SettingsLocalData): SettingsLocalData {
     autoClosePaymentWindow: data.autoClosePaymentWindow,
     paymentCardDisplay: data.paymentCardDisplay,
     ticketCodeTemplate: data.ticketCodeTemplate,
+    seatDiscountRate: data.seatDiscountRate,
     autoPayment: { ...toRaw(data.autoPayment) },
     baiduOcr: { ...toRaw(data.baiduOcr) },
     aiOcr: { ...toRaw(data.aiOcr) }
@@ -138,6 +139,7 @@ export const useSettingsStore = defineStore('settings', {
     autoClosePaymentWindow: DEFAULT_LOCAL_DATA.settings.autoClosePaymentWindow,
     paymentCardDisplay: DEFAULT_LOCAL_DATA.settings.paymentCardDisplay,
     ticketCodeTemplate: DEFAULT_LOCAL_DATA.settings.ticketCodeTemplate,
+    seatDiscountRate: DEFAULT_LOCAL_DATA.settings.seatDiscountRate,
     autoPayment: structuredClone(DEFAULT_LOCAL_DATA.settings.autoPayment),
     baiduOcr: structuredClone(DEFAULT_LOCAL_DATA.settings.baiduOcr),
     aiOcr: structuredClone(DEFAULT_LOCAL_DATA.settings.aiOcr),
@@ -213,6 +215,9 @@ export const useSettingsStore = defineStore('settings', {
         this.autoClosePaymentWindow = settingsResult.data.autoClosePaymentWindow
         this.paymentCardDisplay = settingsResult.data.paymentCardDisplay
         this.ticketCodeTemplate = settingsResult.data.ticketCodeTemplate
+        const savedRate = Number(settingsResult.data.seatDiscountRate)
+        this.seatDiscountRate =
+          Number.isFinite(savedRate) && savedRate >= 0 ? savedRate : DEFAULT_LOCAL_DATA.settings.seatDiscountRate
         this.autoPayment = settingsResult.data.autoPayment
         this.baiduOcr = settingsResult.data.baiduOcr
         this.aiOcr = settingsResult.data.aiOcr
@@ -234,6 +239,13 @@ export const useSettingsStore = defineStore('settings', {
 
       this.syncRequestParams()
     },
+    // 座位折扣系数改动后持久化，下次启动沿用
+    async setSeatDiscountRate(value: number) {
+      const rate = Number(value)
+      this.seatDiscountRate =
+        Number.isFinite(rate) && rate >= 0 ? rate : DEFAULT_LOCAL_DATA.settings.seatDiscountRate
+      await this.saveSettings()
+    },
     async saveSettings() {
       const wandaApp = getWandaApp()
 
@@ -248,6 +260,7 @@ export const useSettingsStore = defineStore('settings', {
         autoClosePaymentWindow: this.autoClosePaymentWindow,
         paymentCardDisplay: this.paymentCardDisplay,
         ticketCodeTemplate: this.ticketCodeTemplate,
+        seatDiscountRate: this.seatDiscountRate,
         autoPayment: this.autoPayment,
         baiduOcr: this.baiduOcr,
         aiOcr: this.aiOcr
