@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { IPC_CHANNELS, type OldPackageIndexResult, type WandaH5OpenWindowRequest } from '../shared/ipc'
+import { getMachineFingerprint } from './machineId'
 import { registerAlipayHandlers } from './alipay'
 import { registerBaiduOcrHandlers } from './baiduOcr'
 import { registerElementCaptureHandlers } from './elementCapture'
@@ -323,6 +324,8 @@ function registerIpcHandlers(): void {
     mainWindow.webContents.send(IPC_CHANNELS.AUTO_ORDER_PROCESS_EVENT, payload)
     return { ok: true, data: true }
   })
+
+  ipcMain.handle(IPC_CHANNELS.MACHINE_FINGERPRINT, () => getMachineFingerprint())
 
   ipcMain.handle(IPC_CHANNELS.AUTO_ORDER_REPORT_RESULT, (_event, payload) => {
     if (!autoOrderWindow || autoOrderWindow.isDestroyed()) {

@@ -103,6 +103,7 @@ export interface WandaAppApi {
   ) => Promise<AlipayConvertResult>
   alipaySyncDevice: (request: AlipayDeviceFingerprint) => Promise<AlipaySyncDeviceResult>
   alipayClearSession: () => Promise<AlipayClearSessionResult>
+  getMachineFingerprint: () => Promise<string>
 }
 
 const wandaApp: WandaAppApi = {
@@ -142,7 +143,8 @@ const wandaApp: WandaAppApi = {
   alipayConvert: (appPayParam, phone, autoPayment) =>
     ipcRenderer.invoke(IPC_CHANNELS.ALIPAY_CONVERT, appPayParam, phone, autoPayment),
   alipaySyncDevice: (request) => ipcRenderer.invoke(IPC_CHANNELS.ALIPAY_SYNC_DEVICE, request),
-  alipayClearSession: () => ipcRenderer.invoke(IPC_CHANNELS.ALIPAY_CLEAR_SESSION)
+  alipayClearSession: () => ipcRenderer.invoke(IPC_CHANNELS.ALIPAY_CLEAR_SESSION),
+  getMachineFingerprint: () => ipcRenderer.invoke(IPC_CHANNELS.MACHINE_FINGERPRINT)
 }
 
 contextBridge.exposeInMainWorld('wandaApp', wandaApp)

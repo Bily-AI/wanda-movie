@@ -29,7 +29,8 @@ export const IPC_CHANNELS = {
   WANDA_H5_OPEN_WINDOW: 'wanda-h5-open-window',
   ALIPAY_CLEAR_SESSION: 'alipay-clear-session',
   ALIPAY_SYNC_DEVICE: 'alipay-sync-device',
-  ALIPAY_CONVERT: 'alipay-convert'
+  ALIPAY_CONVERT: 'alipay-convert',
+  MACHINE_FINGERPRINT: 'machine-fingerprint'
 } as const
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]
