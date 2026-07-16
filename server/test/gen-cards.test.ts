@@ -10,7 +10,7 @@ describe('generateCards', () => {
     const row = await prisma.card.findUnique({ where: { code: codes[0] } })
     expect(row?.points).toBe(100)
     expect(row?.validDays).toBe(30)
-    expect(row?.status).toBe('unactivated')
+    expect(row?.status).toBe('unused')
     await prisma.card.deleteMany({ where: { code: { in: codes } } })
   })
 })

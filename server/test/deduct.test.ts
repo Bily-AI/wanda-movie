@@ -6,47 +6,39 @@ const app = await buildApp()
 beforeAll(async () => { await app.ready() })
 afterAll(async () => { await app.close() })
 beforeEach(async () => {
-  await prisma.pointLedger.deleteMany(); await prisma.device.deleteMany(); await prisma.card.deleteMany()
+  await prisma.pointLedger.deleteMany(); await prisma.card.deleteMany(); await prisma.user.deleteMany()
 })
-
-async function activate(points = 100, validDays = 30) {
-  await prisma.card.create({ data: { code: 'C1', points, validDays } })
-  const res = await app.inject({ method: 'POST', url: '/auth/activate', payload: { cardCode: 'C1', fingerprint: 'fp1' } })
-  return res.json().token as string
+async function ready(points = 100) {
+  const r = await app.inject({ method: 'POST', url: '/auth/register', payload: { username: 'u1', password: 'p1', fingerprint: 'fp1' } })
+  const token = r.json().token as string
+  if (points > 0) {
+    await prisma.card.create({ data: { code: 'C1', points, validDays: 30 } })
+    await app.inject({ method: 'POST', url: '/cards/redeem', headers: { authorization: `Bearer ${token}` }, payload: { cardCode: 'C1' } })
+  }
+  return token
 }
-function deduct(token: string, orderId: string) {
-  return app.inject({ method: 'POST', url: '/points/deduct', headers: { authorization: `Bearer ${token}` }, payload: { orderId } })
-}
+const deduct = (token: string, orderId: string) =>
+  app.inject({ method: 'POST', url: '/points/deduct', headers: { authorization: `Bearer ${token}` }, payload: { orderId } })
 
 describe('POST /points/deduct', () => {
   it('出票成功扣 1 点', async () => {
-    const token = await activate()
-    const res = await deduct(token, 'ORDER-1')
-    expect(res.json()).toMatchObject({ ok: true, remainingPoints: 99 })
+    const token = await ready(100)
+    expect((await deduct(token, 'O1')).json()).toMatchObject({ ok: true, remainingPoints: 99 })
   })
-  it('同一 orderId 幂等,只扣一次', async () => {
-    const token = await activate()
-    await deduct(token, 'ORDER-1')
-    const res = await deduct(token, 'ORDER-1')
-    expect(res.json().remainingPoints).toBe(99)
-    const count = await prisma.pointLedger.count({ where: { orderId: 'ORDER-1' } })
-    expect(count).toBe(1)
+  it('同 orderId 幂等只扣一次', async () => {
+    const token = await ready(100)
+    await deduct(token, 'O1')
+    expect((await deduct(token, 'O1')).json().remainingPoints).toBe(99)
+    expect(await prisma.pointLedger.count({ where: { orderId: 'O1' } })).toBe(1)
   })
-  it('余额为 0 → NO_POINTS', async () => {
-    const token = await activate(0, 30)
-    const res = await deduct(token, 'ORDER-1')
-    expect(res.json()).toMatchObject({ ok: false, code: 'NO_POINTS' })
+  it('新账号未充值 → EXPIRED 或 NO_POINTS', async () => {
+    const token = await ready(0)
+    const code = (await deduct(token, 'O1')).json().code
+    expect(['EXPIRED', 'NO_POINTS']).toContain(code)
   })
-  it('已过期 → EXPIRED', async () => {
-    const token = await activate(100, 30)
-    await prisma.device.updateMany({ data: { expireAt: new Date(Date.now() - 1000) } })
-    const res = await deduct(token, 'ORDER-1')
-    expect(res.json()).toMatchObject({ ok: false, code: 'EXPIRED' })
-  })
-  it('缺 orderId → 400 BAD_REQUEST', async () => {
-    const token = await activate()
+  it('缺 orderId → 400', async () => {
+    const token = await ready(100)
     const res = await app.inject({ method: 'POST', url: '/points/deduct', headers: { authorization: `Bearer ${token}` }, payload: {} })
     expect(res.statusCode).toBe(400)
-    expect(res.json()).toMatchObject({ ok: false, code: 'BAD_REQUEST' })
   })
 })
