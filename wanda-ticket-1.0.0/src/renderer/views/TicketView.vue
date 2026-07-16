@@ -16,11 +16,13 @@ import PaymentPanel from '@renderer/components/PaymentPanel.vue'
 import SelectedSeatList from '@renderer/components/SelectedSeatList.vue'
 import { extractAppPayParam, openAlipayPayment } from '@renderer/services/alipayBridge'
 import { useAccountsStore } from '@renderer/stores/accounts'
+import { useAuthStore } from '@renderer/stores/auth'
 import { useSettingsStore } from '@renderer/stores/settings'
 import { useTicketStore } from '@renderer/stores/ticket'
 import type { OrderPayInfoResult } from '@shared/wandaTicketTypes'
 
 const accountsStore = useAccountsStore()
+const authStore = useAuthStore()
 const settingsStore = useSettingsStore()
 const ticketStore = useTicketStore()
 type SelectLikeInstance = {
@@ -346,6 +348,9 @@ const ticketCodeSeatText = computed(() =>
   ticketStore.currentOrder?.seats.map((seat) => `${seat.rowName}排${seat.columnName}座`).join('、') || '-'
 )
 const ticketCodeAmount = computed(() => `¥${((ticketStore.currentOrder?.amountCent ?? 0) / 100).toFixed(2)}`)
+const payBlockedTip = computed(() =>
+  authStore.remainingPoints < authStore.config.deductPerPayment ? '积分不足，请充值' : '卡密已过期'
+)
 
 function formatCentAmount(value: number): string {
   return `¥${(Math.max(0, value) / 100).toFixed(2)}`
@@ -907,12 +912,13 @@ watch(
           <el-button
             type="primary"
             :loading="ticketStore.submittingPayment"
-            :disabled="!ticketStore.canSubmitCurrentOrderPayment"
+            :disabled="!ticketStore.canSubmitCurrentOrderPayment || !authStore.canPay"
           >
             提交支付
           </el-button>
         </template>
       </el-popconfirm>
+      <span v-if="!authStore.canPay" class="pay-blocked-tip">{{ payBlockedTip }}</span>
     </footer>
 
     <el-dialog
@@ -1007,6 +1013,7 @@ watch(
 </template>
 
 <style scoped>
+.pay-blocked-tip { color: #f56c6c; font-size: 12px; margin-left: 8px; white-space: nowrap; }
 .ticket-workbench {
   min-width: 0;
   height: 100%;
