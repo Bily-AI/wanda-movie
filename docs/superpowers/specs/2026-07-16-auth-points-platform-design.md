@@ -6,6 +6,32 @@
 
 ---
 
+## 修订 2026-07-16:鉴权改为「账号密码 + 卡密充值」
+
+> ⚠️ 本节**取代下文原「卡密激活登录」的鉴权设计**(第五节 activate 那套)。点数/扣点/心跳/配置层不变,只换登录凭证与充值方式。改造计划见 `docs/superpowers/plans/2026-07-16-account-auth-rework.md`。
+
+**新模型**:自助注册 **账号密码** 登录 + **账号绑单机**(复刻旧版单机);**卡密变成充值码**(登录后输卡密给账号加积分/延到期)。
+
+**数据表(取代 device 那套)**
+| 表 | 字段 |
+|---|---|
+| `user`(取代 device) | username(唯一)、passwordHash、remainingPoints、expireAt、boundFingerprint(单机)、disabledAt、createdAt |
+| `card`(改为充值码) | code(唯一)、points、validDays、status(unused/used/disabled)、usedByUserId、usedAt、createdAt |
+| `point_ledger` | userId(原 deviceId)、delta、reason、orderId(唯一幂等)、balance、createdAt |
+| `app_config` | 不变 |
+
+**接口**
+- `POST /auth/register {username, password, fingerprint}` → 建账号、绑本机、发 JWT(payload `{userId}`)。**新账号 remainingPoints=0、expireAt=null,需充值才能出票。** bcrypt 存密码。
+- `POST /auth/login {username, password, fingerprint}` → 验密码 + 验机器绑定(异机拒 `MACHINE_BOUND_OTHER`),返回 token/积分/到期/config。
+- `POST /cards/redeem {cardCode}`(Bearer token)→ 卡未使用则标记 used+usedByUserId+usedAt,`user.remainingPoints += card.points`,`user.expireAt = max(now, expireAt ?? now) + card.validDays 天`;返回新积分/到期。卡无效/已用/停用 → 对应 code。
+- `POST /auth/heartbeat`、`POST /points/deduct`:逻辑不变,数据源 device→**user**;jwt payload 用 `{userId}`。
+
+**客户端**:登录页换成**账号密码 登录/注册**(可切换);新增**充值入口**(输卡密调 redeem);顶部积分/到期、提交支付闸门、出票扣点逻辑不变(数据源变 user)。
+
+**机器绑定**:register/首次 login 时把 fingerprint 写入 `user.boundFingerprint`;之后 login/heartbeat/deduct 校验 fingerprint 与绑定一致,异机拒;换机需后台清 `boundFingerprint`(SP3)。
+
+---
+
 ## 一、目标
 
 把现有单机桌面工具 `wanda-ticket-1.0.0`(Electron + Vue3 + Pinia + TS)升级为**带后端的商业化产品**,新增六项能力:用户鉴权、扣点数计费、后台管理、用户问题反馈、客户端热更新、一键安装包。
