@@ -46,6 +46,8 @@ import type {
 } from '@shared/wandaTicketTypes'
 import { useAccountsStore } from './accounts'
 import { useLogsStore } from './logs'
+import { deductPoint } from '@renderer/services/authApi'
+import { useAuthStore } from '@renderer/stores/auth'
 
 const DEFAULT_WANDA_USER_IDENTIFIER = 'YYDDJDKYHA'
 
@@ -1095,6 +1097,19 @@ export const useTicketStore = defineStore('ticket', {
       this.paymentSubmissionLocked = false
     },
     finalizeCurrentOrder(message?: string) {
+      // 出票成功 → 按 orderId 幂等扣点(失败不影响已出的票)
+      const orderIdForDeduct = this.currentOrder?.orderId
+      if (orderIdForDeduct) {
+        const auth = useAuthStore()
+        if (auth.token) {
+          void deductPoint(auth.token, orderIdForDeduct).then((res) => {
+            if (res.ok && typeof res.remainingPoints === 'number') {
+              auth.remainingPoints = res.remainingPoints
+            }
+          })
+        }
+      }
+
       this.currentOrderFinalized = true
       this.currentOrderId = ''
       this.currentOrderAccountId = this.currentOrder?.accountId ?? this.currentOrderAccountId
