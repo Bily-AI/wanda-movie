@@ -53,6 +53,7 @@
     "check:settings-layout": "node tools/check-settings-layout-contract.mjs",
     "check:global-ui": "node tools/check-global-ui-contract.mjs",
     "check:interface-smoke": "node tools/check-interface-smoke-contract.mjs",
+    "check:auth-gate": "node tools/check-auth-gate-contract.mjs",
     "smoke:wanda": "node tools/smoke-wanda-api.mjs",
     "index:old": "node tools/old-package-index.mjs"
   },
