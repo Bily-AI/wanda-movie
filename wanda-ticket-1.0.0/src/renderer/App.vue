@@ -21,6 +21,7 @@ import { useAccountsStore } from './stores/accounts'
 import { useLogsStore } from './stores/logs'
 import { useSettingsStore } from './stores/settings'
 import { useTicketStore } from './stores/ticket'
+import { useAuthStore } from '@renderer/stores/auth'
 import AccountSidebar from './components/AccountSidebar.vue'
 import { extractAppPayParam, openAlipayPayment } from './services/alipayBridge'
 import type { AutoOrderTicketRequest, AutoOrderTicketResult } from '@shared/ipc'
@@ -30,6 +31,7 @@ const accountsStore = useAccountsStore()
 const logsStore = useLogsStore()
 const settingsStore = useSettingsStore()
 const ticketStore = useTicketStore()
+const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -278,7 +280,7 @@ function registerAutoOrderListener(): void {
             <div class="account-strip" aria-label="账号状态">
               <span class="account-item account-item--user">
                 <el-icon><UserFilled /></el-icon>
-                <span>本地模式 / 鉴权未启用</span>
+                <span>积分 {{ auth.remainingPoints }} · 到期 {{ auth.expireAt ? auth.expireAt.slice(0, 10) : '-' }}</span>
               </span>
             </div>
           </div>
