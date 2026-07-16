@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElMessageBox, ElMessage } from 'element-plus'
 import {
   Close,
   CreditCard,
@@ -232,6 +233,15 @@ function registerAutoOrderListener(): void {
   })
 }
 
+async function handleRecharge() {
+  try {
+    const { value } = await ElMessageBox.prompt('请输入充值卡密', '充值', { confirmButtonText: '充值', cancelButtonText: '取消' })
+    if (!value) return
+    const ok = await auth.redeem(value)
+    if (ok) ElMessage.success('充值成功'); else ElMessage.error(auth.authError)
+  } catch { /* 用户取消 */ }
+}
+
 </script>
 
 <template>
@@ -282,6 +292,7 @@ function registerAutoOrderListener(): void {
                 <el-icon><UserFilled /></el-icon>
                 <span>积分 {{ auth.remainingPoints }} · 到期 {{ auth.expireAt ? auth.expireAt.slice(0, 10) : '-' }}</span>
               </span>
+              <el-button size="small" @click="handleRecharge">充值</el-button>
             </div>
           </div>
 

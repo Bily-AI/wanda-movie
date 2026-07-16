@@ -6,25 +6,36 @@ import { useAuthStore } from '@renderer/stores/auth'
 
 const auth = useAuthStore()
 const router = useRouter()
-const code = ref('')
+const mode = ref<'login' | 'register'>('login')
+const username = ref('')
+const password = ref('')
 const submitting = ref(false)
 
-async function handleActivate() {
+async function submit() {
+  if (!username.value.trim() || !password.value) return
   submitting.value = true
-  const ok = await auth.activateCard(code.value)
+  const ok = mode.value === 'login'
+    ? await auth.login(username.value, password.value)
+    : await auth.register(username.value, password.value)
   submitting.value = false
-  if (ok) { ElMessage.success('激活成功'); router.replace('/ticket') }
-  else ElMessage.error(auth.loginError)
+  if (ok) { ElMessage.success(mode.value === 'login' ? '登录成功' : '注册成功'); router.replace('/ticket') }
+  else ElMessage.error(auth.authError)
 }
 </script>
 
 <template>
   <div class="login-page">
     <div class="login-box">
-      <h2>激活卡密</h2>
-      <el-input v-model="code" placeholder="请输入卡密" @keyup.enter="handleActivate" />
-      <p v-if="auth.loginError" class="login-err">{{ auth.loginError }}</p>
-      <el-button type="primary" :loading="submitting" :disabled="!code.trim()" @click="handleActivate">激活</el-button>
+      <div class="login-tabs">
+        <button :class="{ active: mode === 'login' }" @click="mode = 'login'">登录</button>
+        <button :class="{ active: mode === 'register' }" @click="mode = 'register'">注册</button>
+      </div>
+      <el-input v-model="username" placeholder="用户名" />
+      <el-input v-model="password" type="password" placeholder="密码" show-password @keyup.enter="submit" />
+      <p v-if="auth.authError" class="login-err">{{ auth.authError }}</p>
+      <el-button type="primary" :loading="submitting" :disabled="!username.trim() || !password" @click="submit">
+        {{ mode === 'login' ? '登录' : '注册' }}
+      </el-button>
     </div>
   </div>
 </template>
@@ -32,6 +43,8 @@ async function handleActivate() {
 <style scoped>
 .login-page { height: 100vh; display: grid; place-items: center; background: var(--app-bg, #f3f5f9); }
 .login-box { width: 320px; display: flex; flex-direction: column; gap: 12px; padding: 28px; border-radius: 10px; background: #fff; box-shadow: 0 8px 30px rgba(31,42,68,.12); }
-.login-box h2 { margin: 0 0 4px; font-size: 18px; }
+.login-tabs { display: flex; gap: 8px; }
+.login-tabs button { flex: 1; padding: 8px; border: none; background: #eef1f6; border-radius: 6px; cursor: pointer; color: #6b7280; }
+.login-tabs button.active { background: var(--app-accent, #2f6fed); color: #fff; }
 .login-err { margin: 0; color: #f56c6c; font-size: 13px; }
 </style>

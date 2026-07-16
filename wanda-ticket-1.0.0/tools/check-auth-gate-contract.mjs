@@ -14,6 +14,16 @@ const authStore = read('src/renderer/stores/auth.ts')
 has('auth store', authStore, 'getMachineFingerprint()')
 has('auth store', authStore, 'canPay')
 has('auth store', authStore, 'startHeartbeat')
+has('auth store', authStore, 'register')
+has('auth store', authStore, 'login')
+has('auth store', authStore, 'redeem')
+
+const authApi = read('src/renderer/services/authApi.ts')
+has('authApi', authApi, '/auth/register')
+has('authApi', authApi, '/cards/redeem')
+
+const loginView = read('src/renderer/views/LoginView.vue')
+has('LoginView', loginView, '注册')
 
 const ticket = read('src/renderer/stores/ticket.ts')
 has('ticket store', ticket, 'deductPoint(')
