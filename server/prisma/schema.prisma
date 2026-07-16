@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Card {
+  id            Int       @id @default(autoincrement())
+  code          String    @unique
+  points        Int
+  validDays     Int
+  status        String    @default("unactivated")
+  boundDeviceId Int?
+  activatedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  devices       Device[]
+}
+
+model Device {
+  id              Int           @id @default(autoincrement())
+  fingerprint     String        @unique
+  cardId          Int
+  card            Card          @relation(fields: [cardId], references: [id])
+  remainingPoints Int
+  expireAt        DateTime
+  lastSeenAt      DateTime      @default(now())
+  disabledAt      DateTime?
+  createdAt       DateTime      @default(now())
+  ledger          PointLedger[]
+}
+
+model AppConfig {
+  key   String @id
+  value String
+}
+
+model PointLedger {
+  id        Int      @id @default(autoincrement())
+  deviceId  Int
+  device    Device   @relation(fields: [deviceId], references: [id])
+  delta     Int
+  reason    String
+  orderId   String   @unique
+  balance   Int
+  createdAt DateTime @default(now())
+}
