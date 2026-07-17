@@ -26,12 +26,15 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post('/auth/register', {
     config: { rateLimit: { max: 10, timeWindow: '1 minute' } }
   }, async (req, reply) => {
-    const { username, password, fingerprint } = (req.body ?? {}) as { username?: string; password?: string; fingerprint?: string }
-    if (!username || !password || !fingerprint) return reply.code(400).send({ ok: false, code: 'BAD_REQUEST' })
-    const exists = await prisma.user.findUnique({ where: { username } })
+    const body = (req.body ?? {}) as { username?: string; password?: string; fingerprint?: string }
+    const uname = body.username?.trim()
+    const password = body.password
+    const fingerprint = body.fingerprint
+    if (!uname || !password || !fingerprint) return reply.code(400).send({ ok: false, code: 'BAD_REQUEST' })
+    const exists = await prisma.user.findUnique({ where: { username: uname } })
     if (exists) return reply.send({ ok: false, code: 'USERNAME_TAKEN' })
     const passwordHash = await bcrypt.hash(password, 10)
-    const user = await prisma.user.create({ data: { username, passwordHash, boundFingerprint: fingerprint } })
+    const user = await prisma.user.create({ data: { username: uname, passwordHash, boundFingerprint: fingerprint } })
     const cfg = await loadConfig()
     return reply.send(sessionPayload(user, signToken({ userId: user.id }), cfg))
   })
@@ -39,9 +42,12 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post('/auth/login', {
     config: { rateLimit: { max: 10, timeWindow: '1 minute' } }
   }, async (req, reply) => {
-    const { username, password, fingerprint } = (req.body ?? {}) as { username?: string; password?: string; fingerprint?: string }
-    if (!username || !password || !fingerprint) return reply.code(400).send({ ok: false, code: 'BAD_REQUEST' })
-    const user = await prisma.user.findUnique({ where: { username } })
+    const body = (req.body ?? {}) as { username?: string; password?: string; fingerprint?: string }
+    const uname = body.username?.trim()
+    const password = body.password
+    const fingerprint = body.fingerprint
+    if (!uname || !password || !fingerprint) return reply.code(400).send({ ok: false, code: 'BAD_REQUEST' })
+    const user = await prisma.user.findUnique({ where: { username: uname } })
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
       return reply.send({ ok: false, code: 'BAD_LOGIN' })
     }

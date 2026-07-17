@@ -35,8 +35,11 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
         })
       })
       return reply.send({ ok: true, remainingPoints: updated.remainingPoints, expireAt: updated.expireAt?.toISOString() ?? null })
-    } catch {
-      return reply.send({ ok: false, code: 'CARD_USED' })
+    } catch (err) {
+      if (err instanceof Error && err.message === 'CARD_ALREADY_USED') {
+        return reply.send({ ok: false, code: 'CARD_USED' })
+      }
+      throw err
     }
   })
 }

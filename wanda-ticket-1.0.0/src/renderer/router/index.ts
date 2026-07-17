@@ -28,7 +28,7 @@ const routes: RouteRecordRaw[] = [
     path: '/login',
     name: 'login',
     component: LoginView,
-    meta: { title: '激活', public: true }
+    meta: { title: '登录', public: true }
   },
   {
     path: '/ticket',
