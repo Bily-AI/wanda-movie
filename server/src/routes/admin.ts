@@ -104,4 +104,25 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     await prisma.appConfig.upsert({ where: { key }, update: { value: String(value) }, create: { key, value: String(value) } })
     return reply.send({ ok: true })
   })
+
+  app.get('/admin/feedback', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+    const rows = await prisma.feedback.findMany({ include: { user: true }, orderBy: { id: 'desc' } })
+    return reply.send({ ok: true, items: rows.map((f) => ({
+      id: f.id, username: f.user.username, type: f.type, category: f.category, content: f.content,
+      contact: f.contact, images: JSON.parse(f.images) as string[], status: f.status, reply: f.reply,
+      createdAt: f.createdAt.toISOString(), repliedAt: f.repliedAt ? f.repliedAt.toISOString() : null
+    })) })
+  })
+
+  app.post('/admin/feedback/:id/reply', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+    const id = Number((req.params as { id: string }).id)
+    const { reply: replyText, status } = (req.body ?? {}) as { reply?: string; status?: string }
+    if (!replyText || !status || !['replied', 'fixed'].includes(status)) {
+      return reply.code(400).send({ ok: false, code: 'BAD_REQUEST' })
+    }
+    await prisma.feedback.update({ where: { id }, data: { reply: replyText, status, repliedAt: new Date() } })
+    return reply.send({ ok: true })
+  })
 }
