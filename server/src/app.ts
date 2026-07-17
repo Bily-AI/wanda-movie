@@ -3,6 +3,7 @@ import rateLimit from '@fastify/rate-limit'
 import { authRoutes } from './routes/auth.js'
 import { pointsRoutes } from './routes/points.js'
 import { cardRoutes } from './routes/cards.js'
+import { adminRoutes } from './routes/admin.js'
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false })
@@ -11,5 +12,6 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(authRoutes)
   await app.register(cardRoutes)
   await app.register(pointsRoutes)
+  await app.register(adminRoutes)
   return app
 }

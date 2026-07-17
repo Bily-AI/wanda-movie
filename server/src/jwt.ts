@@ -17,3 +17,16 @@ export function verifyToken(token: string): { userId: number } | null {
     return null
   }
 }
+
+export function signAdminToken(): string {
+  return jwt.sign({ role: 'admin' }, SECRET, { expiresIn: '1d' })
+}
+
+export function verifyAdminToken(token: string): boolean {
+  try {
+    const d = jwt.verify(token, SECRET) as { role?: string }
+    return d.role === 'admin'
+  } catch {
+    return false
+  }
+}
