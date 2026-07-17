@@ -86,7 +86,9 @@ td.actions { white-space: nowrap; }
   <div class="login-wrap" v-if="!token">
     <div class="login-box">
       <h2>后台管理登录</h2>
-      <input type="password" v-model="loginPwd" placeholder="管理密码" @keyup.enter="doLogin" />
+      <p style="text-align:center;color:#999;font-size:12px;margin-bottom:16px">默认 admin / admin888</p>
+      <input type="text" v-model="loginUser" placeholder="用户名" @keyup.enter="doLogin" />
+      <input type="password" v-model="loginPwd" placeholder="密码" @keyup.enter="doLogin" />
       <button @click="doLogin">登录</button>
     </div>
   </div>
@@ -104,6 +106,8 @@ td.actions { white-space: nowrap; }
       <button class="tab-btn" :class="{active: tab==='ledger'}" @click="switchTab('ledger')">流水</button>
       <button class="tab-btn" :class="{active: tab==='config'}" @click="switchTab('config')">配置</button>
       <button class="tab-btn" :class="{active: tab==='feedback'}" @click="switchTab('feedback')">反馈</button>
+      <button class="tab-btn" :class="{active: tab==='admins'}" @click="switchTab('admins')">管理员</button>
+      <button class="tab-btn" :class="{active: tab==='logs'}" @click="switchTab('logs')">日志</button>
     </div>
 
     <div class="content">
@@ -313,6 +317,63 @@ td.actions { white-space: nowrap; }
           </table>
         </div>
       </div>
+
+      <!-- 管理员 Tab -->
+      <div v-if="tab==='admins'">
+        <div class="card">
+          <div class="form-row">
+            <div class="form-group">
+              <label>用户名</label>
+              <input type="text" v-model="adminForm.username" placeholder="新管理员用户名" style="width:160px" />
+            </div>
+            <div class="form-group">
+              <label>密码</label>
+              <input type="password" v-model="adminForm.password" placeholder="密码" style="width:160px" />
+            </div>
+            <div class="form-group" style="justify-content:flex-end">
+              <button class="btn btn-primary" @click="createAdmin">创建</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <table>
+            <thead>
+              <tr><th>ID</th><th>用户名</th><th>创建时间</th></tr>
+            </thead>
+            <tbody>
+              <tr v-if="loading"><td colspan="3" class="loading">加载中...</td></tr>
+              <tr v-for="a in admins" :key="a.id">
+                <td>{{ a.id }}</td>
+                <td>{{ a.username }}</td>
+                <td>{{ fmtDate(a.createdAt) }}</td>
+              </tr>
+              <tr v-if="!loading && !admins.length"><td colspan="3" class="text-gray" style="text-align:center;padding:20px">暂无数据</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 日志 Tab -->
+      <div v-if="tab==='logs'">
+        <div class="card">
+          <table>
+            <thead>
+              <tr><th>ID</th><th>时间</th><th>管理员</th><th>动作</th><th>细节</th></tr>
+            </thead>
+            <tbody>
+              <tr v-if="loading"><td colspan="5" class="loading">加载中...</td></tr>
+              <tr v-for="l in logs" :key="l.id">
+                <td>{{ l.id }}</td>
+                <td>{{ fmtDate(l.createdAt) }}</td>
+                <td>{{ l.adminUsername }}</td>
+                <td>{{ l.action }}</td>
+                <td style="max-width:300px;white-space:normal;word-break:break-all">{{ l.detail || '-' }}</td>
+              </tr>
+              <tr v-if="!loading && !logs.length"><td colspan="5" class="text-gray" style="text-align:center;padding:20px">暂无日志</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -323,6 +384,7 @@ const { createApp, reactive, ref, watch } = Vue
 createApp({
   setup() {
     const token = ref('')
+    const loginUser = ref('')
     const loginPwd = ref('')
     const tab = ref('cards')
     const loading = ref(false)
@@ -333,9 +395,14 @@ createApp({
     const ledger = ref([])
     const configs = ref([])
     const feedbacks = ref([])
+    const admins = ref([])
+    const logs = ref([])
 
     // 卡密生成
     const cardForm = reactive({ count: 5, points: 100, validDays: 30 })
+
+    // 管理员新建表单
+    const adminForm = reactive({ username: '', password: '' })
     const generatedCodes = ref([])
 
     // 反馈答复表单(按 id 存)
@@ -366,10 +433,12 @@ createApp({
 
     // 登录
     async function doLogin() {
+      if (!loginUser.value) { alert('请输入用户名'); return }
       if (!loginPwd.value) { alert('请输入密码'); return }
-      const data = await api('POST', '/admin/login', { password: loginPwd.value })
+      const data = await api('POST', '/admin/login', { username: loginUser.value, password: loginPwd.value })
       if (data && data.ok) {
         token.value = data.token
+        loginUser.value = ''
         loginPwd.value = ''
         switchTab('cards')
       }
@@ -382,6 +451,8 @@ createApp({
       ledger.value = []
       configs.value = []
       feedbacks.value = []
+      admins.value = []
+      logs.value = []
       generatedCodes.value = []
     }
 
@@ -407,6 +478,12 @@ createApp({
       } else if (t === 'feedback') {
         const d = await api('GET', '/admin/feedback')
         if (d) feedbacks.value = d.items || []
+      } else if (t === 'admins') {
+        const d = await api('GET', '/admin/admins')
+        if (d) admins.value = d.items || []
+      } else if (t === 'logs') {
+        const d = await api('GET', '/admin/logs')
+        if (d) logs.value = d.items || []
       }
       loading.value = false
     }
@@ -480,6 +557,29 @@ createApp({
       }
     }
 
+    // 管理员操作
+    async function createAdmin() {
+      if (!adminForm.username.trim()) { alert('请输入用户名'); return }
+      if (!adminForm.password.trim()) { alert('请输入密码'); return }
+      const res = await fetch('/admin/admins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token.value },
+        body: JSON.stringify({ username: adminForm.username, password: adminForm.password })
+      })
+      const data = await res.json()
+      if (data.ok === false) {
+        if (data.code === 'USERNAME_TAKEN') {
+          alert('用户名已存在')
+        } else {
+          alert('创建失败: ' + (data.message || data.code || ''))
+        }
+        return
+      }
+      adminForm.username = ''
+      adminForm.password = ''
+      await loadTab('admins')
+    }
+
     function openImg(url) {
       window.open(url, '_blank')
     }
@@ -515,15 +615,17 @@ createApp({
     }
 
     return {
-      token, loginPwd, tab, loading,
-      cards, users, ledger, configs, feedbacks,
+      token, loginUser, loginPwd, tab, loading,
+      cards, users, ledger, configs, feedbacks, admins, logs,
       cardForm, generatedCodes,
+      adminForm,
       replyForms,
       doLogin, logout, switchTab,
       generateCards, disableCard,
       disableUser, enableUser, adjustPoints, unbindUser,
       saveConfig,
       toggleReplyForm, submitReply, openImg,
+      createAdmin,
       fmtDate, cardStatusLabel, statusClass, fbStatusLabel, fbStatusClass
     }
   }
