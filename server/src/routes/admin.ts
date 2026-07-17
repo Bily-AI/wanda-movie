@@ -6,6 +6,10 @@ import { signAdminToken } from '../jwt.js'
 import { requireAdmin } from '../admin/guard.js'
 import { generateCards } from '../../scripts/gen-cards.js'
 
+async function writeLog(adminUsername: string, action: string, detail = ''): Promise<void> {
+  await prisma.adminLog.create({ data: { adminUsername, action, detail } })
+}
+
 export async function adminRoutes(app: FastifyInstance): Promise<void> {
   app.post('/admin/login', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (req, reply) => {
     const { username, password } = (req.body ?? {}) as { username?: string; password?: string }
@@ -32,6 +36,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     const admin = requireAdmin(req, reply); if (!admin) return
     const id = Number((req.params as { id: string }).id)
     await prisma.user.update({ where: { id }, data: { disabledAt: new Date() } })
+    await writeLog(admin, 'user.disable', 'userId=' + id)
     return reply.send({ ok: true })
   })
 
@@ -39,6 +44,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     const admin = requireAdmin(req, reply); if (!admin) return
     const id = Number((req.params as { id: string }).id)
     await prisma.user.update({ where: { id }, data: { disabledAt: null } })
+    await writeLog(admin, 'user.enable', 'userId=' + id)
     return reply.send({ ok: true })
   })
 
@@ -52,6 +58,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       await tx.pointLedger.create({ data: { userId: id, delta, reason: 'admin', orderId: `admin-${randomUUID()}`, balance: u.remainingPoints } })
       return u
     })
+    await writeLog(admin, 'user.adjust', 'userId=' + id + ' delta=' + delta)
     return reply.send({ ok: true, remainingPoints: updated.remainingPoints })
   })
 
@@ -59,6 +66,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     const admin = requireAdmin(req, reply); if (!admin) return
     const id = Number((req.params as { id: string }).id)
     await prisma.user.update({ where: { id }, data: { boundFingerprint: null } })
+    await writeLog(admin, 'user.unbind', 'userId=' + id)
     return reply.send({ ok: true })
   })
 
@@ -76,6 +84,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     const { count, points, validDays } = (req.body ?? {}) as { count?: number; points?: number; validDays?: number }
     if (!count || !points || !validDays) return reply.code(400).send({ ok: false, code: 'BAD_REQUEST' })
     const codes = await generateCards(count, points, validDays)
+    await writeLog(admin, 'card.generate', 'count=' + count + ' points=' + points + ' days=' + validDays)
     return reply.send({ ok: true, codes })
   })
 
@@ -83,6 +92,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     const admin = requireAdmin(req, reply); if (!admin) return
     const id = Number((req.params as { id: string }).id)
     await prisma.card.updateMany({ where: { id, status: 'unused' }, data: { status: 'disabled' } })
+    await writeLog(admin, 'card.disable', 'cardId=' + id)
     return reply.send({ ok: true })
   })
 
@@ -105,6 +115,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     const { key, value } = (req.body ?? {}) as { key?: string; value?: string }
     if (!key || value === undefined) return reply.code(400).send({ ok: false, code: 'BAD_REQUEST' })
     await prisma.appConfig.upsert({ where: { key }, update: { value: String(value) }, create: { key, value: String(value) } })
+    await writeLog(admin, 'config.set', key + '=' + value)
     return reply.send({ ok: true })
   })
 
@@ -126,6 +137,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(400).send({ ok: false, code: 'BAD_REQUEST' })
     }
     await prisma.feedback.update({ where: { id }, data: { reply: replyText, status, repliedAt: new Date() } })
+    await writeLog(admin, 'feedback.reply', 'id=' + id + ' status=' + status)
     return reply.send({ ok: true })
   })
 
@@ -136,6 +148,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     if (await prisma.admin.findUnique({ where: { username } })) return reply.send({ ok: false, code: 'USERNAME_TAKEN' })
     const passwordHash = await bcrypt.hash(password, 10)
     await prisma.admin.create({ data: { username, passwordHash } })
+    await writeLog(admin, 'admin.create', 'username=' + username)
     return reply.send({ ok: true })
   })
 
@@ -143,5 +156,13 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     const admin = requireAdmin(req, reply); if (!admin) return
     const rows = await prisma.admin.findMany({ orderBy: { id: 'asc' } })
     return reply.send({ ok: true, items: rows.map((a) => ({ id: a.id, username: a.username, createdAt: a.createdAt.toISOString() })) })
+  })
+
+  app.get('/admin/logs', async (req, reply) => {
+    const admin = requireAdmin(req, reply); if (!admin) return
+    const rows = await prisma.adminLog.findMany({ orderBy: { id: 'desc' }, take: 200 })
+    return reply.send({ ok: true, items: rows.map((l) => ({
+      id: l.id, adminUsername: l.adminUsername, action: l.action, detail: l.detail, createdAt: l.createdAt.toISOString()
+    })) })
   })
 }
