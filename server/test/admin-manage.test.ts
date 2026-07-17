@@ -45,4 +45,15 @@ describe('admin manage', () => {
     const res = await app.inject({ method: 'GET', url: '/admin/config', headers: A(t) })
     expect(res.json().items.find((i: { key: string }) => i.key === 'deductPerPayment').value).toBe('2')
   })
+  it('无 body 的 disable 带 Content-Type: application/json 也能生效(空 body 容错)', async () => {
+    const t = await adminToken()
+    await app.inject({ method: 'POST', url: '/auth/register', payload: { username: 'u1', password: 'p1', fingerprint: 'fp1' } })
+    const u = await prisma.user.findFirst()
+    const res = await app.inject({
+      method: 'POST', url: `/admin/users/${u!.id}/disable`,
+      headers: { ...A(t), 'content-type': 'application/json' }
+    })
+    expect(res.statusCode).toBe(200)
+    expect((await prisma.user.findUnique({ where: { id: u!.id } }))?.disabledAt).not.toBeNull()
+  })
 })
