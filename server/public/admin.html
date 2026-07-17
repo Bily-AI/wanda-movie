@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>后台管理</title>
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; font-size: 14px; background: #f5f5f5; }
+#app { min-height: 100vh; }
+
+/* 登录页 */
+.login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+.login-box { background: #fff; padding: 40px; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,.15); width: 320px; }
+.login-box h2 { text-align: center; margin-bottom: 24px; color: #333; }
+.login-box input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 16px; font-size: 14px; }
+.login-box button { width: 100%; padding: 10px; background: #1890ff; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+.login-box button:hover { background: #40a9ff; }
+
+/* 主界面 */
+.header { background: #001529; color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 50px; }
+.header h1 { font-size: 16px; }
+.header button { background: transparent; color: #ccc; border: 1px solid #555; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.header button:hover { color: #fff; border-color: #aaa; }
+
+.tabs { background: #fff; border-bottom: 1px solid #e8e8e8; display: flex; padding: 0 24px; }
+.tab-btn { padding: 14px 20px; cursor: pointer; border: none; background: none; font-size: 14px; color: #666; border-bottom: 3px solid transparent; }
+.tab-btn.active { color: #1890ff; border-bottom-color: #1890ff; font-weight: 600; }
+.tab-btn:hover { color: #1890ff; }
+
+.content { padding: 24px; }
+
+/* 通用 */
+table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 4px; overflow: hidden; }
+th, td { border: 1px solid #e8e8e8; padding: 8px 12px; text-align: left; white-space: nowrap; }
+th { background: #fafafa; font-weight: 600; color: #555; }
+tr:hover td { background: #f9f9f9; }
+
+.btn { padding: 4px 10px; border: none; border-radius: 3px; cursor: pointer; font-size: 12px; margin: 0 2px; }
+.btn-primary { background: #1890ff; color: #fff; }
+.btn-primary:hover { background: #40a9ff; }
+.btn-danger { background: #ff4d4f; color: #fff; }
+.btn-danger:hover { background: #ff7875; }
+.btn-warning { background: #faad14; color: #fff; }
+.btn-warning:hover { background: #ffc53d; }
+.btn-success { background: #52c41a; color: #fff; }
+.btn-success:hover { background: #73d13d; }
+.btn-default { background: #fff; color: #333; border: 1px solid #d9d9d9; }
+.btn-default:hover { border-color: #40a9ff; color: #40a9ff; }
+
+.form-row { display: flex; gap: 12px; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group label { font-size: 12px; color: #666; }
+.form-group input, .form-group select, .form-group textarea { padding: 6px 10px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 13px; }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #40a9ff; }
+
+.codes-box { width: 100%; height: 120px; border: 1px solid #d9d9d9; border-radius: 4px; padding: 8px; font-family: monospace; font-size: 12px; resize: vertical; }
+
+.text-red { color: #ff4d4f; font-weight: 600; }
+.text-green { color: #52c41a; font-weight: 600; }
+.text-gray { color: #999; }
+
+.tag { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 12px; }
+.tag-red { background: #fff1f0; color: #cf1322; border: 1px solid #ffa39e; }
+.tag-green { background: #f6ffed; color: #389e0d; border: 1px solid #b7eb8f; }
+.tag-blue { background: #e6f7ff; color: #0958d9; border: 1px solid #91caff; }
+.tag-gray { background: #fafafa; color: #666; border: 1px solid #d9d9d9; }
+.tag-orange { background: #fff7e6; color: #d46b08; border: 1px solid #ffd591; }
+
+img.thumb { width: 48px; height: 48px; object-fit: cover; cursor: pointer; border: 1px solid #eee; border-radius: 3px; margin: 2px; }
+
+.reply-form { background: #f9f9f9; border: 1px solid #e8e8e8; border-radius: 4px; padding: 12px; margin-top: 8px; }
+.reply-form textarea { width: 100%; height: 80px; margin-bottom: 8px; }
+.reply-form select { margin-right: 8px; }
+
+.loading { text-align: center; padding: 40px; color: #999; }
+.card { background: #fff; border-radius: 6px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+
+td.actions { white-space: nowrap; }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- 登录 -->
+  <div class="login-wrap" v-if="!token">
+    <div class="login-box">
+      <h2>后台管理登录</h2>
+      <input type="password" v-model="loginPwd" placeholder="管理密码" @keyup.enter="doLogin" />
+      <button @click="doLogin">登录</button>
+    </div>
+  </div>
+
+  <!-- 主界面 -->
+  <div v-else>
+    <div class="header">
+      <h1>后台管理系统</h1>
+      <button @click="logout">退出</button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn" :class="{active: tab==='cards'}" @click="switchTab('cards')">卡密</button>
+      <button class="tab-btn" :class="{active: tab==='users'}" @click="switchTab('users')">用户</button>
+      <button class="tab-btn" :class="{active: tab==='ledger'}" @click="switchTab('ledger')">流水</button>
+      <button class="tab-btn" :class="{active: tab==='config'}" @click="switchTab('config')">配置</button>
+      <button class="tab-btn" :class="{active: tab==='feedback'}" @click="switchTab('feedback')">反馈</button>
+    </div>
+
+    <div class="content">
+      <!-- 卡密 Tab -->
+      <div v-if="tab==='cards'">
+        <div class="card">
+          <div class="form-row">
+            <div class="form-group">
+              <label>数量</label>
+              <input type="number" v-model.number="cardForm.count" min="1" max="100" style="width:80px" />
+            </div>
+            <div class="form-group">
+              <label>积分</label>
+              <input type="number" v-model.number="cardForm.points" min="1" style="width:100px" />
+            </div>
+            <div class="form-group">
+              <label>有效天数</label>
+              <input type="number" v-model.number="cardForm.validDays" min="1" style="width:100px" />
+            </div>
+            <div class="form-group" style="justify-content:flex-end">
+              <button class="btn btn-primary" @click="generateCards">生成卡密</button>
+            </div>
+          </div>
+          <div v-if="generatedCodes.length">
+            <label style="font-size:12px;color:#666">生成的卡密（可全选复制）：</label>
+            <textarea class="codes-box" readonly :value="generatedCodes.join('\n')" @focus="$event.target.select()"></textarea>
+          </div>
+        </div>
+
+        <div class="card">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th><th>卡密码</th><th>积分</th><th>有效天数</th><th>状态</th><th>使用者ID</th><th>使用时间</th><th>创建时间</th><th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="loading"><td colspan="9" class="loading">加载中...</td></tr>
+              <tr v-for="c in cards" :key="c.id">
+                <td>{{ c.id }}</td>
+                <td><code style="font-size:12px">{{ c.code }}</code></td>
+                <td>{{ c.points }}</td>
+                <td>{{ c.validDays }}</td>
+                <td>
+                  <span class="tag" :class="statusClass(c.status)">{{ cardStatusLabel(c.status) }}</span>
+                </td>
+                <td>{{ c.usedByUserId || '-' }}</td>
+                <td>{{ fmtDate(c.usedAt) }}</td>
+                <td>{{ fmtDate(c.createdAt) }}</td>
+                <td class="actions">
+                  <button v-if="c.status==='unused'" class="btn btn-danger" @click="disableCard(c.id)">停用</button>
+                </td>
+              </tr>
+              <tr v-if="!loading && !cards.length"><td colspan="9" class="text-gray" style="text-align:center;padding:20px">暂无数据</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 用户 Tab -->
+      <div v-if="tab==='users'">
+        <div class="card">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th><th>用户名</th><th>积分</th><th>到期时间</th><th>绑定机器码</th><th>状态</th><th>注册时间</th><th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="loading"><td colspan="8" class="loading">加载中...</td></tr>
+              <tr v-for="u in users" :key="u.id">
+                <td>{{ u.id }}</td>
+                <td>{{ u.username }}</td>
+                <td>{{ u.remainingPoints }}</td>
+                <td>{{ fmtDate(u.expireAt) }}</td>
+                <td>
+                  <span v-if="u.boundFingerprint" :title="u.boundFingerprint" style="font-family:monospace;font-size:12px">
+                    {{ u.boundFingerprint.substring(0, 12) }}...
+                  </span>
+                  <span v-else class="text-gray">未绑定</span>
+                </td>
+                <td>
+                  <span v-if="u.disabledAt" class="tag tag-red">已禁用</span>
+                  <span v-else class="tag tag-green">正常</span>
+                </td>
+                <td>{{ fmtDate(u.createdAt) }}</td>
+                <td class="actions">
+                  <button v-if="u.disabledAt" class="btn btn-success" @click="enableUser(u.id)">启用</button>
+                  <button v-else class="btn btn-danger" @click="disableUser(u.id)">禁用</button>
+                  <button class="btn btn-warning" @click="adjustPoints(u.id)">调积分</button>
+                  <button class="btn btn-default" @click="unbindUser(u.id)">清绑定</button>
+                </td>
+              </tr>
+              <tr v-if="!loading && !users.length"><td colspan="8" class="text-gray" style="text-align:center;padding:20px">暂无数据</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 流水 Tab -->
+      <div v-if="tab==='ledger'">
+        <div class="card">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th><th>用户ID</th><th>±积分</th><th>原因</th><th>订单号</th><th>结余</th><th>时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="loading"><td colspan="7" class="loading">加载中...</td></tr>
+              <tr v-for="l in ledger" :key="l.id">
+                <td>{{ l.id }}</td>
+                <td>{{ l.userId }}</td>
+                <td :class="l.delta > 0 ? 'text-green' : 'text-red'">{{ l.delta > 0 ? '+'+l.delta : l.delta }}</td>
+                <td>{{ l.reason }}</td>
+                <td>{{ l.orderId || '-' }}</td>
+                <td>{{ l.balance }}</td>
+                <td>{{ fmtDate(l.createdAt) }}</td>
+              </tr>
+              <tr v-if="!loading && !ledger.length"><td colspan="7" class="text-gray" style="text-align:center;padding:20px">暂无数据</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 配置 Tab -->
+      <div v-if="tab==='config'">
+        <div class="card">
+          <table>
+            <thead>
+              <tr><th>键</th><th>值</th><th>操作</th></tr>
+            </thead>
+            <tbody>
+              <tr v-if="loading"><td colspan="3" class="loading">加载中...</td></tr>
+              <tr v-for="cfg in configs" :key="cfg.key">
+                <td><code>{{ cfg.key }}</code></td>
+                <td>
+                  <input v-model="cfg.editValue" style="width:300px;padding:4px 8px;border:1px solid #d9d9d9;border-radius:3px;font-size:13px" />
+                </td>
+                <td>
+                  <button class="btn btn-primary" @click="saveConfig(cfg)">保存</button>
+                </td>
+              </tr>
+              <tr v-if="!loading && !configs.length"><td colspan="3" class="text-gray" style="text-align:center;padding:20px">暂无配置项</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 反馈 Tab -->
+      <div v-if="tab==='feedback'">
+        <div class="card">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th><th>用户名</th><th>类型</th><th>分类</th><th>内容</th><th>图片</th><th>联系方式</th><th>状态</th><th>时间</th><th>答复</th><th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="loading"><td colspan="11" class="loading">加载中...</td></tr>
+              <template v-for="fb in feedbacks" :key="fb.id">
+                <tr>
+                  <td>{{ fb.id }}</td>
+                  <td>{{ fb.username }}</td>
+                  <td>
+                    <span class="tag" :class="fb.type==='problem' ? 'tag-red' : 'tag-blue'">
+                      {{ fb.type === 'problem' ? '问题' : '需求' }}
+                    </span>
+                  </td>
+                  <td>{{ fb.category }}</td>
+                  <td style="max-width:200px;white-space:normal;word-break:break-all">{{ fb.content }}</td>
+                  <td>
+                    <img v-for="(img, idx) in (fb.images || [])" :key="idx" :src="img" class="thumb" @click="openImg(img)" :title="'点击查看大图'" />
+                    <span v-if="!fb.images || !fb.images.length" class="text-gray">-</span>
+                  </td>
+                  <td>{{ fb.contact || '-' }}</td>
+                  <td>
+                    <span class="tag" :class="fbStatusClass(fb.status)">{{ fbStatusLabel(fb.status) }}</span>
+                  </td>
+                  <td>{{ fmtDate(fb.createdAt) }}</td>
+                  <td style="max-width:150px;white-space:normal;word-break:break-all">{{ fb.reply || '-' }}</td>
+                  <td class="actions">
+                    <button class="btn btn-primary" @click="toggleReplyForm(fb.id)">答复</button>
+                  </td>
+                </tr>
+                <tr v-if="replyForms[fb.id]">
+                  <td colspan="11">
+                    <div class="reply-form">
+                      <div class="form-group" style="margin-bottom:8px">
+                        <label>回复内容</label>
+                        <textarea v-model="replyForms[fb.id].reply" placeholder="请输入回复内容..."></textarea>
+                      </div>
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <select v-model="replyForms[fb.id].status">
+                          <option value="replied">已回复</option>
+                          <option value="fixed">已修复</option>
+                        </select>
+                        <button class="btn btn-primary" @click="submitReply(fb.id)">提交</button>
+                        <button class="btn btn-default" @click="toggleReplyForm(fb.id)">取消</button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+              <tr v-if="!loading && !feedbacks.length"><td colspan="11" class="text-gray" style="text-align:center;padding:20px">暂无反馈</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp, reactive, ref, watch } = Vue
+
+createApp({
+  setup() {
+    const token = ref('')
+    const loginPwd = ref('')
+    const tab = ref('cards')
+    const loading = ref(false)
+
+    // Tab 数据
+    const cards = ref([])
+    const users = ref([])
+    const ledger = ref([])
+    const configs = ref([])
+    const feedbacks = ref([])
+
+    // 卡密生成
+    const cardForm = reactive({ count: 5, points: 100, validDays: 30 })
+    const generatedCodes = ref([])
+
+    // 反馈答复表单(按 id 存)
+    const replyForms = reactive({})
+
+    // API helper
+    async function api(method, path, body) {
+      const opts = {
+        method,
+        headers: { 'Content-Type': 'application/json' }
+      }
+      if (token.value) opts.headers['Authorization'] = 'Bearer ' + token.value
+      if (body !== undefined) opts.body = JSON.stringify(body)
+      try {
+        const res = await fetch(path, opts)
+        const data = await res.json()
+        if (!res.ok || data.ok === false) {
+          const msg = data.message || data.code || JSON.stringify(data)
+          alert('请求失败: ' + msg)
+          return null
+        }
+        return data
+      } catch (e) {
+        alert('网络错误: ' + e.message)
+        return null
+      }
+    }
+
+    // 登录
+    async function doLogin() {
+      if (!loginPwd.value) { alert('请输入密码'); return }
+      const data = await api('POST', '/admin/login', { password: loginPwd.value })
+      if (data && data.ok) {
+        token.value = data.token
+        loginPwd.value = ''
+        switchTab('cards')
+      }
+    }
+
+    function logout() {
+      token.value = ''
+      cards.value = []
+      users.value = []
+      ledger.value = []
+      configs.value = []
+      feedbacks.value = []
+      generatedCodes.value = []
+    }
+
+    function switchTab(t) {
+      tab.value = t
+      loadTab(t)
+    }
+
+    async function loadTab(t) {
+      loading.value = true
+      if (t === 'cards') {
+        const d = await api('GET', '/admin/cards')
+        if (d) cards.value = d.items || []
+      } else if (t === 'users') {
+        const d = await api('GET', '/admin/users')
+        if (d) users.value = d.items || []
+      } else if (t === 'ledger') {
+        const d = await api('GET', '/admin/ledger')
+        if (d) ledger.value = d.items || []
+      } else if (t === 'config') {
+        const d = await api('GET', '/admin/config')
+        if (d) configs.value = (d.items || []).map(c => ({ ...c, editValue: c.value }))
+      } else if (t === 'feedback') {
+        const d = await api('GET', '/admin/feedback')
+        if (d) feedbacks.value = d.items || []
+      }
+      loading.value = false
+    }
+
+    // 卡密操作
+    async function generateCards() {
+      if (!cardForm.count || !cardForm.points || !cardForm.validDays) { alert('请填写完整'); return }
+      const d = await api('POST', '/admin/cards/generate', { count: cardForm.count, points: cardForm.points, validDays: cardForm.validDays })
+      if (d) {
+        generatedCodes.value = d.codes || []
+        await loadTab('cards')
+      }
+    }
+
+    async function disableCard(id) {
+      if (!confirm('确认停用此卡密?')) return
+      const d = await api('POST', '/admin/cards/' + id + '/disable')
+      if (d) await loadTab('cards')
+    }
+
+    // 用户操作
+    async function disableUser(id) {
+      if (!confirm('确认禁用此用户?')) return
+      const d = await api('POST', '/admin/users/' + id + '/disable')
+      if (d) await loadTab('users')
+    }
+
+    async function enableUser(id) {
+      if (!confirm('确认启用此用户?')) return
+      const d = await api('POST', '/admin/users/' + id + '/enable')
+      if (d) await loadTab('users')
+    }
+
+    async function adjustPoints(id) {
+      const input = prompt('请输入积分变动量（正数增加，负数减少）:')
+      if (input === null) return
+      const delta = parseInt(input)
+      if (isNaN(delta)) { alert('请输入有效数字'); return }
+      const d = await api('POST', '/admin/users/' + id + '/adjust', { delta })
+      if (d) await loadTab('users')
+    }
+
+    async function unbindUser(id) {
+      if (!confirm('确认清除此用户绑定？（用户可在其他机器重新登录）')) return
+      const d = await api('POST', '/admin/users/' + id + '/unbind')
+      if (d) await loadTab('users')
+    }
+
+    // 配置保存
+    async function saveConfig(cfg) {
+      const d = await api('POST', '/admin/config', { key: cfg.key, value: cfg.editValue })
+      if (d) { alert('保存成功'); await loadTab('config') }
+    }
+
+    // 反馈答复
+    function toggleReplyForm(id) {
+      if (replyForms[id]) {
+        delete replyForms[id]
+      } else {
+        replyForms[id] = { reply: '', status: 'replied' }
+      }
+    }
+
+    async function submitReply(id) {
+      const form = replyForms[id]
+      if (!form || !form.reply.trim()) { alert('请填写回复内容'); return }
+      const d = await api('POST', '/admin/feedback/' + id + '/reply', { reply: form.reply, status: form.status })
+      if (d) {
+        delete replyForms[id]
+        await loadTab('feedback')
+      }
+    }
+
+    function openImg(url) {
+      window.open(url, '_blank')
+    }
+
+    // 格式化
+    function fmtDate(val) {
+      if (!val) return '-'
+      return new Date(val).toLocaleString('zh-CN', { hour12: false })
+    }
+
+    function cardStatusLabel(s) {
+      const map = { unused: '未使用', used: '已使用', disabled: '已停用' }
+      return map[s] || s
+    }
+
+    function statusClass(s) {
+      if (s === 'used') return 'tag-gray'
+      if (s === 'unused') return 'tag-green'
+      if (s === 'disabled') return 'tag-red'
+      return 'tag-gray'
+    }
+
+    function fbStatusLabel(s) {
+      const map = { pending: '待处理', replied: '已回复', fixed: '已修复' }
+      return map[s] || s
+    }
+
+    function fbStatusClass(s) {
+      if (s === 'pending') return 'tag-orange'
+      if (s === 'replied') return 'tag-blue'
+      if (s === 'fixed') return 'tag-green'
+      return 'tag-gray'
+    }
+
+    return {
+      token, loginPwd, tab, loading,
+      cards, users, ledger, configs, feedbacks,
+      cardForm, generatedCodes,
+      replyForms,
+      doLogin, logout, switchTab,
+      generateCards, disableCard,
+      disableUser, enableUser, adjustPoints, unbindUser,
+      saveConfig,
+      toggleReplyForm, submitReply, openImg,
+      fmtDate, cardStatusLabel, statusClass, fbStatusLabel, fbStatusClass
+    }
+  }
+}).mount('#app')
+</script>
+</body>
+</html>

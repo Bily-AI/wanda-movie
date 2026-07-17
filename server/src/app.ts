@@ -1,5 +1,8 @@
 import Fastify, { type FastifyInstance } from 'fastify'
 import rateLimit from '@fastify/rate-limit'
+import fastifyStatic from '@fastify/static'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 import { authRoutes } from './routes/auth.js'
 import { pointsRoutes } from './routes/points.js'
 import { cardRoutes } from './routes/cards.js'
@@ -15,5 +18,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(pointsRoutes)
   await app.register(adminRoutes)
   await app.register(feedbackRoutes)
+  const currentDir = dirname(fileURLToPath(import.meta.url))
+  await app.register(fastifyStatic, { root: join(currentDir, '../public'), prefix: '/' })
+  app.get('/admin', async (_req, reply) => reply.sendFile('admin.html'))
   return app
 }
