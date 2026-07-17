@@ -10,7 +10,8 @@ import { adminRoutes } from './routes/admin.js'
 import { feedbackRoutes } from './routes/feedback.js'
 
 export async function buildApp(): Promise<FastifyInstance> {
-  const app = Fastify({ logger: false })
+  // bodyLimit 调大到 10MB:反馈可带 base64 图片,默认 1MB 会 413
+  const app = Fastify({ logger: false, bodyLimit: 10 * 1024 * 1024 })
   await app.register(rateLimit, { global: false })
   app.get('/health', async () => ({ ok: true }))
   await app.register(authRoutes)
