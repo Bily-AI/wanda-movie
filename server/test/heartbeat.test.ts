@@ -6,7 +6,7 @@ const app = await buildApp()
 beforeAll(async () => { await app.ready() })
 afterAll(async () => { await app.close() })
 beforeEach(async () => {
-  await prisma.pointLedger.deleteMany(); await prisma.card.deleteMany(); await prisma.user.deleteMany()
+  await prisma.feedback.deleteMany(); await prisma.pointLedger.deleteMany(); await prisma.card.deleteMany(); await prisma.user.deleteMany()
 })
 async function registerToken() {
   const res = await app.inject({ method: 'POST', url: '/auth/register', payload: { username: 'u1', password: 'p1', fingerprint: 'fp1' } })
