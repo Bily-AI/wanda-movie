@@ -63,3 +63,18 @@ model Feedback {
   createdAt  DateTime  @default(now())
   repliedAt  DateTime?
 }
+
+model Admin {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+model AdminLog {
+  id            Int      @id @default(autoincrement())
+  adminUsername String
+  action        String
+  detail        String   @default("")
+  createdAt     DateTime @default(now())
+}

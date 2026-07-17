@@ -3,6 +3,7 @@ import rateLimit from '@fastify/rate-limit'
 import fastifyStatic from '@fastify/static'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { ensureDefaultAdmin } from './admin/bootstrap.js'
 import { authRoutes } from './routes/auth.js'
 import { pointsRoutes } from './routes/points.js'
 import { cardRoutes } from './routes/cards.js'
@@ -22,5 +23,6 @@ export async function buildApp(): Promise<FastifyInstance> {
   const currentDir = dirname(fileURLToPath(import.meta.url))
   await app.register(fastifyStatic, { root: join(currentDir, '../public'), prefix: '/' })
   app.get('/admin', async (_req, reply) => reply.sendFile('admin.html'))
+  await ensureDefaultAdmin()
   return app
 }
