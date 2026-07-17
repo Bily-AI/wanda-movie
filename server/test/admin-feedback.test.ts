@@ -10,7 +10,7 @@ async function userToken() {
   return r.json().token as string
 }
 async function adminToken() {
-  const r = await app.inject({ method: 'POST', url: '/admin/login', payload: { password: 'admin888' } })
+  const r = await app.inject({ method: 'POST', url: '/admin/login', payload: { username: 'admin', password: 'admin888' } })
   return r.json().token as string
 }
 const A = (t: string) => ({ authorization: `Bearer ${t}` })

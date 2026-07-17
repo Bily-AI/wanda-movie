@@ -18,15 +18,15 @@ export function verifyToken(token: string): { userId: number } | null {
   }
 }
 
-export function signAdminToken(): string {
-  return jwt.sign({ role: 'admin' }, SECRET, { expiresIn: '1d' })
+export function signAdminToken(username: string): string {
+  return jwt.sign({ role: 'admin', username }, SECRET, { expiresIn: '1d' })
 }
 
-export function verifyAdminToken(token: string): boolean {
+export function verifyAdminToken(token: string): string | null {
   try {
-    const d = jwt.verify(token, SECRET) as { role?: string }
-    return d.role === 'admin'
+    const d = jwt.verify(token, SECRET) as { role?: string; username?: string }
+    return d.role === 'admin' && d.username ? d.username : null
   } catch {
-    return false
+    return null
   }
 }
