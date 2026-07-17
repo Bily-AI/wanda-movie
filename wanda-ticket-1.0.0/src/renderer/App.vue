@@ -36,6 +36,18 @@ const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 
+// 登录状态变化时同步路由:自动登录后离开登录页;登出后回到登录页(配合外壳的 v-if 闸门)
+watch(
+  () => auth.loggedIn,
+  (logged) => {
+    if (logged) {
+      if (route.path === '/login') void router.replace('/ticket')
+    } else if (!route.meta.public) {
+      void router.replace('/login')
+    }
+  }
+)
+
 const version = computed(() => appStore.version)
 const workspaceViewKey = computed(() => `${route.fullPath}:${accountsStore.currentAccountId || 'no-account'}`)
 let localDataLoaded = false
@@ -268,7 +280,7 @@ async function handleRecharge() {
       </div>
     </div>
 
-    <main class="app-main">
+    <main v-if="auth.loggedIn" class="app-main">
       <div class="workspace-layout">
         <AccountSidebar />
         <section class="workspace-content">
@@ -301,6 +313,10 @@ async function handleRecharge() {
           </div>
         </section>
       </div>
+    </main>
+
+    <main v-else class="app-main app-main--auth">
+      <router-view />
     </main>
   </div>
 </template>

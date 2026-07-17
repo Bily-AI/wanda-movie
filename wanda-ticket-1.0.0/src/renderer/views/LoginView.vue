@@ -41,7 +41,7 @@ async function submit() {
 </template>
 
 <style scoped>
-.login-page { height: 100vh; display: grid; place-items: center; background: var(--app-bg, #f3f5f9); }
+.login-page { height: 100%; display: grid; place-items: center; background: var(--app-bg, #f3f5f9); }
 .login-box { width: 320px; display: flex; flex-direction: column; gap: 12px; padding: 28px; border-radius: 10px; background: #fff; box-shadow: 0 8px 30px rgba(31,42,68,.12); }
 .login-tabs { display: flex; gap: 8px; }
 .login-tabs button { flex: 1; padding: 8px; border: none; background: #eef1f6; border-radius: 6px; cursor: pointer; color: #6b7280; }
