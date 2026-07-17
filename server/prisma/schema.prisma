@@ -18,6 +18,7 @@ model User {
   createdAt       DateTime  @default(now())
   ledger          PointLedger[]
   cards           Card[]
+  feedbacks       Feedback[]
 }
 
 model Card {
@@ -46,4 +47,19 @@ model PointLedger {
   orderId   String   @unique
   balance   Int
   createdAt DateTime @default(now())
+}
+
+model Feedback {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  user       User      @relation(fields: [userId], references: [id])
+  type       String
+  category   String
+  content    String
+  contact    String?
+  images     String    @default("[]")
+  status     String    @default("pending")
+  reply      String?
+  createdAt  DateTime  @default(now())
+  repliedAt  DateTime?
 }
