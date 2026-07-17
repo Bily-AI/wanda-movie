@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import {
+  ChatDotRound,
   Close,
   CreditCard,
   Document,
@@ -63,7 +64,8 @@ const navItems = [
   { path: '/member', label: '会员', icon: User },
   { path: '/activity', label: '活动', icon: Present },
   { path: '/log', label: '日志', icon: Document },
-  { path: '/settings', label: '设置', icon: Setting }
+  { path: '/settings', label: '设置', icon: Setting },
+  { path: '/feedback', label: '反馈', icon: ChatDotRound }
 ]
 
 function syncThemeClass(): void {

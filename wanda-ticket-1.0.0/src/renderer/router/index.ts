@@ -2,6 +2,7 @@ import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-rou
 
 import ActivityView from '../views/ActivityView.vue'
 import ExchangeCouponView from '../views/ExchangeCouponView.vue'
+import FeedbackView from '../views/FeedbackView.vue'
 import LoginView from '../views/LoginView.vue'
 import LogView from '../views/LogView.vue'
 import MemberView from '../views/MemberView.vue'
@@ -83,6 +84,12 @@ const routes: RouteRecordRaw[] = [
     name: 'settings',
     component: SettingsView,
     meta: { title: '设置' }
+  },
+  {
+    path: '/feedback',
+    name: 'feedback',
+    component: FeedbackView,
+    meta: { title: '反馈' }
   }
 ]
 
