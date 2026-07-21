@@ -29,6 +29,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       expireAt: u.expireAt ? u.expireAt.toISOString() : null,
       subscriptionUntil: u.subscriptionUntil ? u.subscriptionUntil.toISOString() : null,
       plan: u.plan,
+      storedCardTotal: u.storedCardTotal, storedCardDisabled: u.storedCardDisabled, storedCardPurchased: u.storedCardPurchased,
       boundFingerprint: u.boundFingerprint, disabledAt: u.disabledAt ? u.disabledAt.toISOString() : null,
       createdAt: u.createdAt.toISOString()
     })) })

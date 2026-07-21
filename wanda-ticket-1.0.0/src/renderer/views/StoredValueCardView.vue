@@ -14,7 +14,9 @@ import {
   type StoredCardRow
 } from '@renderer/services/featureApi'
 import { openAlipayPayment } from '@renderer/services/alipayBridge'
+import { reportStoredCards, reportStoredCardPurchase } from '@renderer/services/statsApi'
 import { useAccountsStore } from '@renderer/stores/accounts'
+import { useAuthStore } from '@renderer/stores/auth'
 import { useLogsStore } from '@renderer/stores/logs'
 import { useSettingsStore } from '@renderer/stores/settings'
 import type { WandaAccount } from '@shared/localData'
@@ -28,6 +30,7 @@ interface PaymentDialogData extends StoredCardPaymentResult {
 }
 
 const accountsStore = useAccountsStore()
+const authStore = useAuthStore()
 const logsStore = useLogsStore()
 const settingsStore = useSettingsStore()
 const cards = ref<StoredCardRow[]>([])
@@ -295,6 +298,8 @@ async function loadAllAccountsCards() {
     }
     cardsMessage.value = cards.value.length > 0 ? '' : '暂无可用储值卡'
     ElMessage.success(`已获取 ${accounts.length} 个账号的储值卡`)
+    // 上报储值卡快照(名下所有账号合计:总数 + 禁用数)给平台后台
+    void reportStoredCards(authStore.token, cards.value.length, unavailableCardCount.value)
   } finally {
     if (isCurrentLoad(serial)) {
       loading.value = false
@@ -356,6 +361,25 @@ function showPaymentResult(title: string, amountLabel: string, result: StoredCar
   paymentResultDialogVisible.value = true
 }
 
+// 购买后轮询该账号储值卡:检测到张数增加(=付款成功真拿到卡)才上报购买事件。
+// 与出票取票码轮询同思路,避免"只弹了支付但没付"被计为购买。
+async function pollStoredCardPurchase(account: WandaAccount, beforeCount: number): Promise<void> {
+  for (let i = 0; i < 6; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 3000))
+    try {
+      const res = await fetchStoredCardsWithBalance(account.ck, account.userIdentifier)
+      const delta = res.cards.length - beforeCount
+      if (delta > 0) {
+        await reportStoredCardPurchase(authStore.token, delta)
+        logsStore.addLog('储值卡', account.phone, `检测到购买成功(新增 ${delta} 张),已上报平台`)
+        return
+      }
+    } catch {
+      /* 单次轮询失败忽略,继续下一轮 */
+    }
+  }
+}
+
 async function handleConfirmPurchase() {
   const account = getCurrentAccount()
 
@@ -367,12 +391,22 @@ async function handleConfirmPurchase() {
   submittingPurchase.value = true
 
   try {
+    // 记录购买前该账号储值卡张数作为基线
+    let beforeCount = 0
+    try {
+      beforeCount = (await fetchStoredCardsWithBalance(account.ck, account.userIdentifier)).cards.length
+    } catch {
+      /* 基线获取失败按 0 计 */
+    }
+
     const result = await createStoredCardPurchasePayment(denomination.value, account.ck, account.userIdentifier)
 
     purchaseDialogVisible.value = false
     showPaymentResult('购买储值卡支付参数', denomination.label, result)
     logsStore.addLog('储值卡', account.phone, `购买储值卡支付参数获取成功：${denomination.label}`)
     await handleOpenAlipayPayment()
+    // 不阻塞 UI,后台轮询检测购买成功并上报
+    void pollStoredCardPurchase(account, beforeCount)
   } catch (error) {
     const message = getErrorMessage(error, '购买储值卡失败')
     logsStore.addLog('储值卡', account.phone, `购买储值卡失败：${message}`)

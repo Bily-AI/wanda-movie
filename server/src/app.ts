@@ -10,6 +10,7 @@ import { pointsRoutes } from './routes/points.js'
 import { cardRoutes } from './routes/cards.js'
 import { adminRoutes } from './routes/admin.js'
 import { feedbackRoutes } from './routes/feedback.js'
+import { statsRoutes } from './routes/stats.js'
 
 export async function buildApp(): Promise<FastifyInstance> {
   // bodyLimit 调大到 10MB:反馈可带 base64 图片,默认 1MB 会 413
@@ -37,6 +38,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(pointsRoutes)
   await app.register(adminRoutes)
   await app.register(feedbackRoutes)
+  await app.register(statsRoutes)
   const currentDir = dirname(fileURLToPath(import.meta.url))
   await app.register(fastifyStatic, { root: join(currentDir, '../public'), prefix: '/' })
   app.get('/admin', async (_req, reply) => reply.sendFile('admin.html'))

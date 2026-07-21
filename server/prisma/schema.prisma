@@ -18,6 +18,10 @@ model User {
   boundFingerprint  String?
   disabledAt        DateTime?
   createdAt         DateTime  @default(now())
+  // 储值卡统计(由客户端上报):总数/禁用数为最新快照;购买数为累计(付款成功轮询到新增才 +1)
+  storedCardTotal     Int     @default(0)
+  storedCardDisabled  Int     @default(0)
+  storedCardPurchased Int     @default(0)
   ledger            PointLedger[]
   cards             Card[]
   feedbacks         Feedback[]

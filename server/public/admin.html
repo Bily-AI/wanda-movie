@@ -223,11 +223,11 @@ td.actions { white-space: nowrap; }
           <table>
             <thead>
               <tr>
-                <th>ID</th><th>用户名</th><th>积分</th><th>套餐/订阅</th><th>到期时间</th><th>绑定机器码</th><th>状态</th><th>注册时间</th><th>操作</th>
+                <th>ID</th><th>用户名</th><th>积分</th><th>套餐/订阅</th><th>储值卡</th><th>到期时间</th><th>绑定机器码</th><th>状态</th><th>注册时间</th><th>操作</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-if="loading"><td colspan="9" class="loading">加载中...</td></tr>
+              <tr v-if="loading"><td colspan="10" class="loading">加载中...</td></tr>
               <tr v-for="u in pagedUsers" :key="u.id">
                 <td>{{ u.id }}</td>
                 <td>{{ u.username }}</td>
@@ -236,6 +236,11 @@ td.actions { white-space: nowrap; }
                   <span v-if="isSubActive(u)" class="tag tag-blue">{{ u.plan || '时长套餐' }}</span>
                   <span v-else-if="u.plan" class="tag tag-gray" title="订阅已过期">{{ u.plan }}(已过期)</span>
                   <span v-else class="text-gray">点数</span>
+                </td>
+                <td style="white-space:nowrap;font-size:12px">
+                  <span title="储值卡总数">共 {{ u.storedCardTotal || 0 }}</span>
+                  <span class="text-red" title="禁用储值卡"> · 禁 {{ u.storedCardDisabled || 0 }}</span>
+                  <span class="text-green" title="经本平台付款成功购买"> · 购 {{ u.storedCardPurchased || 0 }}</span>
                 </td>
                 <td>{{ fmtDate(u.expireAt) }}</td>
                 <td>
@@ -256,7 +261,7 @@ td.actions { white-space: nowrap; }
                   <button class="btn btn-default" @click="unbindUser(u.id)">清绑定</button>
                 </td>
               </tr>
-              <tr v-if="!loading && !filteredUsers.length"><td colspan="9" class="text-gray" style="text-align:center;padding:20px">暂无数据</td></tr>
+              <tr v-if="!loading && !filteredUsers.length"><td colspan="10" class="text-gray" style="text-align:center;padding:20px">暂无数据</td></tr>
             </tbody>
           </table>
           <div class="pager">
