@@ -1362,7 +1362,9 @@ export const useTicketStore = defineStore('ticket', {
       }
 
       const userIdentifier = account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
-      const couponTypeCodes = selectedCoupons.map((coupon) => firstText(coupon.typeCode, coupon.code, coupon.couponNo))
+      // 券分摊/券支付接口要的是券凭证 code(=voucherNo,加密串),不是券类型 typeCode。
+      // 传 typeCode 会被万达打回「服务器繁忙」。
+      const couponTypeCodes = selectedCoupons.map((coupon) => firstText(coupon.code, coupon.voucherNo, coupon.couponNo, coupon.typeCode))
       // 诊断:打印选中券的各标识字段 + 原始字段名,用于定位"服务器繁忙"是不是 typeCode 传错
       useLogsStore().addLog(
         '券诊断',
@@ -1419,7 +1421,9 @@ export const useTicketStore = defineStore('ticket', {
       this.paymentActivity = ''
       this.selectedPaymentCards = []
 
-      const couponTypeCodes = selectedCoupons.map((coupon) => firstText(coupon.typeCode, coupon.code, coupon.couponNo))
+      // 券分摊/券支付接口要的是券凭证 code(=voucherNo,加密串),不是券类型 typeCode。
+      // 传 typeCode 会被万达打回「服务器繁忙」。
+      const couponTypeCodes = selectedCoupons.map((coupon) => firstText(coupon.code, coupon.voucherNo, coupon.couponNo, coupon.typeCode))
       const selection = await selectCouponsForPayment(
         currentOrder.seats,
         currentOrder.cinemaId,
