@@ -473,11 +473,7 @@ async function handleRecharge() {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px;
-  border: 1px solid var(--app-border);
-  border-radius: 8px;
-  background: var(--app-surface);
-  box-shadow: 0 2px 8px rgb(31 42 68 / 5%);
+  /* 去掉自带边框/背景/阴影:工具栏本身已有边框,避免"框中框" */
 }
 
 .account-item {
