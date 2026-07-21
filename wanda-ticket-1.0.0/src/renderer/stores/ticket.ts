@@ -1379,7 +1379,7 @@ export const useTicketStore = defineStore('ticket', {
       try {
         const selection = await selectCouponsForPayment(
           currentOrder.seats,
-          currentOrder.cinemaId,
+          currentOrder.showtimeId,
           couponTypeCodes,
           account.ck,
           userIdentifier
@@ -1426,7 +1426,7 @@ export const useTicketStore = defineStore('ticket', {
       const couponTypeCodes = selectedCoupons.map((coupon) => firstText(coupon.code, coupon.voucherNo, coupon.couponNo, coupon.typeCode))
       const selection = await selectCouponsForPayment(
         currentOrder.seats,
-        currentOrder.cinemaId,
+        currentOrder.showtimeId,
         couponTypeCodes,
         ck,
         userIdentifier

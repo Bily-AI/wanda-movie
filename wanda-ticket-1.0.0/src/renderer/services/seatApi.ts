@@ -990,12 +990,13 @@ export async function fetchCoupons(
 
 export async function selectCouponsForPayment(
   seats: TicketOrderSeatRef[],
-  cinemaId: string,
+  did: string,
   couponTypeCodes: string[],
   ck: string,
   userIdentifier: string
 ): Promise<CouponSelectionResult> {
-  assertNotBlank(cinemaId, '影院 ID 不能为空')
+  // 旧版口径:券分摊接口参数是 partition + did(场次) + coupons,不是 cinemaId
+  assertNotBlank(did, '场次 ID 不能为空')
   assertNotBlank(ck, '万达账号 CK 不能为空')
   assertNotBlank(userIdentifier, '万达账号用户标识不能为空')
 
@@ -1009,7 +1010,7 @@ export async function selectCouponsForPayment(
 
   const path = buildQueryPath(PAYMENT_COUPON_SELECT_PATH, {
     partition,
-    cinemaId,
+    did,
     coupons
   })
   const fallbackMessage = '选择兑换券失败'
