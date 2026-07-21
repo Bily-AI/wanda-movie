@@ -323,6 +323,17 @@ function normalizePaymentCard(item: unknown): PaymentCard {
   }
 }
 
+// 解析券面额(仅用于本地估算/显示,不参与支付提交)。
+// 券列表接口常不含数字面额字段,优先从券名/类型名里解析"N元",再兜底数字字段。
+function parseCouponAmount(record: Record<string, unknown>): number {
+  const name = firstText(record.couponTypeName, record.couponName, record.name, record.detailtypename, record.detailTypeName)
+  const matched = name.match(/(\d+(?:\.\d+)?)\s*元/)
+  if (matched) {
+    return Number(matched[1])
+  }
+  return centsToYuan(record.amount ?? record.price ?? record.faceValue ?? record.parValue)
+}
+
 function normalizeCoupon(item: unknown): CouponItem {
   const record = asRecord(item)
 
@@ -334,7 +345,7 @@ function normalizeCoupon(item: unknown): CouponItem {
     couponTypeName: firstText(record.couponTypeName, record.couponName, record.name),
     typeCode: firstText(record.typeCode),
     able: toBoolean(record.able),
-    amount: centsToYuan(record.amount ?? record.price),
+    amount: parseCouponAmount(record),
     validity: firstText(record.validityDateShowMsg, record.validity, record.expireTime),
     detailTypeName: firstText(record.detailtypename, record.detailTypeName, record.couponTypeName, record.typeName, record.typeCode),
     couponCategoryName: firstText(record.couponCategoryName, record.typeName, record.detailTypeName, record.detailtypename),

@@ -868,12 +868,15 @@ export const useTicketStore = defineStore('ticket', {
       }
 
       if (state.selectedCoupons.length > 0) {
-        // 优先使用券分摊接口返回的真实应付价；接口未就绪/失败时回退到本地按面额估算
+        // 本地按券面额估算的应付价
+        const localEstimate = Math.max(0, seatTotal - this.selectedSeatSelectedCouponAmountCent)
+        // 有券分摊接口返回值时,取「服务端分摊」与「本地面额估算」中更优惠的,
+        // 保证选了券后实付一定体现抵扣(仅影响显示;支付提交仍以服务端券分摊为准)
         if (state.couponPreviewPayableCent >= 0) {
-          return Math.min(seatTotal, Math.max(0, state.couponPreviewPayableCent))
+          return Math.max(0, Math.min(seatTotal, state.couponPreviewPayableCent, localEstimate))
         }
 
-        return Math.max(0, seatTotal - this.selectedSeatSelectedCouponAmountCent)
+        return localEstimate
       }
 
       const selectedActivity = state.paymentActivity
