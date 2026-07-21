@@ -568,7 +568,9 @@ function normalizeCouponUseResult(payload: Record<string, unknown>): CouponUseRe
   const itemList = asList(res.itemList)
 
   if (itemList.length === 0) {
-    throw new Error(firstText(res.bizMsg, res.msg, payload.bizMsg, payload.msg, '兑换券支付分摊明细为空'))
+    const baseMsg = firstText(res.bizMsg, res.msg, payload.bizMsg, payload.msg, '兑换券支付分摊明细为空')
+    // 诊断:附带 conponuse 原始返回,便于定位空 itemList 原因(定位后移除)
+    throw new Error(baseMsg + ' | conponuse返回=' + JSON.stringify(payload).slice(0, 600))
   }
 
   return {

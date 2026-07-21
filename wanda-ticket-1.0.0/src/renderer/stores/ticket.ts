@@ -1431,6 +1431,8 @@ export const useTicketStore = defineStore('ticket', {
         ck,
         userIdentifier
       )
+      // 诊断:打印 select 返回的 allotseat,用于对比 conponuse 入参
+      useLogsStore().addLog('券诊断', 'conponuse入参', 'allotSeat=' + selection.allotSeat + ' | voucher=' + selection.voucher)
       const useResult = await fetchCouponUsePayment(
         currentOrder.seats,
         currentOrder.orderId,
