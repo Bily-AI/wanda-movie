@@ -1213,6 +1213,22 @@ watch(
   margin: 0 0 3px;
 }
 
+/* 右栏统一字号:所有文字都与订单信息(蜘蛛侠…那段)一样大 = 12px。
+   区块标题/计数靠继承,设容器基准即可;子组件里显式的 13/14px 用 :deep 覆盖。 */
+.order-column {
+  font-size: 12px;
+}
+.order-column :deep(.side-panel-header),
+.order-column :deep(.panel-header),
+.order-column :deep(.side-panel-count),
+.order-column :deep(.table-header),
+.order-column :deep(.table-row),
+.order-column :deep(.active-price-text),
+.order-column :deep(.selected-seat-list),
+.order-column :deep(.selected-seat-list *) {
+  font-size: 12px;
+}
+
 .payment-info-panel {
   max-height: 58vh;
   overflow: auto;
