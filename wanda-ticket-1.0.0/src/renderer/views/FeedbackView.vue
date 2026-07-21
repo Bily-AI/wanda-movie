@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@renderer/stores/auth'
-import { submitFeedback, myFeedback, type FeedbackItem } from '@renderer/services/feedbackApi'
+import { submitFeedback, myFeedback, replyFeedback, type FeedbackItem } from '@renderer/services/feedbackApi'
 
 const auth = useAuthStore()
 
@@ -97,6 +97,38 @@ async function loadMyFeedback() {
   }
 }
 
+// ---------- 展开 / 追问 ----------
+const expandedId = ref<number | null>(null)
+const replyText = ref<string>('')
+const replying = ref(false)
+
+function toggleExpand(id: number) {
+  expandedId.value = expandedId.value === id ? null : id
+  replyText.value = ''
+}
+
+async function submitReply(item: FeedbackItem) {
+  if (!replyText.value.trim()) return
+  replying.value = true
+  try {
+    const res = await replyFeedback(auth.token, item.id, replyText.value.trim())
+    if (res.ok) {
+      replyText.value = ''
+      await loadMyFeedback()
+    } else {
+      ElMessage.error(`追问失败：${res.code ?? '未知错误'}`)
+    }
+  } catch {
+    ElMessage.error('网络错误,追问失败')
+  } finally {
+    replying.value = false
+  }
+}
+
+function fmtTime(iso: string): string {
+  return iso.replace('T', ' ').slice(0, 16)
+}
+
 onMounted(() => {
   void loadMyFeedback()
 })
@@ -183,7 +215,7 @@ onMounted(() => {
       <div v-else-if="myList.length === 0" class="list-empty">暂无反馈记录</div>
 
       <div v-for="item in myList" :key="item.id" class="fb-card">
-        <div class="fb-card-header">
+        <div class="fb-card-header" @click="toggleExpand(item.id)">
           <span class="fb-type-tag">{{ item.type === 'problem' ? '问题' : '需求' }}</span>
           <span class="fb-category">{{ item.category }}</span>
           <span
@@ -192,12 +224,57 @@ onMounted(() => {
           >
             {{ statusLabel[item.status] ?? item.status }}
           </span>
+          <span v-if="item.messages.length" class="fb-msg-count">{{ item.messages.length }} 条回复</span>
           <span class="fb-time">{{ item.createdAt.slice(0, 10) }}</span>
+          <span class="fb-expand-arrow">{{ expandedId === item.id ? '▲' : '▼' }}</span>
         </div>
         <div class="fb-content">{{ item.content }}</div>
-        <div v-if="item.reply" class="fb-reply">
-          <span class="fb-reply-label">管理员答复：</span>{{ item.reply }}
-        </div>
+
+        <!-- 折叠时:仅提示有回复;展开时:完整详情 -->
+        <template v-if="expandedId === item.id">
+          <!-- 首帖图片 -->
+          <div v-if="item.images.length" class="fb-images">
+            <img v-for="(img, i) in item.images" :key="i" :src="img" class="fb-img" alt="反馈图片" />
+          </div>
+
+          <!-- 消息时间线 -->
+          <div v-if="item.messages.length" class="fb-thread">
+            <div
+              v-for="m in item.messages"
+              :key="m.id"
+              class="fb-msg"
+              :class="m.sender === 'admin' ? 'fb-msg--admin' : 'fb-msg--user'"
+            >
+              <div class="fb-msg-meta">
+                <span class="fb-msg-who">{{ m.sender === 'admin' ? ('管理员' + (m.adminUsername ? ' · ' + m.adminUsername : '')) : '我' }}</span>
+                <span class="fb-msg-time">{{ fmtTime(m.createdAt) }}</span>
+              </div>
+              <div class="fb-msg-text">{{ m.content }}</div>
+            </div>
+          </div>
+          <div v-else class="fb-thread-empty">暂无回复,管理员会尽快处理</div>
+
+          <!-- 追问输入 -->
+          <div class="fb-reply-box" @click.stop>
+            <el-input
+              v-model="replyText"
+              type="textarea"
+              :rows="2"
+              placeholder="补充说明或追问..."
+              maxlength="1000"
+            />
+            <el-button
+              type="primary"
+              size="small"
+              :loading="replying"
+              :disabled="!replyText.trim()"
+              style="margin-top: 6px;"
+              @click="submitReply(item)"
+            >
+              发送追问
+            </el-button>
+          </div>
+        </template>
       </div>
     </section>
   </div>
@@ -333,6 +410,8 @@ onMounted(() => {
   gap: 8px;
   margin-bottom: 6px;
   flex-wrap: wrap;
+  cursor: pointer;
+  user-select: none;
 }
 
 .fb-type-tag {
@@ -369,18 +448,92 @@ onMounted(() => {
   word-break: break-all;
 }
 
-.fb-reply {
+.fb-msg-count {
+  font-size: 12px;
+  color: #409eff;
+}
+
+.fb-expand-arrow {
+  font-size: 11px;
+  color: var(--app-muted, #909399);
+  margin-left: 4px;
+}
+
+.fb-images {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
   margin-top: 8px;
-  padding: 8px 10px;
-  background: var(--summary-green-bg, #f0fdf4);
-  border-radius: 4px;
+}
+
+.fb-img {
+  width: 84px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--app-border, #e4e7ed);
+}
+
+.fb-thread {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fb-msg {
+  max-width: 85%;
+  padding: 7px 10px;
+  border-radius: 8px;
   font-size: 13px;
-  color: var(--app-text);
   line-height: 1.5;
 }
 
-.fb-reply-label {
+.fb-msg--admin {
+  align-self: flex-start;
+  background: var(--summary-green-bg, #f0fdf4);
+  border: 1px solid #d3f0dc;
+}
+
+.fb-msg--user {
+  align-self: flex-end;
+  background: var(--summary-blue-bg, #eff6ff);
+  border: 1px solid #d6e6ff;
+}
+
+.fb-msg-meta {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+
+.fb-msg-who {
   font-weight: 600;
-  color: #67c23a;
+  font-size: 12px;
+  color: var(--app-subtle, #606266);
+}
+
+.fb-msg-time {
+  font-size: 11px;
+  color: var(--app-muted, #909399);
+}
+
+.fb-msg-text {
+  color: var(--app-text);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.fb-thread-empty {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--app-muted, #909399);
+}
+
+.fb-reply-box {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--app-border, #e4e7ed);
 }
 </style>

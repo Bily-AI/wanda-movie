@@ -70,6 +70,14 @@ tr:hover td { background: #f9f9f9; }
 
 img.thumb { width: 48px; height: 48px; object-fit: cover; cursor: pointer; border: 1px solid #eee; border-radius: 3px; margin: 2px; }
 
+.thread { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.thread-first { background: #fafafa; border: 1px solid #eee; border-radius: 4px; padding: 8px 10px; }
+.thread-msg { max-width: 80%; padding: 7px 10px; border-radius: 6px; }
+.thread-admin { align-self: flex-start; background: #f0fdf4; border: 1px solid #d3f0dc; }
+.thread-user { align-self: flex-end; background: #eff6ff; border: 1px solid #d6e6ff; }
+.thread-who { font-weight: 600; font-size: 12px; color: #555; margin-right: 8px; }
+.thread-time { font-size: 11px; color: #999; }
+.thread-text { margin-top: 3px; font-size: 13px; white-space: pre-wrap; word-break: break-all; }
 .reply-form { background: #f9f9f9; border: 1px solid #e8e8e8; border-radius: 4px; padding: 12px; margin-top: 8px; }
 .reply-form textarea { width: 100%; height: 80px; margin-bottom: 8px; }
 .reply-form select { margin-right: 8px; }
@@ -263,7 +271,7 @@ td.actions { white-space: nowrap; }
           <table>
             <thead>
               <tr>
-                <th>ID</th><th>用户名</th><th>类型</th><th>分类</th><th>内容</th><th>图片</th><th>联系方式</th><th>状态</th><th>时间</th><th>答复</th><th>操作</th>
+                <th>ID</th><th>用户名</th><th>类型</th><th>分类</th><th>内容</th><th>图片</th><th>联系方式</th><th>状态</th><th>时间</th><th>回复数</th><th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -288,16 +296,29 @@ td.actions { white-space: nowrap; }
                     <span class="tag" :class="fbStatusClass(fb.status)">{{ fbStatusLabel(fb.status) }}</span>
                   </td>
                   <td>{{ fmtDate(fb.createdAt) }}</td>
-                  <td style="max-width:150px;white-space:normal;word-break:break-all">{{ fb.reply || '-' }}</td>
+                  <td style="text-align:center">{{ (fb.messages || []).length }}</td>
                   <td class="actions">
-                    <button class="btn btn-primary" @click="toggleReplyForm(fb.id)">答复</button>
+                    <button class="btn btn-primary" @click="toggleReplyForm(fb.id)">{{ replyForms[fb.id] ? '收起' : '会话/答复' }}</button>
                   </td>
                 </tr>
                 <tr v-if="replyForms[fb.id]">
                   <td colspan="11">
+                    <!-- 会话时间线 -->
+                    <div class="thread">
+                      <div class="thread-first">
+                        <span class="thread-who">{{ fb.username }}(首帖)</span>
+                        <span class="thread-time">{{ fmtDate(fb.createdAt) }}</span>
+                        <div class="thread-text">{{ fb.content }}</div>
+                      </div>
+                      <div v-for="m in (fb.messages || [])" :key="m.id" class="thread-msg" :class="m.sender==='admin' ? 'thread-admin' : 'thread-user'">
+                        <span class="thread-who">{{ m.sender==='admin' ? ('管理员' + (m.adminUsername ? ' · ' + m.adminUsername : '')) : fb.username }}</span>
+                        <span class="thread-time">{{ fmtDate(m.createdAt) }}</span>
+                        <div class="thread-text">{{ m.content }}</div>
+                      </div>
+                    </div>
                     <div class="reply-form">
                       <div class="form-group" style="margin-bottom:8px">
-                        <label>回复内容</label>
+                        <label>追加回复</label>
                         <textarea v-model="replyForms[fb.id].reply" placeholder="请输入回复内容..."></textarea>
                       </div>
                       <div style="display:flex;align-items:center;gap:8px">
@@ -305,7 +326,7 @@ td.actions { white-space: nowrap; }
                           <option value="replied">已回复</option>
                           <option value="fixed">已修复</option>
                         </select>
-                        <button class="btn btn-primary" @click="submitReply(fb.id)">提交</button>
+                        <button class="btn btn-primary" @click="submitReply(fb.id)">发送</button>
                         <button class="btn btn-default" @click="toggleReplyForm(fb.id)">取消</button>
                       </div>
                     </div>
@@ -552,8 +573,10 @@ createApp({
       if (!form || !form.reply.trim()) { alert('请填写回复内容'); return }
       const d = await api('POST', '/admin/feedback/' + id + '/reply', { reply: form.reply, status: form.status })
       if (d) {
-        delete replyForms[id]
+        const keepStatus = form.status
         await loadTab('feedback')
+        // 保持该工单展开、清空输入框,让管理员看到刚追加的消息
+        replyForms[id] = { reply: '', status: keepStatus }
       }
     }
 

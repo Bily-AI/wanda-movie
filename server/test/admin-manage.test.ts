@@ -5,7 +5,7 @@ const app = await buildApp()
 beforeAll(async () => { await app.ready() })
 // 本文件的「改配置」用例会写 app_config,测试结束清掉,避免污染其它读配置的测试
 afterAll(async () => { await prisma.appConfig.deleteMany(); await app.close() })
-beforeEach(async () => { await prisma.appConfig.deleteMany(); await prisma.feedback.deleteMany(); await prisma.pointLedger.deleteMany(); await prisma.card.deleteMany(); await prisma.user.deleteMany() })
+beforeEach(async () => { await prisma.appConfig.deleteMany(); await prisma.feedbackMessage.deleteMany(); await prisma.feedback.deleteMany(); await prisma.pointLedger.deleteMany(); await prisma.card.deleteMany(); await prisma.user.deleteMany() })
 async function adminToken() {
   const r = await app.inject({ method: 'POST', url: '/admin/login', payload: { username: 'admin', password: 'admin888' } })
   return r.json().token as string

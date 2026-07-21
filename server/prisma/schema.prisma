@@ -59,9 +59,20 @@ model Feedback {
   contact    String?
   images     String    @default("[]")
   status     String    @default("pending")
-  reply      String?
+  reply      String?   // 旧单条回复字段:已迁移进 messages,保留仅为向后兼容,新逻辑不再写
   createdAt  DateTime  @default(now())
   repliedAt  DateTime?
+  messages   FeedbackMessage[]
+}
+
+model FeedbackMessage {
+  id            Int      @id @default(autoincrement())
+  feedbackId    Int
+  feedback      Feedback @relation(fields: [feedbackId], references: [id])
+  sender        String   // 'user' | 'admin'
+  adminUsername String?  // admin 回复时记录是哪个管理员
+  content       String
+  createdAt     DateTime @default(now())
 }
 
 model Admin {

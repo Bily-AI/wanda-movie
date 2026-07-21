@@ -121,14 +121,21 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/admin/feedback', async (req, reply) => {
     const admin = requireAdmin(req, reply); if (!admin) return
-    const rows = await prisma.feedback.findMany({ include: { user: true }, orderBy: { id: 'desc' } })
+    const rows = await prisma.feedback.findMany({
+      include: { user: true, messages: { orderBy: { id: 'asc' } } },
+      orderBy: { id: 'desc' }
+    })
     return reply.send({ ok: true, items: rows.map((f) => ({
       id: f.id, username: f.user.username, type: f.type, category: f.category, content: f.content,
-      contact: f.contact, images: JSON.parse(f.images) as string[], status: f.status, reply: f.reply,
-      createdAt: f.createdAt.toISOString(), repliedAt: f.repliedAt ? f.repliedAt.toISOString() : null
+      contact: f.contact, images: JSON.parse(f.images) as string[], status: f.status,
+      createdAt: f.createdAt.toISOString(),
+      messages: f.messages.map((m) => ({
+        id: m.id, sender: m.sender, adminUsername: m.adminUsername, content: m.content, createdAt: m.createdAt.toISOString()
+      }))
     })) })
   })
 
+  // 管理员回复:追加一条 admin 消息(不再覆盖旧回复),并置工单状态
   app.post('/admin/feedback/:id/reply', async (req, reply) => {
     const admin = requireAdmin(req, reply); if (!admin) return
     const id = Number((req.params as { id: string }).id)
@@ -136,7 +143,10 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     if (!replyText || !status || !['replied', 'fixed'].includes(status)) {
       return reply.code(400).send({ ok: false, code: 'BAD_REQUEST' })
     }
-    await prisma.feedback.update({ where: { id }, data: { reply: replyText, status, repliedAt: new Date() } })
+    const fb = await prisma.feedback.findUnique({ where: { id } })
+    if (!fb) return reply.code(404).send({ ok: false, code: 'NOT_FOUND' })
+    await prisma.feedbackMessage.create({ data: { feedbackId: id, sender: 'admin', adminUsername: admin, content: replyText } })
+    await prisma.feedback.update({ where: { id }, data: { status, repliedAt: new Date() } })
     await writeLog(admin, 'feedback.reply', 'id=' + id + ' status=' + status)
     return reply.send({ ok: true })
   })
