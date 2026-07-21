@@ -1,12 +1,13 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { buildApp } from '../src/app.js'
 import { prisma } from '../src/db.js'
+import { registerWithPoints } from './helpers.js'
 const app = await buildApp()
 beforeAll(async () => { await app.ready() })
 afterAll(async () => { await app.close() })
 beforeEach(async () => { await prisma.feedbackMessage.deleteMany(); await prisma.feedback.deleteMany(); await prisma.user.deleteMany() })
 async function userToken() {
-  const r = await app.inject({ method: 'POST', url: '/auth/register', payload: { username: 'u1', password: 'p1', fingerprint: 'fp1' } })
+  const r = await registerWithPoints(app, 'u1')
   return r.json().token as string
 }
 async function adminToken() {

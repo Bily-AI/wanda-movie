@@ -21,8 +21,18 @@ export async function pointsRoutes(app: FastifyInstance): Promise<void> {
     if (existing) return reply.send({ ok: true, remainingPoints: user.remainingPoints })
 
     const cfg = await loadConfig()
-    if (cfg.blockWhenExpired && (!user.expireAt || user.expireAt.getTime() <= Date.now())) {
+    const now = Date.now()
+    if (cfg.blockWhenExpired && (!user.expireAt || user.expireAt.getTime() <= now)) {
       return reply.send({ ok: false, code: 'EXPIRED' })
+    }
+    // 时长订阅有效期内:出票免点、不限次(仍按 orderId 记一条 delta=0 流水以幂等)
+    if (user.subscriptionUntil && user.subscriptionUntil.getTime() > now) {
+      try {
+        await prisma.pointLedger.create({ data: { userId: user.id, delta: 0, reason: 'ticket-sub', orderId, balance: user.remainingPoints } })
+      } catch (err) {
+        if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) throw err
+      }
+      return reply.send({ ok: true, remainingPoints: user.remainingPoints, free: true })
     }
     if (cfg.blockWhenNoPoints && user.remainingPoints < cfg.deductPerPayment) {
       return reply.send({ ok: false, code: 'NO_POINTS' })

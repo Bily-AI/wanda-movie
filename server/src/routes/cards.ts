@@ -1,6 +1,9 @@
 import type { FastifyInstance } from 'fastify'
 import { prisma } from '../db.js'
 import { verifyToken } from '../jwt.js'
+import { redeemCardToUser } from '../cards/apply.js'
+
+const CARD_CODES = ['CARD_INVALID', 'CARD_DISABLED', 'CARD_USED', 'USER_NOT_FOUND']
 
 export async function cardRoutes(app: FastifyInstance): Promise<void> {
   app.post('/cards/redeem', async (req, reply) => {
@@ -11,33 +14,21 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
     const { cardCode } = (req.body ?? {}) as { cardCode?: string }
     if (!cardCode) return reply.code(400).send({ ok: false, code: 'BAD_REQUEST' })
 
-    const card = await prisma.card.findUnique({ where: { code: cardCode } })
-    if (!card) return reply.send({ ok: false, code: 'CARD_INVALID' })
-    if (card.status === 'disabled') return reply.send({ ok: false, code: 'CARD_DISABLED' })
-    if (card.status === 'used') return reply.send({ ok: false, code: 'CARD_USED' })
-
     const user = await prisma.user.findUnique({ where: { id: claim.userId } })
     if (!user || user.disabledAt) return reply.code(401).send({ ok: false, code: 'USER_DISABLED' })
 
-    const base = user.expireAt && user.expireAt.getTime() > Date.now() ? user.expireAt.getTime() : Date.now()
-    const newExpire = new Date(base + card.validDays * 86400_000)
-
     try {
-      const updated = await prisma.$transaction(async (tx) => {
-        const c = await tx.card.updateMany({
-          where: { id: card.id, status: 'unused' },
-          data: { status: 'used', usedByUserId: user.id, usedAt: new Date() }
-        })
-        if (c.count === 0) throw new Error('CARD_ALREADY_USED')
-        return tx.user.update({
-          where: { id: user.id },
-          data: { remainingPoints: { increment: card.points }, expireAt: newExpire }
-        })
+      const updated = await redeemCardToUser(user.id, cardCode)
+      return reply.send({
+        ok: true,
+        remainingPoints: updated.remainingPoints,
+        expireAt: updated.expireAt ? updated.expireAt.toISOString() : null,
+        subscriptionUntil: updated.subscriptionUntil ? updated.subscriptionUntil.toISOString() : null,
+        plan: updated.plan
       })
-      return reply.send({ ok: true, remainingPoints: updated.remainingPoints, expireAt: updated.expireAt?.toISOString() ?? null })
     } catch (err) {
-      if (err instanceof Error && err.message === 'CARD_ALREADY_USED') {
-        return reply.send({ ok: false, code: 'CARD_USED' })
+      if (err instanceof Error && CARD_CODES.includes(err.message)) {
+        return reply.send({ ok: false, code: err.message === 'USER_NOT_FOUND' ? 'USER_DISABLED' : err.message })
       }
       throw err
     }

@@ -8,24 +8,27 @@ datasource db {
 }
 
 model User {
-  id              Int       @id @default(autoincrement())
-  username        String    @unique
-  passwordHash    String
-  remainingPoints Int       @default(0)
-  expireAt        DateTime?
-  boundFingerprint String?
-  disabledAt      DateTime?
-  createdAt       DateTime  @default(now())
-  ledger          PointLedger[]
-  cards           Card[]
-  feedbacks       Feedback[]
+  id                Int       @id @default(autoincrement())
+  username          String    @unique
+  passwordHash      String
+  remainingPoints   Int       @default(0)
+  expireAt          DateTime?              // 账号总有效期,过期停用
+  subscriptionUntil DateTime?              // 时长订阅到期(null=无订阅);有效期内出票免点
+  plan              String?                // 显示用套餐名:包月/包季/包年/时长Nd
+  boundFingerprint  String?
+  disabledAt        DateTime?
+  createdAt         DateTime  @default(now())
+  ledger            PointLedger[]
+  cards             Card[]
+  feedbacks         Feedback[]
 }
 
 model Card {
   id           Int       @id @default(autoincrement())
   code         String    @unique
-  points       Int
-  validDays    Int
+  kind         String    @default("point")  // 'point' 点卡 | 'duration' 时长卡
+  points       Int       @default(0)        // 点卡的点数
+  durationDays Int?                          // 时长卡的天数(30/90/365)
   status       String    @default("unused")
   usedByUserId Int?
   usedBy       User?     @relation(fields: [usedByUserId], references: [id])

@@ -304,7 +304,8 @@ async function handleRecharge() {
             <div class="account-strip" aria-label="账号状态">
               <span class="account-item account-item--user">
                 <el-icon><UserFilled /></el-icon>
-                <span>积分 {{ auth.remainingPoints }} · 到期 {{ auth.expireAt ? auth.expireAt.slice(0, 10) : '-' }}</span>
+                <span v-if="auth.hasActiveSubscription">{{ auth.plan || '时长套餐' }} · 到期 {{ auth.subscriptionUntil ? auth.subscriptionUntil.slice(0, 10) : '-' }}</span>
+                <span v-else>积分 {{ auth.remainingPoints }}</span>
               </span>
               <el-button size="small" @click="handleRecharge">充值</el-button>
             </div>

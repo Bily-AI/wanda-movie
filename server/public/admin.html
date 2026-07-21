@@ -128,12 +128,23 @@ td.actions { white-space: nowrap; }
               <input type="number" v-model.number="cardForm.count" min="1" max="100" style="width:80px" />
             </div>
             <div class="form-group">
+              <label>类型</label>
+              <select v-model="cardForm.kind" style="width:110px">
+                <option value="point">点卡</option>
+                <option value="duration">时长卡</option>
+              </select>
+            </div>
+            <div class="form-group" v-if="cardForm.kind === 'point'">
               <label>积分</label>
               <input type="number" v-model.number="cardForm.points" min="1" style="width:100px" />
             </div>
-            <div class="form-group">
-              <label>有效天数</label>
-              <input type="number" v-model.number="cardForm.validDays" min="1" style="width:100px" />
+            <div class="form-group" v-else>
+              <label>时长</label>
+              <select v-model.number="cardForm.durationDays" style="width:110px">
+                <option :value="30">包月(30天)</option>
+                <option :value="90">包季(90天)</option>
+                <option :value="365">包年(365天)</option>
+              </select>
             </div>
             <div class="form-group" style="justify-content:flex-end">
               <button class="btn btn-primary" @click="generateCards">生成卡密</button>
@@ -149,7 +160,7 @@ td.actions { white-space: nowrap; }
           <table>
             <thead>
               <tr>
-                <th>ID</th><th>卡密码</th><th>积分</th><th>有效天数</th><th>状态</th><th>使用者ID</th><th>使用时间</th><th>创建时间</th><th>操作</th>
+                <th>ID</th><th>卡密码</th><th>类型</th><th>面值</th><th>状态</th><th>使用者ID</th><th>使用时间</th><th>创建时间</th><th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -157,8 +168,10 @@ td.actions { white-space: nowrap; }
               <tr v-for="c in cards" :key="c.id">
                 <td>{{ c.id }}</td>
                 <td><code style="font-size:12px">{{ c.code }}</code></td>
-                <td>{{ c.points }}</td>
-                <td>{{ c.validDays }}</td>
+                <td>
+                  <span class="tag" :class="c.kind==='duration' ? 'tag-blue' : 'tag-green'">{{ c.kind==='duration' ? '时长卡' : '点卡' }}</span>
+                </td>
+                <td>{{ c.kind==='duration' ? cardDurationLabel(c.durationDays) : (c.points + ' 点') }}</td>
                 <td>
                   <span class="tag" :class="statusClass(c.status)">{{ cardStatusLabel(c.status) }}</span>
                 </td>
@@ -422,7 +435,7 @@ createApp({
     const logs = ref([])
 
     // 卡密生成
-    const cardForm = reactive({ count: 5, points: 100, validDays: 30 })
+    const cardForm = reactive({ count: 5, kind: 'point', points: 100, durationDays: 30 })
 
     // 管理员新建表单
     const adminForm = reactive({ username: '', password: '' })
@@ -513,8 +526,12 @@ createApp({
 
     // 卡密操作
     async function generateCards() {
-      if (!cardForm.count || !cardForm.points || !cardForm.validDays) { alert('请填写完整'); return }
-      const d = await api('POST', '/admin/cards/generate', { count: cardForm.count, points: cardForm.points, validDays: cardForm.validDays })
+      if (!cardForm.count) { alert('请填写数量'); return }
+      const payload = cardForm.kind === 'duration'
+        ? { count: cardForm.count, kind: 'duration', durationDays: cardForm.durationDays }
+        : { count: cardForm.count, kind: 'point', points: cardForm.points }
+      if (cardForm.kind === 'point' && !cardForm.points) { alert('请填写积分'); return }
+      const d = await api('POST', '/admin/cards/generate', payload)
       if (d) {
         generatedCodes.value = d.codes || []
         await loadTab('cards')
@@ -626,6 +643,11 @@ createApp({
       return map[s] || s
     }
 
+    function cardDurationLabel(days) {
+      const map = { 30: '包月(30天)', 90: '包季(90天)', 365: '包年(365天)' }
+      return map[days] || (days + '天')
+    }
+
     function statusClass(s) {
       if (s === 'used') return 'tag-gray'
       if (s === 'unused') return 'tag-green'
@@ -657,7 +679,7 @@ createApp({
       saveConfig,
       toggleReplyForm, submitReply, closeFeedback, openImg,
       createAdmin,
-      fmtDate, cardStatusLabel, statusClass, fbStatusLabel, fbStatusClass
+      fmtDate, cardStatusLabel, cardDurationLabel, statusClass, fbStatusLabel, fbStatusClass
     }
   }
 }).mount('#app')

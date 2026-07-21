@@ -9,15 +9,17 @@ const router = useRouter()
 const mode = ref<'login' | 'register'>('login')
 const username = ref('')
 const password = ref('')
+const cardCode = ref('')
 const submitting = ref(false)
 
 async function submit() {
   if (!username.value.trim() || !password.value) return
+  if (mode.value === 'register' && !cardCode.value.trim()) { auth.authError = '注册需要填写卡密'; return }
   submitting.value = true
   try {
     const ok = mode.value === 'login'
       ? await auth.login(username.value, password.value)
-      : await auth.register(username.value, password.value)
+      : await auth.register(username.value, password.value, cardCode.value)
     if (ok) { ElMessage.success(mode.value === 'login' ? '登录成功' : '注册成功'); router.replace('/ticket') }
     else ElMessage.error(auth.authError)
   } catch (err) {
@@ -42,8 +44,9 @@ async function submit() {
       </div>
       <el-input v-model="username" placeholder="用户名" />
       <el-input v-model="password" type="password" placeholder="密码" show-password @keyup.enter="submit" />
+      <el-input v-if="mode === 'register'" v-model="cardCode" placeholder="卡密(点卡或时长卡)" @keyup.enter="submit" />
       <p v-if="auth.authError" class="login-err">{{ auth.authError }}</p>
-      <el-button type="primary" :loading="submitting" :disabled="!username.trim() || !password" @click="submit">
+      <el-button type="primary" :loading="submitting" :disabled="!username.trim() || !password || (mode === 'register' && !cardCode.trim())" @click="submit">
         {{ mode === 'login' ? '登录' : '注册' }}
       </el-button>
     </div>

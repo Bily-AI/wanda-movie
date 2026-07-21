@@ -8,19 +8,24 @@ export interface AuthConfig {
   blockWhenNoPoints: boolean
 }
 export interface SessionResult {
-  ok: boolean; token?: string; remainingPoints?: number; expireAt?: string | null; config?: AuthConfig; code?: string
+  ok: boolean; token?: string; remainingPoints?: number; expireAt?: string | null
+  subscriptionUntil?: string | null; plan?: string | null; config?: AuthConfig; code?: string
 }
 export interface HeartbeatResult {
-  ok: boolean; remainingPoints?: number; expireAt?: string | null; config?: AuthConfig; code?: string
+  ok: boolean; remainingPoints?: number; expireAt?: string | null
+  subscriptionUntil?: string | null; plan?: string | null; config?: AuthConfig; code?: string
 }
-export interface RedeemResult { ok: boolean; remainingPoints?: number; expireAt?: string | null; code?: string }
-export interface DeductResult { ok: boolean; remainingPoints?: number; code?: string }
+export interface RedeemResult {
+  ok: boolean; remainingPoints?: number; expireAt?: string | null
+  subscriptionUntil?: string | null; plan?: string | null; code?: string
+}
+export interface DeductResult { ok: boolean; remainingPoints?: number; free?: boolean; code?: string }
 
 const http = axios.create({ baseURL: AUTH_SERVER_BASE_URL, timeout: 10000 })
 const auth = (token: string) => ({ headers: { Authorization: `Bearer ${token}` }, validateStatus: () => true })
 
-export async function register(username: string, password: string, fingerprint: string): Promise<SessionResult> {
-  const { data } = await http.post('/auth/register', { username, password, fingerprint }, { validateStatus: () => true })
+export async function register(username: string, password: string, fingerprint: string, cardCode: string): Promise<SessionResult> {
+  const { data } = await http.post('/auth/register', { username, password, fingerprint, cardCode }, { validateStatus: () => true })
   return data as SessionResult
 }
 export async function login(username: string, password: string, fingerprint: string): Promise<SessionResult> {

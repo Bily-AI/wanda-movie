@@ -11,22 +11,32 @@ export const useAuthStore = defineStore('auth', {
     loggedIn: false,
     remainingPoints: 0,
     expireAt: null as string | null,
+    subscriptionUntil: null as string | null,
+    plan: null as string | null,
     config: { ...DEFAULT_CONFIG } as AuthConfig,
     authError: '' as string
   }),
   getters: {
+    // 时长订阅是否有效
+    hasActiveSubscription(state): boolean {
+      return !!state.subscriptionUntil && Date.now() < new Date(state.subscriptionUntil).getTime()
+    },
     canPay(state): boolean {
       if (!state.loggedIn) return false
+      // 账号过期一律拦
       if (state.config.blockWhenExpired && (!state.expireAt || Date.now() >= new Date(state.expireAt).getTime())) return false
+      // 时长订阅有效 → 免点、直接放行
+      if (state.subscriptionUntil && Date.now() < new Date(state.subscriptionUntil).getTime()) return true
+      // 否则按点数判断
       if (state.config.blockWhenNoPoints && state.remainingPoints < state.config.deductPerPayment) return false
       return true
     }
   },
   actions: {
-    async register(username: string, password: string) {
+    async register(username: string, password: string, cardCode: string) {
       this.authError = ''
       const fp = await window.wandaApp!.getMachineFingerprint()
-      const res = await register(username.trim(), password, fp)
+      const res = await register(username.trim(), password, fp, cardCode.trim())
       return this.handleSession(res)
     },
     async login(username: string, password: string) {
@@ -35,9 +45,9 @@ export const useAuthStore = defineStore('auth', {
       const res = await login(username.trim(), password, fp)
       return this.handleSession(res)
     },
-    handleSession(res: { ok: boolean; token?: string; remainingPoints?: number; expireAt?: string | null; config?: AuthConfig; code?: string }) {
+    handleSession(res: { ok: boolean; token?: string; remainingPoints?: number; expireAt?: string | null; subscriptionUntil?: string | null; plan?: string | null; config?: AuthConfig; code?: string }) {
       if (!res.ok) { this.authError = mapCode(res.code); return false }
-      this.applyLogin(res.token!, res.remainingPoints ?? 0, res.expireAt ?? null, res.config!)
+      this.applyLogin(res.token!, res.remainingPoints ?? 0, res.expireAt ?? null, res.subscriptionUntil ?? null, res.plan ?? null, res.config!)
       localStorage.setItem(TOKEN_KEY, res.token!)
       this.startHeartbeat()
       return true
@@ -48,6 +58,8 @@ export const useAuthStore = defineStore('auth', {
       if (!res.ok) { this.authError = mapCode(res.code); return false }
       this.remainingPoints = res.remainingPoints ?? this.remainingPoints
       this.expireAt = res.expireAt ?? this.expireAt
+      this.subscriptionUntil = res.subscriptionUntil ?? this.subscriptionUntil
+      this.plan = res.plan ?? this.plan
       return true
     },
     async bootstrap() {
@@ -56,14 +68,15 @@ export const useAuthStore = defineStore('auth', {
       try {
         const res = await heartbeat(token)
         if (res.ok) {
-          this.applyLogin(token, res.remainingPoints ?? 0, res.expireAt ?? null, res.config!)
+          this.applyLogin(token, res.remainingPoints ?? 0, res.expireAt ?? null, res.subscriptionUntil ?? null, res.plan ?? null, res.config!)
           this.startHeartbeat()
         } else { this.logout() }
       } catch { /* 离线冷启动:保留 token,等联网 */ }
     },
-    applyLogin(token: string, points: number, expireAt: string | null, config: AuthConfig) {
+    applyLogin(token: string, points: number, expireAt: string | null, subscriptionUntil: string | null, plan: string | null, config: AuthConfig) {
       this.token = token; this.loggedIn = true
-      this.remainingPoints = points; this.expireAt = expireAt; this.config = config
+      this.remainingPoints = points; this.expireAt = expireAt
+      this.subscriptionUntil = subscriptionUntil; this.plan = plan; this.config = config
     },
     startHeartbeat() {
       if (heartbeatTimer) clearInterval(heartbeatTimer)
@@ -73,7 +86,8 @@ export const useAuthStore = defineStore('auth', {
         try {
           const res = await heartbeat(this.token)
           if (res.ok) {
-            this.remainingPoints = res.remainingPoints ?? 0; this.expireAt = res.expireAt ?? null; this.config = res.config!
+            this.remainingPoints = res.remainingPoints ?? 0; this.expireAt = res.expireAt ?? null
+            this.subscriptionUntil = res.subscriptionUntil ?? null; this.plan = res.plan ?? null; this.config = res.config!
           } else if (res.code) { this.logout() }
         } catch { /* 网络抖动忽略 */ }
       }, ms)
@@ -81,6 +95,7 @@ export const useAuthStore = defineStore('auth', {
     logout() {
       if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null }
       this.token = ''; this.loggedIn = false; this.remainingPoints = 0; this.expireAt = null
+      this.subscriptionUntil = null; this.plan = null
       localStorage.removeItem(TOKEN_KEY)
     }
   }
@@ -92,6 +107,7 @@ function mapCode(code?: string): string {
     case 'BAD_LOGIN': return '用户名或密码错误'
     case 'MACHINE_BOUND_OTHER': return '该账号已绑定其他设备'
     case 'USER_DISABLED': return '账号已被禁用'
+    case 'CARD_REQUIRED': return '注册需要填写卡密'
     case 'CARD_INVALID': return '充值卡无效'
     case 'CARD_USED': return '该卡已被使用'
     case 'CARD_DISABLED': return '该卡已停用'

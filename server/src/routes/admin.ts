@@ -27,6 +27,8 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     return reply.send({ ok: true, items: rows.map((u) => ({
       id: u.id, username: u.username, remainingPoints: u.remainingPoints,
       expireAt: u.expireAt ? u.expireAt.toISOString() : null,
+      subscriptionUntil: u.subscriptionUntil ? u.subscriptionUntil.toISOString() : null,
+      plan: u.plan,
       boundFingerprint: u.boundFingerprint, disabledAt: u.disabledAt ? u.disabledAt.toISOString() : null,
       createdAt: u.createdAt.toISOString()
     })) })
@@ -74,17 +76,25 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     const admin = requireAdmin(req, reply); if (!admin) return
     const rows = await prisma.card.findMany({ orderBy: { id: 'desc' } })
     return reply.send({ ok: true, items: rows.map((c) => ({
-      id: c.id, code: c.code, points: c.points, validDays: c.validDays, status: c.status,
+      id: c.id, code: c.code, kind: c.kind, points: c.points, durationDays: c.durationDays, status: c.status,
       usedByUserId: c.usedByUserId, usedAt: c.usedAt ? c.usedAt.toISOString() : null, createdAt: c.createdAt.toISOString()
     })) })
   })
 
   app.post('/admin/cards/generate', async (req, reply) => {
     const admin = requireAdmin(req, reply); if (!admin) return
-    const { count, points, validDays } = (req.body ?? {}) as { count?: number; points?: number; validDays?: number }
-    if (!count || !points || !validDays) return reply.code(400).send({ ok: false, code: 'BAD_REQUEST' })
-    const codes = await generateCards(count, points, validDays)
-    await writeLog(admin, 'card.generate', 'count=' + count + ' points=' + points + ' days=' + validDays)
+    const { count, kind, points, durationDays } = (req.body ?? {}) as { count?: number; kind?: string; points?: number; durationDays?: number }
+    if (!count) return reply.code(400).send({ ok: false, code: 'BAD_REQUEST' })
+    if (kind === 'duration') {
+      if (!durationDays || durationDays <= 0) return reply.code(400).send({ ok: false, code: 'BAD_REQUEST' })
+      const codes = await generateCards(count, { kind: 'duration', durationDays })
+      await writeLog(admin, 'card.generate', 'count=' + count + ' duration=' + durationDays + 'd')
+      return reply.send({ ok: true, codes })
+    }
+    // 默认点卡
+    if (!points || points <= 0) return reply.code(400).send({ ok: false, code: 'BAD_REQUEST' })
+    const codes = await generateCards(count, { kind: 'point', points })
+    await writeLog(admin, 'card.generate', 'count=' + count + ' points=' + points)
     return reply.send({ ok: true, codes })
   })
 
