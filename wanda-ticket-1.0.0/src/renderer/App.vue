@@ -439,16 +439,22 @@ async function handleRecharge() {
 .nav-button {
   height: 32px;
   min-width: 0;
-  padding: 0 9px;
+  padding: 0 12px;
   border-radius: 6px;
   color: var(--app-subtle);
   font-size: 13px;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
-.nav-button :deep(.el-icon) {
-  margin-right: 5px;
-  font-size: 15px;
+/* el-button 内部 span 也强制居中,去掉图标后文字垂直对齐 */
+.nav-button :deep(span) {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
 }
 
 .nav-button:hover {
