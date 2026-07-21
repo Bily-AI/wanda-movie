@@ -81,7 +81,10 @@ function toPlainAccount(account: WandaAccount): WandaAccount {
     memberGradeName: String(account.memberGradeName || ''),
     growthValue: toNullableNumber(account.growthValue),
     todayTicketCount: toNullableNumber(account.todayTicketCount) ?? 0,
-    todayTicketDate: String(account.todayTicketDate || '')
+    todayTicketDate: String(account.todayTicketDate || ''),
+    // 这两个字段决定侧栏「异常/到期」状态,必须持久化,否则刷新后重载会还原成"正常"
+    lastLoginAt: String(account.lastLoginAt || ''),
+    loginInvalid: Boolean(account.loginInvalid)
   }
 }
 
