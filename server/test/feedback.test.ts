@@ -68,4 +68,14 @@ describe('feedback', () => {
     const r = await app.inject({ method: 'POST', url: `/feedback/${id}/reply`, headers: A(t), payload: { content: '   ' } })
     expect(r.statusCode).toBe(400)
   })
+
+  it('工单被完结后 → 用户追问被拒 (409 FEEDBACK_CLOSED)', async () => {
+    const ut = await token()
+    const id = (await post(ut, { type: 'problem', category: '出票', content: 'x' })).json().id
+    const at = (await app.inject({ method: 'POST', url: '/admin/login', payload: { username: 'admin', password: 'admin888' } })).json().token
+    await app.inject({ method: 'POST', url: `/admin/feedback/${id}/close`, headers: A(at) })
+    const r = await app.inject({ method: 'POST', url: `/feedback/${id}/reply`, headers: A(ut), payload: { content: '还想说点啥' } })
+    expect(r.statusCode).toBe(409)
+    expect(r.json().code).toBe('FEEDBACK_CLOSED')
+  })
 })

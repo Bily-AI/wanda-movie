@@ -140,7 +140,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     const admin = requireAdmin(req, reply); if (!admin) return
     const id = Number((req.params as { id: string }).id)
     const { reply: replyText, status } = (req.body ?? {}) as { reply?: string; status?: string }
-    if (!replyText || !status || !['replied', 'fixed'].includes(status)) {
+    if (!replyText || !status || !['replied', 'fixed', 'closed'].includes(status)) {
       return reply.code(400).send({ ok: false, code: 'BAD_REQUEST' })
     }
     const fb = await prisma.feedback.findUnique({ where: { id } })
@@ -148,6 +148,17 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     await prisma.feedbackMessage.create({ data: { feedbackId: id, sender: 'admin', adminUsername: admin, content: replyText } })
     await prisma.feedback.update({ where: { id }, data: { status, repliedAt: new Date() } })
     await writeLog(admin, 'feedback.reply', 'id=' + id + ' status=' + status)
+    return reply.send({ ok: true })
+  })
+
+  // 完结工单:置为 closed(终态),完结后用户不能再追问。不需要附带回复内容。
+  app.post('/admin/feedback/:id/close', async (req, reply) => {
+    const admin = requireAdmin(req, reply); if (!admin) return
+    const id = Number((req.params as { id: string }).id)
+    const fb = await prisma.feedback.findUnique({ where: { id } })
+    if (!fb) return reply.code(404).send({ ok: false, code: 'NOT_FOUND' })
+    await prisma.feedback.update({ where: { id }, data: { status: 'closed' } })
+    await writeLog(admin, 'feedback.close', 'id=' + id)
     return reply.send({ ok: true })
   })
 

@@ -75,12 +75,14 @@ const loading = ref(false)
 const statusLabel: Record<string, string> = {
   pending: '待处理',
   replied: '已回复',
-  fixed: '已修复'
+  fixed: '已修复',
+  closed: '已完结'
 }
 const statusColor: Record<string, string> = {
   pending: '#909399',
   replied: '#409eff',
-  fixed: '#67c23a'
+  fixed: '#67c23a',
+  closed: '#6b7280'
 }
 
 async function loadMyFeedback() {
@@ -114,6 +116,9 @@ async function submitReply(item: FeedbackItem) {
     const res = await replyFeedback(auth.token, item.id, replyText.value.trim())
     if (res.ok) {
       replyText.value = ''
+      await loadMyFeedback()
+    } else if (res.code === 'FEEDBACK_CLOSED') {
+      ElMessage.warning('该反馈已被管理员完结,无法继续追问')
       await loadMyFeedback()
     } else {
       ElMessage.error(`追问失败：${res.code ?? '未知错误'}`)
@@ -254,8 +259,9 @@ onMounted(() => {
           </div>
           <div v-else class="fb-thread-empty">暂无回复,管理员会尽快处理</div>
 
-          <!-- 追问输入 -->
-          <div class="fb-reply-box" @click.stop>
+          <!-- 追问输入(已完结则关闭对话) -->
+          <div v-if="item.status === 'closed'" class="fb-closed-note">该反馈已完结,如仍有问题请新建一条反馈</div>
+          <div v-else class="fb-reply-box" @click.stop>
             <el-input
               v-model="replyText"
               type="textarea"
@@ -535,5 +541,13 @@ onMounted(() => {
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px dashed var(--app-border, #e4e7ed);
+}
+
+.fb-closed-note {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--app-border, #e4e7ed);
+  font-size: 12px;
+  color: var(--app-muted, #909399);
 }
 </style>

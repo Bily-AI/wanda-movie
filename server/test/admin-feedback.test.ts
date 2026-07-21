@@ -56,6 +56,16 @@ describe('admin feedback', () => {
     expect(item.messages.map((m: { content: string }) => m.content)).toEqual(['第一次', '第二次'])
     expect(item.status).toBe('fixed')
   })
+  it('完结工单 → 状态 closed', async () => {
+    const ut = await userToken()
+    const id = (await app.inject({ method: 'POST', url: '/feedback', headers: A(ut), payload: { type: 'problem', category: '出票', content: 'x' } })).json().id
+    const at = await adminToken()
+    const r = await app.inject({ method: 'POST', url: `/admin/feedback/${id}/close`, headers: A(at) })
+    expect(r.json().ok).toBe(true)
+    const fb = await prisma.feedback.findUnique({ where: { id } })
+    expect(fb?.status).toBe('closed')
+  })
+
   it('非法 status → 400', async () => {
     const ut = await userToken()
     const post = await app.inject({ method: 'POST', url: '/feedback', headers: A(ut), payload: { type: 'problem', category: '出票', content: 'x' } })

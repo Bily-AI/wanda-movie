@@ -63,6 +63,7 @@ export async function feedbackRoutes(app: FastifyInstance): Promise<void> {
     if (!content || !content.trim()) return reply.code(400).send({ ok: false, code: 'BAD_REQUEST' })
     const fb = await prisma.feedback.findUnique({ where: { id } })
     if (!fb || fb.userId !== uid) return reply.code(403).send({ ok: false, code: 'FORBIDDEN' })
+    if (fb.status === 'closed') return reply.code(409).send({ ok: false, code: 'FEEDBACK_CLOSED' })
     await prisma.feedbackMessage.create({ data: { feedbackId: id, sender: 'user', content: content.trim() } })
     await prisma.feedback.update({ where: { id }, data: { status: 'pending' } })
     return reply.send({ ok: true })
