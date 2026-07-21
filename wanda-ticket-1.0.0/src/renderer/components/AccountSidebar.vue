@@ -204,8 +204,10 @@ function accountStatusInfo(account: WandaAccount): { text: string; warn: boolean
     return { text: '待登录', warn: false }
   }
 
-  if (account.loginInvalid) {
-    return { text: '异常', warn: true }
+  // 用已持久化的 status(expired/error)判定异常,而不是只看未持久化的 loginInvalid,
+  // 否则刷新标记异常后重载会还原成"正常"
+  if (account.loginInvalid || account.status === 'expired' || account.status === 'error') {
+    return { text: account.statusText || '异常', warn: true }
   }
 
   const base = Date.parse(account.lastLoginAt || account.createdAt || '')
