@@ -156,6 +156,16 @@ td.actions { white-space: nowrap; }
           </div>
         </div>
 
+        <div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <input type="text" v-model="q.cards" placeholder="搜索卡密码" style="width:200px" />
+          <select v-model="filt.cardKind" style="width:120px">
+            <option value="">全部类型</option><option value="point">点卡</option><option value="duration">时长卡</option>
+          </select>
+          <select v-model="filt.cardStatus" style="width:120px">
+            <option value="">全部状态</option><option value="unused">未使用</option><option value="used">已使用</option><option value="disabled">已停用</option>
+          </select>
+          <span class="text-gray" style="font-size:12px">共 {{ filteredCards.length }} 张</span>
+        </div>
         <div class="card">
           <table>
             <thead>
@@ -165,7 +175,7 @@ td.actions { white-space: nowrap; }
             </thead>
             <tbody>
               <tr v-if="loading"><td colspan="9" class="loading">加载中...</td></tr>
-              <tr v-for="c in cards" :key="c.id">
+              <tr v-for="c in filteredCards" :key="c.id">
                 <td>{{ c.id }}</td>
                 <td><code style="font-size:12px">{{ c.code }}</code></td>
                 <td>
@@ -182,7 +192,7 @@ td.actions { white-space: nowrap; }
                   <button v-if="c.status==='unused'" class="btn btn-danger" @click="disableCard(c.id)">停用</button>
                 </td>
               </tr>
-              <tr v-if="!loading && !cards.length"><td colspan="9" class="text-gray" style="text-align:center;padding:20px">暂无数据</td></tr>
+              <tr v-if="!loading && !filteredCards.length"><td colspan="9" class="text-gray" style="text-align:center;padding:20px">暂无数据</td></tr>
             </tbody>
           </table>
         </div>
@@ -190,19 +200,34 @@ td.actions { white-space: nowrap; }
 
       <!-- 用户 Tab -->
       <div v-if="tab==='users'">
+        <div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <input type="text" v-model="q.users" placeholder="搜索用户名 / ID" style="width:200px" />
+          <select v-model="filt.userType" style="width:130px">
+            <option value="">全部套餐</option><option value="sub">时长订阅中</option><option value="point">点数用户</option>
+          </select>
+          <select v-model="filt.userStatus" style="width:120px">
+            <option value="">全部状态</option><option value="active">正常</option><option value="disabled">已禁用</option>
+          </select>
+          <span class="text-gray" style="font-size:12px">共 {{ filteredUsers.length }} 人</span>
+        </div>
         <div class="card">
           <table>
             <thead>
               <tr>
-                <th>ID</th><th>用户名</th><th>积分</th><th>到期时间</th><th>绑定机器码</th><th>状态</th><th>注册时间</th><th>操作</th>
+                <th>ID</th><th>用户名</th><th>积分</th><th>套餐/订阅</th><th>到期时间</th><th>绑定机器码</th><th>状态</th><th>注册时间</th><th>操作</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-if="loading"><td colspan="8" class="loading">加载中...</td></tr>
-              <tr v-for="u in users" :key="u.id">
+              <tr v-if="loading"><td colspan="9" class="loading">加载中...</td></tr>
+              <tr v-for="u in filteredUsers" :key="u.id">
                 <td>{{ u.id }}</td>
                 <td>{{ u.username }}</td>
                 <td>{{ u.remainingPoints }}</td>
+                <td>
+                  <span v-if="isSubActive(u)" class="tag tag-blue">{{ u.plan || '时长套餐' }}</span>
+                  <span v-else-if="u.plan" class="tag tag-gray" title="订阅已过期">{{ u.plan }}(已过期)</span>
+                  <span v-else class="text-gray">点数</span>
+                </td>
                 <td>{{ fmtDate(u.expireAt) }}</td>
                 <td>
                   <span v-if="u.boundFingerprint" :title="u.boundFingerprint" style="font-family:monospace;font-size:12px">
@@ -222,7 +247,7 @@ td.actions { white-space: nowrap; }
                   <button class="btn btn-default" @click="unbindUser(u.id)">清绑定</button>
                 </td>
               </tr>
-              <tr v-if="!loading && !users.length"><td colspan="8" class="text-gray" style="text-align:center;padding:20px">暂无数据</td></tr>
+              <tr v-if="!loading && !filteredUsers.length"><td colspan="9" class="text-gray" style="text-align:center;padding:20px">暂无数据</td></tr>
             </tbody>
           </table>
         </div>
@@ -230,6 +255,10 @@ td.actions { white-space: nowrap; }
 
       <!-- 流水 Tab -->
       <div v-if="tab==='ledger'">
+        <div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <input type="text" v-model="q.ledger" placeholder="搜索 用户ID / 原因 / 订单号" style="width:260px" />
+          <span class="text-gray" style="font-size:12px">共 {{ filteredLedger.length }} 条</span>
+        </div>
         <div class="card">
           <table>
             <thead>
@@ -239,7 +268,7 @@ td.actions { white-space: nowrap; }
             </thead>
             <tbody>
               <tr v-if="loading"><td colspan="7" class="loading">加载中...</td></tr>
-              <tr v-for="l in ledger" :key="l.id">
+              <tr v-for="l in filteredLedger" :key="l.id">
                 <td>{{ l.id }}</td>
                 <td>{{ l.userId }}</td>
                 <td :class="l.delta > 0 ? 'text-green' : 'text-red'">{{ l.delta > 0 ? '+'+l.delta : l.delta }}</td>
@@ -248,7 +277,7 @@ td.actions { white-space: nowrap; }
                 <td>{{ l.balance }}</td>
                 <td>{{ fmtDate(l.createdAt) }}</td>
               </tr>
-              <tr v-if="!loading && !ledger.length"><td colspan="7" class="text-gray" style="text-align:center;padding:20px">暂无数据</td></tr>
+              <tr v-if="!loading && !filteredLedger.length"><td colspan="7" class="text-gray" style="text-align:center;padding:20px">暂无数据</td></tr>
             </tbody>
           </table>
         </div>
@@ -280,6 +309,16 @@ td.actions { white-space: nowrap; }
 
       <!-- 反馈 Tab -->
       <div v-if="tab==='feedback'">
+        <div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <input type="text" v-model="q.feedback" placeholder="搜索 用户名 / 内容" style="width:220px" />
+          <select v-model="filt.fbType" style="width:110px">
+            <option value="">全部类型</option><option value="problem">问题</option><option value="feature">需求</option>
+          </select>
+          <select v-model="filt.fbStatus" style="width:120px">
+            <option value="">全部状态</option><option value="pending">待处理</option><option value="replied">已回复</option><option value="fixed">已修复</option><option value="closed">已完结</option>
+          </select>
+          <span class="text-gray" style="font-size:12px">共 {{ filteredFeedbacks.length }} 条</span>
+        </div>
         <div class="card">
           <table>
             <thead>
@@ -289,7 +328,7 @@ td.actions { white-space: nowrap; }
             </thead>
             <tbody>
               <tr v-if="loading"><td colspan="11" class="loading">加载中...</td></tr>
-              <template v-for="fb in feedbacks" :key="fb.id">
+              <template v-for="fb in filteredFeedbacks" :key="fb.id">
                 <tr>
                   <td>{{ fb.id }}</td>
                   <td>{{ fb.username }}</td>
@@ -348,7 +387,7 @@ td.actions { white-space: nowrap; }
                   </td>
                 </tr>
               </template>
-              <tr v-if="!loading && !feedbacks.length"><td colspan="11" class="text-gray" style="text-align:center;padding:20px">暂无反馈</td></tr>
+              <tr v-if="!loading && !filteredFeedbacks.length"><td colspan="11" class="text-gray" style="text-align:center;padding:20px">暂无反馈</td></tr>
             </tbody>
           </table>
         </div>
@@ -371,6 +410,10 @@ td.actions { white-space: nowrap; }
             </div>
           </div>
         </div>
+        <div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <input type="text" v-model="q.admins" placeholder="搜索用户名" style="width:200px" />
+          <span class="text-gray" style="font-size:12px">共 {{ filteredAdmins.length }} 人</span>
+        </div>
         <div class="card">
           <table>
             <thead>
@@ -378,12 +421,12 @@ td.actions { white-space: nowrap; }
             </thead>
             <tbody>
               <tr v-if="loading"><td colspan="3" class="loading">加载中...</td></tr>
-              <tr v-for="a in admins" :key="a.id">
+              <tr v-for="a in filteredAdmins" :key="a.id">
                 <td>{{ a.id }}</td>
                 <td>{{ a.username }}</td>
                 <td>{{ fmtDate(a.createdAt) }}</td>
               </tr>
-              <tr v-if="!loading && !admins.length"><td colspan="3" class="text-gray" style="text-align:center;padding:20px">暂无数据</td></tr>
+              <tr v-if="!loading && !filteredAdmins.length"><td colspan="3" class="text-gray" style="text-align:center;padding:20px">暂无数据</td></tr>
             </tbody>
           </table>
         </div>
@@ -391,6 +434,14 @@ td.actions { white-space: nowrap; }
 
       <!-- 日志 Tab -->
       <div v-if="tab==='logs'">
+        <div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <input type="text" v-model="q.logs" placeholder="搜索 管理员 / 动作 / 细节" style="width:240px" />
+          <select v-model="filt.logAction" style="width:160px">
+            <option value="">全部动作</option>
+            <option v-for="a in logActions" :key="a" :value="a">{{ a }}</option>
+          </select>
+          <span class="text-gray" style="font-size:12px">共 {{ filteredLogs.length }} 条</span>
+        </div>
         <div class="card">
           <table>
             <thead>
@@ -398,14 +449,14 @@ td.actions { white-space: nowrap; }
             </thead>
             <tbody>
               <tr v-if="loading"><td colspan="5" class="loading">加载中...</td></tr>
-              <tr v-for="l in logs" :key="l.id">
+              <tr v-for="l in filteredLogs" :key="l.id">
                 <td>{{ l.id }}</td>
                 <td>{{ fmtDate(l.createdAt) }}</td>
                 <td>{{ l.adminUsername }}</td>
                 <td>{{ l.action }}</td>
                 <td style="max-width:300px;white-space:normal;word-break:break-all">{{ l.detail || '-' }}</td>
               </tr>
-              <tr v-if="!loading && !logs.length"><td colspan="5" class="text-gray" style="text-align:center;padding:20px">暂无日志</td></tr>
+              <tr v-if="!loading && !filteredLogs.length"><td colspan="5" class="text-gray" style="text-align:center;padding:20px">暂无日志</td></tr>
             </tbody>
           </table>
         </div>
@@ -415,7 +466,7 @@ td.actions { white-space: nowrap; }
 </div>
 
 <script>
-const { createApp, reactive, ref, watch } = Vue
+const { createApp, reactive, ref, watch, computed } = Vue
 
 createApp({
   setup() {
@@ -433,6 +484,43 @@ createApp({
     const feedbacks = ref([])
     const admins = ref([])
     const logs = ref([])
+
+    // ---- 搜索 / 筛选 ----
+    const q = reactive({ cards: '', users: '', ledger: '', feedback: '', admins: '', logs: '' })
+    const filt = reactive({ cardKind: '', cardStatus: '', userStatus: '', userType: '', fbStatus: '', fbType: '', logAction: '' })
+    const inc = (v, s) => String(v || '').toLowerCase().includes(s.toLowerCase())
+    const isSubActive = (u) => !!u.subscriptionUntil && new Date(u.subscriptionUntil).getTime() > Date.now()
+
+    const filteredCards = computed(() => cards.value.filter((c) => {
+      if (q.cards && !inc(c.code, q.cards)) return false
+      if (filt.cardKind && c.kind !== filt.cardKind) return false
+      if (filt.cardStatus && c.status !== filt.cardStatus) return false
+      return true
+    }))
+    const filteredUsers = computed(() => users.value.filter((u) => {
+      if (q.users && !inc(u.username, q.users) && String(u.id) !== q.users.trim()) return false
+      if (filt.userStatus === 'disabled' && !u.disabledAt) return false
+      if (filt.userStatus === 'active' && u.disabledAt) return false
+      if (filt.userType === 'sub' && !isSubActive(u)) return false
+      if (filt.userType === 'point' && isSubActive(u)) return false
+      return true
+    }))
+    const filteredLedger = computed(() => ledger.value.filter((l) =>
+      !q.ledger || String(l.userId).includes(q.ledger.trim()) || inc(l.reason, q.ledger) || inc(l.orderId, q.ledger)
+    ))
+    const filteredFeedbacks = computed(() => feedbacks.value.filter((fb) => {
+      if (filt.fbStatus && fb.status !== filt.fbStatus) return false
+      if (filt.fbType && fb.type !== filt.fbType) return false
+      if (q.feedback && !inc(fb.username, q.feedback) && !inc(fb.content, q.feedback)) return false
+      return true
+    }))
+    const filteredAdmins = computed(() => admins.value.filter((a) => !q.admins || inc(a.username, q.admins)))
+    const logActions = computed(() => [...new Set(logs.value.map((l) => l.action))].sort())
+    const filteredLogs = computed(() => logs.value.filter((l) => {
+      if (filt.logAction && l.action !== filt.logAction) return false
+      if (q.logs && !inc(l.adminUsername, q.logs) && !inc(l.action, q.logs) && !inc(l.detail, q.logs)) return false
+      return true
+    }))
 
     // 卡密生成
     const cardForm = reactive({ count: 5, kind: 'point', points: 100, durationDays: 30 })
@@ -670,6 +758,8 @@ createApp({
     return {
       token, loginUser, loginPwd, tab, loading,
       cards, users, ledger, configs, feedbacks, admins, logs,
+      q, filt, isSubActive,
+      filteredCards, filteredUsers, filteredLedger, filteredFeedbacks, filteredAdmins, filteredLogs, logActions,
       cardForm, generatedCodes,
       adminForm,
       replyForms,
