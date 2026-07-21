@@ -86,6 +86,9 @@ img.thumb { width: 48px; height: 48px; object-fit: cover; cursor: pointer; borde
 .card { background: #fff; border-radius: 6px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
 
 td.actions { white-space: nowrap; }
+
+.pager { display: flex; align-items: center; gap: 10px; justify-content: flex-end; margin-top: 12px; font-size: 13px; color: #555; }
+.pager select { width: 68px; }
 </style>
 </head>
 <body>
@@ -175,7 +178,7 @@ td.actions { white-space: nowrap; }
             </thead>
             <tbody>
               <tr v-if="loading"><td colspan="9" class="loading">加载中...</td></tr>
-              <tr v-for="c in filteredCards" :key="c.id">
+              <tr v-for="c in pagedCards" :key="c.id">
                 <td>{{ c.id }}</td>
                 <td><code style="font-size:12px">{{ c.code }}</code></td>
                 <td>
@@ -195,6 +198,12 @@ td.actions { white-space: nowrap; }
               <tr v-if="!loading && !filteredCards.length"><td colspan="9" class="text-gray" style="text-align:center;padding:20px">暂无数据</td></tr>
             </tbody>
           </table>
+          <div class="pager">
+            <label>每页 <select v-model.number="pageSize"><option :value="20">20</option><option :value="50">50</option><option :value="100">100</option></select> 条</label>
+            <button class="btn btn-default" :disabled="pages.cards<=1" @click="pages.cards--">上一页</button>
+            <span>{{ pages.cards }} / {{ totalPages(filteredCards) }}</span>
+            <button class="btn btn-default" :disabled="pages.cards>=totalPages(filteredCards)" @click="pages.cards++">下一页</button>
+          </div>
         </div>
       </div>
 
@@ -219,7 +228,7 @@ td.actions { white-space: nowrap; }
             </thead>
             <tbody>
               <tr v-if="loading"><td colspan="9" class="loading">加载中...</td></tr>
-              <tr v-for="u in filteredUsers" :key="u.id">
+              <tr v-for="u in pagedUsers" :key="u.id">
                 <td>{{ u.id }}</td>
                 <td>{{ u.username }}</td>
                 <td>{{ u.remainingPoints }}</td>
@@ -250,6 +259,12 @@ td.actions { white-space: nowrap; }
               <tr v-if="!loading && !filteredUsers.length"><td colspan="9" class="text-gray" style="text-align:center;padding:20px">暂无数据</td></tr>
             </tbody>
           </table>
+          <div class="pager">
+            <label>每页 <select v-model.number="pageSize"><option :value="20">20</option><option :value="50">50</option><option :value="100">100</option></select> 条</label>
+            <button class="btn btn-default" :disabled="pages.users<=1" @click="pages.users--">上一页</button>
+            <span>{{ pages.users }} / {{ totalPages(filteredUsers) }}</span>
+            <button class="btn btn-default" :disabled="pages.users>=totalPages(filteredUsers)" @click="pages.users++">下一页</button>
+          </div>
         </div>
       </div>
 
@@ -268,7 +283,7 @@ td.actions { white-space: nowrap; }
             </thead>
             <tbody>
               <tr v-if="loading"><td colspan="7" class="loading">加载中...</td></tr>
-              <tr v-for="l in filteredLedger" :key="l.id">
+              <tr v-for="l in pagedLedger" :key="l.id">
                 <td>{{ l.id }}</td>
                 <td>{{ l.userId }}</td>
                 <td :class="l.delta > 0 ? 'text-green' : 'text-red'">{{ l.delta > 0 ? '+'+l.delta : l.delta }}</td>
@@ -280,6 +295,12 @@ td.actions { white-space: nowrap; }
               <tr v-if="!loading && !filteredLedger.length"><td colspan="7" class="text-gray" style="text-align:center;padding:20px">暂无数据</td></tr>
             </tbody>
           </table>
+          <div class="pager">
+            <label>每页 <select v-model.number="pageSize"><option :value="20">20</option><option :value="50">50</option><option :value="100">100</option></select> 条</label>
+            <button class="btn btn-default" :disabled="pages.ledger<=1" @click="pages.ledger--">上一页</button>
+            <span>{{ pages.ledger }} / {{ totalPages(filteredLedger) }}</span>
+            <button class="btn btn-default" :disabled="pages.ledger>=totalPages(filteredLedger)" @click="pages.ledger++">下一页</button>
+          </div>
         </div>
       </div>
 
@@ -328,7 +349,7 @@ td.actions { white-space: nowrap; }
             </thead>
             <tbody>
               <tr v-if="loading"><td colspan="11" class="loading">加载中...</td></tr>
-              <template v-for="fb in filteredFeedbacks" :key="fb.id">
+              <template v-for="fb in pagedFeedbacks" :key="fb.id">
                 <tr>
                   <td>{{ fb.id }}</td>
                   <td>{{ fb.username }}</td>
@@ -390,6 +411,12 @@ td.actions { white-space: nowrap; }
               <tr v-if="!loading && !filteredFeedbacks.length"><td colspan="11" class="text-gray" style="text-align:center;padding:20px">暂无反馈</td></tr>
             </tbody>
           </table>
+          <div class="pager">
+            <label>每页 <select v-model.number="pageSize"><option :value="20">20</option><option :value="50">50</option><option :value="100">100</option></select> 条</label>
+            <button class="btn btn-default" :disabled="pages.feedback<=1" @click="pages.feedback--">上一页</button>
+            <span>{{ pages.feedback }} / {{ totalPages(filteredFeedbacks) }}</span>
+            <button class="btn btn-default" :disabled="pages.feedback>=totalPages(filteredFeedbacks)" @click="pages.feedback++">下一页</button>
+          </div>
         </div>
       </div>
 
@@ -421,7 +448,7 @@ td.actions { white-space: nowrap; }
             </thead>
             <tbody>
               <tr v-if="loading"><td colspan="3" class="loading">加载中...</td></tr>
-              <tr v-for="a in filteredAdmins" :key="a.id">
+              <tr v-for="a in pagedAdmins" :key="a.id">
                 <td>{{ a.id }}</td>
                 <td>{{ a.username }}</td>
                 <td>{{ fmtDate(a.createdAt) }}</td>
@@ -429,6 +456,12 @@ td.actions { white-space: nowrap; }
               <tr v-if="!loading && !filteredAdmins.length"><td colspan="3" class="text-gray" style="text-align:center;padding:20px">暂无数据</td></tr>
             </tbody>
           </table>
+          <div class="pager">
+            <label>每页 <select v-model.number="pageSize"><option :value="20">20</option><option :value="50">50</option><option :value="100">100</option></select> 条</label>
+            <button class="btn btn-default" :disabled="pages.admins<=1" @click="pages.admins--">上一页</button>
+            <span>{{ pages.admins }} / {{ totalPages(filteredAdmins) }}</span>
+            <button class="btn btn-default" :disabled="pages.admins>=totalPages(filteredAdmins)" @click="pages.admins++">下一页</button>
+          </div>
         </div>
       </div>
 
@@ -449,7 +482,7 @@ td.actions { white-space: nowrap; }
             </thead>
             <tbody>
               <tr v-if="loading"><td colspan="5" class="loading">加载中...</td></tr>
-              <tr v-for="l in filteredLogs" :key="l.id">
+              <tr v-for="l in pagedLogs" :key="l.id">
                 <td>{{ l.id }}</td>
                 <td>{{ fmtDate(l.createdAt) }}</td>
                 <td>{{ l.adminUsername }}</td>
@@ -459,6 +492,12 @@ td.actions { white-space: nowrap; }
               <tr v-if="!loading && !filteredLogs.length"><td colspan="5" class="text-gray" style="text-align:center;padding:20px">暂无日志</td></tr>
             </tbody>
           </table>
+          <div class="pager">
+            <label>每页 <select v-model.number="pageSize"><option :value="20">20</option><option :value="50">50</option><option :value="100">100</option></select> 条</label>
+            <button class="btn btn-default" :disabled="pages.logs<=1" @click="pages.logs--">上一页</button>
+            <span>{{ pages.logs }} / {{ totalPages(filteredLogs) }}</span>
+            <button class="btn btn-default" :disabled="pages.logs>=totalPages(filteredLogs)" @click="pages.logs++">下一页</button>
+          </div>
         </div>
       </div>
     </div>
@@ -521,6 +560,31 @@ createApp({
       if (q.logs && !inc(l.adminUsername, q.logs) && !inc(l.action, q.logs) && !inc(l.detail, q.logs)) return false
       return true
     }))
+
+    // ---- 分页(客户端)----
+    const pageSize = ref(20)
+    const pages = reactive({ cards: 1, users: 1, ledger: 1, feedback: 1, admins: 1, logs: 1 })
+    const totalPages = (list) => Math.max(1, Math.ceil(list.length / pageSize.value))
+    // 纯函数:按当前页码切片(页码越界时本地夹到末页,不改状态)
+    const slice = (list, key) => {
+      const p = Math.min(pages[key], totalPages(list))
+      return list.slice((p - 1) * pageSize.value, p * pageSize.value)
+    }
+    const pagedCards = computed(() => slice(filteredCards.value, 'cards'))
+    const pagedUsers = computed(() => slice(filteredUsers.value, 'users'))
+    const pagedLedger = computed(() => slice(filteredLedger.value, 'ledger'))
+    const pagedFeedbacks = computed(() => slice(filteredFeedbacks.value, 'feedback'))
+    const pagedAdmins = computed(() => slice(filteredAdmins.value, 'admins'))
+    const pagedLogs = computed(() => slice(filteredLogs.value, 'logs'))
+    // 搜索/筛选/页大小变化 → 所有页码回到第 1 页
+    watch(() => JSON.stringify([q, filt, pageSize.value]), () => {
+      Object.keys(pages).forEach((k) => { pages[k] = 1 })
+    })
+    // 数据变化后夹取页码,避免停留在越界的空白页
+    const lens = { cards: filteredCards, users: filteredUsers, ledger: filteredLedger, feedback: filteredFeedbacks, admins: filteredAdmins, logs: filteredLogs }
+    watch(() => Object.fromEntries(Object.entries(lens).map(([k, v]) => [k, v.value.length])), () => {
+      for (const [k, v] of Object.entries(lens)) pages[k] = Math.min(Math.max(1, pages[k]), totalPages(v.value))
+    }, { deep: true })
 
     // 卡密生成
     const cardForm = reactive({ count: 5, kind: 'point', points: 100, durationDays: 30 })
@@ -760,6 +824,8 @@ createApp({
       cards, users, ledger, configs, feedbacks, admins, logs,
       q, filt, isSubActive,
       filteredCards, filteredUsers, filteredLedger, filteredFeedbacks, filteredAdmins, filteredLogs, logActions,
+      pageSize, pages, totalPages,
+      pagedCards, pagedUsers, pagedLedger, pagedFeedbacks, pagedAdmins, pagedLogs,
       cardForm, generatedCodes,
       adminForm,
       replyForms,
