@@ -1365,14 +1365,6 @@ export const useTicketStore = defineStore('ticket', {
       // 券分摊/券支付接口要的是券凭证 code(=voucherNo,加密串),不是券类型 typeCode。
       // 传 typeCode 会被万达打回「服务器繁忙」。
       const couponTypeCodes = selectedCoupons.map((coupon) => firstText(coupon.code, coupon.voucherNo, coupon.couponNo, coupon.typeCode))
-      // 诊断:打印选中券的各标识字段 + 原始字段名,用于定位"服务器繁忙"是不是 typeCode 传错
-      useLogsStore().addLog(
-        '券诊断',
-        account.phone,
-        '选中券=' + JSON.stringify(selectedCoupons.map((c) => ({ typeCode: c.typeCode, code: c.code, couponNo: c.couponNo, voucherNo: c.voucherNo, name: c.name }))) +
-          ' | 实际传参coupons=[' + couponTypeCodes.join(',') + ']' +
-          ' | 原始字段=' + JSON.stringify(selectedCoupons.map((c) => (c.raw && typeof c.raw === 'object' ? Object.keys(c.raw as Record<string, unknown>) : [])))
-      )
       const serial = ++this.couponPreviewSerial
       this.couponPreviewLoading = true
 
@@ -1431,8 +1423,6 @@ export const useTicketStore = defineStore('ticket', {
         ck,
         userIdentifier
       )
-      // 诊断:打印 select 返回的 allotseat,用于对比 conponuse 入参
-      useLogsStore().addLog('券诊断', 'conponuse入参', 'allotSeat=' + selection.allotSeat + ' | voucher=' + selection.voucher)
       const useResult = await fetchCouponUsePayment(
         currentOrder.seats,
         currentOrder.orderId,

@@ -565,13 +565,12 @@ function normalizeCouponSelectionResult(payload: Record<string, unknown>): Coupo
 
 function normalizeCouponUseResult(payload: Record<string, unknown>): CouponUseResult {
   const res = asRecord(payload.res)
-  const itemList = asList(res.itemList)
-
-  if (itemList.length === 0) {
-    const baseMsg = firstText(res.bizMsg, res.msg, payload.bizMsg, payload.msg, '兑换券支付分摊明细为空')
-    // 诊断:附带 conponuse 原始返回,便于定位空 itemList 原因(定位后移除)
-    throw new Error(baseMsg + ' | conponuse返回=' + JSON.stringify(payload).slice(0, 600))
+  // conponuse 成功时返回 { able:true, price(券后应付), channelPrice },并不含 itemList。
+  // 只有 able 明确为 false 才算券不可用;不再强制要求 itemList 非空。
+  if (res.able === false || res.able === 'false') {
+    throw new Error(firstText(res.msg, res.bizMsg, payload.bizMsg, payload.msg, '兑换券不可用'))
   }
+  const itemList = asList(res.itemList)
 
   return {
     price: toNumber(res.price),
