@@ -1363,6 +1363,14 @@ export const useTicketStore = defineStore('ticket', {
 
       const userIdentifier = account.userIdentifier || DEFAULT_WANDA_USER_IDENTIFIER
       const couponTypeCodes = selectedCoupons.map((coupon) => firstText(coupon.typeCode, coupon.code, coupon.couponNo))
+      // 诊断:打印选中券的各标识字段 + 原始字段名,用于定位"服务器繁忙"是不是 typeCode 传错
+      useLogsStore().addLog(
+        '券诊断',
+        account.phone,
+        '选中券=' + JSON.stringify(selectedCoupons.map((c) => ({ typeCode: c.typeCode, code: c.code, couponNo: c.couponNo, voucherNo: c.voucherNo, name: c.name }))) +
+          ' | 实际传参coupons=[' + couponTypeCodes.join(',') + ']' +
+          ' | 原始字段=' + JSON.stringify(selectedCoupons.map((c) => (c.raw && typeof c.raw === 'object' ? Object.keys(c.raw as Record<string, unknown>) : [])))
+      )
       const serial = ++this.couponPreviewSerial
       this.couponPreviewLoading = true
 
