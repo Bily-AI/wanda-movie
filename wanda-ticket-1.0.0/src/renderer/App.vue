@@ -296,7 +296,6 @@ async function handleRecharge() {
                 text
                 @click="navigate(item.path)"
               >
-                <el-icon><component :is="item.icon" /></el-icon>
                 <span>{{ item.label }}</span>
               </el-button>
             </nav>
