@@ -981,7 +981,8 @@ export const useTicketStore = defineStore('ticket', {
     handleAccountChanged() {
       const hadCurrentOrder = Boolean(this.currentOrderId)
 
-      this.resetQueryAfterCinemaChange()
+      // 切换账号:清空影院/影片/日期/场次/座位(保留城市),避免残留上一个账号选的影院
+      this.resetQueryAfterCityChange()
       this.loadingShowtimes = false
       this.loadingSeats = false
       this.clearCurrentOrderPaymentContext()
