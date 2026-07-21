@@ -675,7 +675,7 @@ function normalizeTicketOrderResult(response: unknown): TicketOrderResult {
 }
 
 function escapeRequestInfoForSignature(requestInfoJson: string): string {
-  const normalizedValue = requestInfoJson.replaceAll('\\\\u003d', '\\u003d')
+  const normalizedValue = requestInfoJson.replace(/\\\\\\\\u003d/g, '\\u003d')
   const allowedCodePoints = new Set<number>()
 
   for (let code = 0x41; code <= 0x5a; code += 1) {
@@ -1091,7 +1091,7 @@ export async function submitTicketPayment(
     throw new Error('订单 requestInfo 序列化失败')
   }
 
-  const normalizedRequestInfoJson = requestInfoJson.replaceAll('\\\\u003d', '\\u003d')
+  const normalizedRequestInfoJson = requestInfoJson.replace(/\\\\\\\\u003d/g, '\\u003d')
   const encodedRequestInfo = encodeURIComponent(normalizedRequestInfoJson)
   const formBody = [
     'cartSnackInfo=%5B%5D',
