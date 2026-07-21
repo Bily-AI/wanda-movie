@@ -39,11 +39,6 @@ function toggleSelection(value: string) {
     </header>
 
     <div v-if="items.length" class="table-list">
-      <div class="table-header">
-        <div class="col-name">卡名称</div>
-        <div class="col-no">卡号</div>
-        <div class="col-balance">余额</div>
-      </div>
       <div class="table-body">
         <div
           v-for="item in items"
