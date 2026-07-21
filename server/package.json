@@ -12,6 +12,7 @@
     "gen:cards": "tsx scripts/gen-cards.ts"
   },
   "dependencies": {
+    "@fastify/cors": "^9.0.1",
     "@fastify/rate-limit": "^9.1.0",
     "@fastify/static": "^6.12.0",
     "@prisma/client": "^5.20.0",

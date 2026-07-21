@@ -14,12 +14,22 @@ const submitting = ref(false)
 async function submit() {
   if (!username.value.trim() || !password.value) return
   submitting.value = true
-  const ok = mode.value === 'login'
-    ? await auth.login(username.value, password.value)
-    : await auth.register(username.value, password.value)
-  submitting.value = false
-  if (ok) { ElMessage.success(mode.value === 'login' ? '登录成功' : '注册成功'); router.replace('/ticket') }
-  else ElMessage.error(auth.authError)
+  try {
+    const ok = mode.value === 'login'
+      ? await auth.login(username.value, password.value)
+      : await auth.register(username.value, password.value)
+    if (ok) { ElMessage.success(mode.value === 'login' ? '登录成功' : '注册成功'); router.replace('/ticket') }
+    else ElMessage.error(auth.authError)
+  } catch (err) {
+    // 网络不通/服务器没起/请求超时都会抛到这里 —— 之前没接住,按钮会一直转圈且无提示
+    const e = err as { code?: string; message?: string; config?: { baseURL?: string } }
+    const base = e?.config?.baseURL ?? '?'
+    auth.authError = `连接失败 [${e?.code ?? 'ERR'}] ${e?.message ?? String(err)} (base=${base})`
+    ElMessage.error(auth.authError)
+    console.error('[auth] submit failed:', err)
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
 

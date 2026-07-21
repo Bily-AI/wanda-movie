@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify'
 import rateLimit from '@fastify/rate-limit'
 import fastifyStatic from '@fastify/static'
+import cors from '@fastify/cors'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { ensureDefaultAdmin } from './admin/bootstrap.js'
@@ -26,6 +27,9 @@ export async function buildApp(): Promise<FastifyInstance> {
       done(err instanceof Error ? err : new Error('invalid json'), undefined)
     }
   })
+  // 跨域:Electron 渲染进程(dev 在 localhost:5173,打包版是 file://)访问本后端属于跨域,
+  // 浏览器/Chromium 会拦预检。桌面端用 Bearer token 鉴权(不用 cookie),放行所有源即可。
+  await app.register(cors, { origin: true })
   await app.register(rateLimit, { global: false })
   app.get('/health', async () => ({ ok: true }))
   await app.register(authRoutes)
