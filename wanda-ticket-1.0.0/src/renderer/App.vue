@@ -256,6 +256,14 @@ async function handleRecharge() {
   } catch { /* 用户取消 */ }
 }
 
+async function handleLogout() {
+  try {
+    await ElMessageBox.confirm('确定退出当前账号?', '退出', { confirmButtonText: '退出', cancelButtonText: '取消', type: 'warning' })
+    auth.logout()
+    ElMessage.success('已退出')
+  } catch { /* 用户取消 */ }
+}
+
 </script>
 
 <template>
@@ -307,6 +315,7 @@ async function handleRecharge() {
                 <span v-else>积分 {{ auth.remainingPoints }}</span>
               </span>
               <el-button size="small" @click="handleRecharge">充值</el-button>
+              <el-button size="small" @click="handleLogout">退出</el-button>
             </div>
           </div>
 
