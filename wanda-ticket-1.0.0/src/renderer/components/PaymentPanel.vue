@@ -101,48 +101,41 @@ function handleActivityEnabledChange(value: boolean): void {
 
 <template>
   <section class="side-panel-body">
-    <header class="side-panel-header">
-      <span>支付活动</span>
-      <div class="panel-toggle">
-        <el-switch
-          :model-value="activityEnabled"
-          :disabled="activities.length === 0 || loading"
-          inline-prompt
-          active-text="优惠"
-          inactive-text="关闭"
-          @change="handleActivityEnabledChange"
-        />
-      </div>
-    </header>
-
-    <div class="panel-content">
-      <div class="side-line">
-        <span>活动价</span>
-        <el-select
-          :model-value="selectedActivity"
-          size="small"
-          placeholder="无活动"
-          :loading="loading"
-          :disabled="activities.length === 0"
-          @update:model-value="emit('update:selectedActivity', $event)"
+    <div class="activity-row">
+      <span class="activity-title">支付活动</span>
+      <el-select
+        class="activity-select"
+        :model-value="selectedActivity"
+        size="small"
+        placeholder="无活动"
+        :loading="loading"
+        :disabled="activities.length === 0"
+        @update:model-value="emit('update:selectedActivity', $event)"
+      >
+        <el-option label="无活动" value="" />
+        <el-option
+          v-for="item in activities"
+          :key="item.key"
+          :label="item.label"
+          :value="item.value"
         >
-          <el-option label="无活动" value="" />
-          <el-option
-            v-for="item in activities"
-            :key="item.key"
-            :label="item.label"
-            :value="item.value"
-          >
-            <div class="activity-option">
-              <span class="activity-option-label">{{ item.label }}</span>
-              <el-tag v-if="item.priceText" size="small" type="danger" class="activity-option-price">
-                {{ item.priceText }}
-              </el-tag>
-            </div>
-          </el-option>
-        </el-select>
-        <span class="active-price-text">{{ displayPriceText }}</span>
-      </div>
+          <div class="activity-option">
+            <span class="activity-option-label">{{ item.label }}</span>
+            <el-tag v-if="item.priceText" size="small" type="danger" class="activity-option-price">
+              {{ item.priceText }}
+            </el-tag>
+          </div>
+        </el-option>
+      </el-select>
+      <span class="active-price-text">{{ displayPriceText }}</span>
+      <el-switch
+        :model-value="activityEnabled"
+        :disabled="activities.length === 0 || loading"
+        inline-prompt
+        active-text="优惠"
+        inactive-text="关闭"
+        @change="handleActivityEnabledChange"
+      />
     </div>
   </section>
 </template>
@@ -151,6 +144,28 @@ function handleActivityEnabledChange(value: boolean): void {
 .side-panel-body {
   min-width: 0;
   overflow: hidden;
+}
+
+/* 支付活动:标题 + 活动价下拉 + 价格 + 优惠开关 一行显示,省高度 */
+.activity-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 6px 16px;
+}
+
+.activity-title {
+  flex: 0 0 auto;
+  color: var(--app-text);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.activity-select {
+  flex: 1;
+  min-width: 0;
 }
 
 .side-panel-header {
