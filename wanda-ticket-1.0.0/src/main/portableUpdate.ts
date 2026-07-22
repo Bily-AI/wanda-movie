@@ -6,8 +6,9 @@ import { get as httpGet } from 'node:http'
 import { get as httpsGet } from 'node:https'
 import { dirname, join } from 'node:path'
 
-// 更新源:和后端同一台服务器。生产环境改成你的域名(与 renderer/config/authServer.ts 保持一致)。
-const UPDATE_FEED_BASE = 'http://127.0.0.1:3000/updates'
+// 更新源:与后端同一台服务器,统一从 @shared/serverConfig 取(换地址只改那一处)。
+// 主进程无 @shared 别名,用相对路径引同一文件。
+import { UPDATE_FEED_BASE } from '../shared/serverConfig'
 
 interface UpdateManifest {
   version: string
