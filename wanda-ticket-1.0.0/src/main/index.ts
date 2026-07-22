@@ -12,9 +12,16 @@ import { registerElementCaptureHandlers } from './elementCapture'
 import { registerLocalDataHandlers } from './localData'
 import { registerProxyHandlers } from './proxy'
 import { registerWandaHttpHandlers } from './wandaHttp'
+import { setupPortableUpdate } from './portableUpdate'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
+
+// 便携版:把本地数据(账号/设置/日志等)写到 exe 同目录的 data/ 里,数据跟着 exe 走。
+// electron-builder portable 运行时会注入 PORTABLE_EXECUTABLE_DIR(= exe 所在目录)。
+if (process.env.PORTABLE_EXECUTABLE_DIR) {
+  app.setPath('userData', join(process.env.PORTABLE_EXECUTABLE_DIR, 'data'))
+}
 
 let mainWindow: BrowserWindow | null = null
 let autoOrderWindow: BrowserWindow | null = null
@@ -340,6 +347,7 @@ function registerIpcHandlers(): void {
 app.whenReady().then(() => {
   registerIpcHandlers()
   createWindow()
+  setupPortableUpdate(() => mainWindow)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

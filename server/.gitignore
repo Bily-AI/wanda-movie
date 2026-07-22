@@ -3,3 +3,5 @@ dist
 .env
 *.db
 *.db-journal
+# 热更新用的大便携包不入库
+public/updates/*.exe
