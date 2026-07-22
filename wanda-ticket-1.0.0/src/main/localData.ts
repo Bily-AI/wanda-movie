@@ -134,6 +134,8 @@ function isEmptyCityData(data: LocalDataMap['city']): boolean {
 async function readSeedCityData(): Promise<LocalDataMap['city'] | null> {
   const resourcesPath = typeof process.resourcesPath === 'string' ? process.resourcesPath : ''
   const candidatePaths = [
+    // 打包版:electron-builder extraResources 放到 resources/config/city.json
+    resourcesPath ? join(resourcesPath, 'config', 'city.json') : '',
     join(app.getAppPath(), 'config', 'city.json'),
     join(app.getAppPath(), '..', 'config', 'city.json'),
     resourcesPath ? join(resourcesPath, 'app', 'config', 'city.json') : '',

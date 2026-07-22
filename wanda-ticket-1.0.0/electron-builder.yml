@@ -6,6 +6,10 @@ directories:
 files:
   - out/**/*
   - package.json
+# 真实城市/影院数据:打包到 resources/config/city.json,供 loadCityData 兜底读取
+extraResources:
+  - from: config/city.json
+    to: config/city.json
 asar: true
 compression: maximum
 electronLanguages:
