@@ -254,7 +254,9 @@ function formatCouponExpiryMeta(...values: unknown[]): string {
       }
     }
 
-    const dateMatch = text.match(/(\d{4})[-/.年]?\s*(\d{1,2})[-/.月]?\s*(\d{1,2})/)
+    // 取字符串里最后一个日期(有效期区间"起~止"时,止=过期日,避免误取起始日)
+    const dateMatches = [...text.matchAll(/(\d{4})[-/.年]?\s*(\d{1,2})[-/.月]?\s*(\d{1,2})/g)]
+    const dateMatch = dateMatches[dateMatches.length - 1]
 
     if (!dateMatch) {
       continue
@@ -292,7 +294,8 @@ function buildCouponMeta(coupon: (typeof ticketStore.coupons)[number]): string {
     raw.validity,
     raw.expireTime,
     raw.expireDate,
-    raw.endTime
+    raw.endTime,
+    raw.end
   )
   const amountText = coupon.amount > 0 ? `￥${coupon.amount.toFixed(2)}` : ''
 
@@ -332,7 +335,8 @@ const couponItems = computed<PaymentDisplayItem[]>(() =>
           asRecord(coupon.raw).validity,
           asRecord(coupon.raw).expireTime,
           asRecord(coupon.raw).expireDate,
-          asRecord(coupon.raw).endTime
+          asRecord(coupon.raw).endTime,
+          asRecord(coupon.raw).end
         ) || '-'
       }
     ]
