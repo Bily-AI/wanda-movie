@@ -430,7 +430,20 @@ function handleRemoveSelectedSeat(seat: Parameters<typeof ticketStore.toggleSeat
 
 function handleCouponSelectionChange(values: string[]): void {
   ticketStore.selectedCoupons = values
+  // 券与支付卡互斥:选了券就清空支付卡
+  if (values.length > 0) {
+    ticketStore.selectedPaymentCards = []
+  }
   void ticketStore.refreshSelectedCouponPreview()
+}
+
+function handlePaymentCardSelectionChange(values: string[]): void {
+  ticketStore.selectedPaymentCards = values
+  // 支付卡与券互斥:选了支付卡就清空券
+  if (values.length > 0 && ticketStore.selectedCoupons.length > 0) {
+    ticketStore.selectedCoupons = []
+    void ticketStore.refreshSelectedCouponPreview()
+  }
 }
 
 async function handleRefreshTicketCode(): Promise<void> {
@@ -825,7 +838,7 @@ watch(
           :items="paymentCardItems"
           :selected-values="ticketStore.selectedPaymentCards"
           :loading="ticketStore.loadingPaymentData"
-          @update:selected-values="ticketStore.selectedPaymentCards = $event"
+          @update:selected-values="handlePaymentCardSelectionChange"
         />
       </section>
 
