@@ -1043,7 +1043,7 @@ watch(
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 380px;
-  grid-template-rows: minmax(0, 1fr) 64px;
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 12px;
   overflow: hidden;
 }
