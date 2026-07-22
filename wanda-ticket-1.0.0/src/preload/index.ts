@@ -30,7 +30,10 @@ import {
   type WandaH5OpenWindowRequest,
   type WandaH5OpenWindowResult,
   type WandaHttpRequest,
-  type WandaHttpResult
+  type WandaHttpResult,
+  type UpdateAvailablePayload,
+  type UpdateProgressPayload,
+  type UpdateErrorPayload
 } from '../shared/ipc'
 import type { LocalDataFileName, LocalDataMap } from '../shared/localData'
 
@@ -104,6 +107,10 @@ export interface WandaAppApi {
   alipaySyncDevice: (request: AlipayDeviceFingerprint) => Promise<AlipaySyncDeviceResult>
   alipayClearSession: () => Promise<AlipayClearSessionResult>
   getMachineFingerprint: () => Promise<string>
+  onUpdateAvailable: (listener: (payload: UpdateAvailablePayload) => void) => () => void
+  onUpdateProgress: (listener: (payload: UpdateProgressPayload) => void) => () => void
+  onUpdateError: (listener: (payload: UpdateErrorPayload) => void) => () => void
+  startUpdate: () => Promise<{ ok: boolean; error?: string }>
 }
 
 const wandaApp: WandaAppApi = {
@@ -144,7 +151,23 @@ const wandaApp: WandaAppApi = {
     ipcRenderer.invoke(IPC_CHANNELS.ALIPAY_CONVERT, appPayParam, phone, autoPayment),
   alipaySyncDevice: (request) => ipcRenderer.invoke(IPC_CHANNELS.ALIPAY_SYNC_DEVICE, request),
   alipayClearSession: () => ipcRenderer.invoke(IPC_CHANNELS.ALIPAY_CLEAR_SESSION),
-  getMachineFingerprint: () => ipcRenderer.invoke(IPC_CHANNELS.MACHINE_FINGERPRINT)
+  getMachineFingerprint: () => ipcRenderer.invoke(IPC_CHANNELS.MACHINE_FINGERPRINT),
+  onUpdateAvailable: (listener) => {
+    const wrapped = (_e: Electron.IpcRendererEvent, payload: UpdateAvailablePayload) => listener(payload)
+    ipcRenderer.on(IPC_CHANNELS.UPDATE_AVAILABLE, wrapped)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.UPDATE_AVAILABLE, wrapped)
+  },
+  onUpdateProgress: (listener) => {
+    const wrapped = (_e: Electron.IpcRendererEvent, payload: UpdateProgressPayload) => listener(payload)
+    ipcRenderer.on(IPC_CHANNELS.UPDATE_PROGRESS, wrapped)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.UPDATE_PROGRESS, wrapped)
+  },
+  onUpdateError: (listener) => {
+    const wrapped = (_e: Electron.IpcRendererEvent, payload: UpdateErrorPayload) => listener(payload)
+    ipcRenderer.on(IPC_CHANNELS.UPDATE_ERROR, wrapped)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.UPDATE_ERROR, wrapped)
+  },
+  startUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATE_START_DOWNLOAD)
 }
 
 contextBridge.exposeInMainWorld('wandaApp', wandaApp)

@@ -25,6 +25,7 @@ import { useSettingsStore } from './stores/settings'
 import { useTicketStore } from './stores/ticket'
 import { useAuthStore } from '@renderer/stores/auth'
 import AccountSidebar from './components/AccountSidebar.vue'
+import UpdateNotice from './components/UpdateNotice.vue'
 import { extractAppPayParam, openAlipayPayment } from './services/alipayBridge'
 import type { AutoOrderTicketRequest, AutoOrderTicketResult } from '@shared/ipc'
 
@@ -329,6 +330,8 @@ async function handleLogout() {
     <main v-else class="app-main app-main--auth">
       <router-view />
     </main>
+
+    <UpdateNotice />
   </div>
 </template>
 

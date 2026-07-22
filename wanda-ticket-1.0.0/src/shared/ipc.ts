@@ -30,8 +30,27 @@ export const IPC_CHANNELS = {
   ALIPAY_CLEAR_SESSION: 'alipay-clear-session',
   ALIPAY_SYNC_DEVICE: 'alipay-sync-device',
   ALIPAY_CONVERT: 'alipay-convert',
-  MACHINE_FINGERPRINT: 'machine-fingerprint'
+  MACHINE_FINGERPRINT: 'machine-fingerprint',
+  // 便携版热更新(主进程 → 渲染进程事件 + 渲染触发下载)
+  UPDATE_AVAILABLE: 'update:available',
+  UPDATE_PROGRESS: 'update:progress',
+  UPDATE_ERROR: 'update:error',
+  UPDATE_START_DOWNLOAD: 'update:start-download'
 } as const
+
+export interface UpdateAvailablePayload {
+  version: string
+  notes?: string
+}
+export interface UpdateProgressPayload {
+  percent: number
+  receivedMB?: number
+  totalMB?: number
+  done?: boolean
+}
+export interface UpdateErrorPayload {
+  message: string
+}
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]
 

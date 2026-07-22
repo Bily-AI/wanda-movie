@@ -24,7 +24,10 @@ import type {
   WandaH5OpenWindowRequest,
   WandaH5OpenWindowResult,
   WandaHttpRequest,
-  WandaHttpResult
+  WandaHttpResult,
+  UpdateAvailablePayload,
+  UpdateProgressPayload,
+  UpdateErrorPayload
 } from '@shared/ipc'
 import type { LocalDataFileName, LocalDataMap } from '@shared/localData'
 
@@ -66,6 +69,10 @@ declare global {
       onAutoOrderProcessTicket: (listener: (request: AutoOrderTicketRequest) => void) => () => void
       onAutoOrderProcessResult: (listener: (result: AutoOrderTicketResult) => void) => () => void
       getMachineFingerprint: () => Promise<string>
+      onUpdateAvailable: (listener: (payload: UpdateAvailablePayload) => void) => () => void
+      onUpdateProgress: (listener: (payload: UpdateProgressPayload) => void) => () => void
+      onUpdateError: (listener: (payload: UpdateErrorPayload) => void) => () => void
+      startUpdate: () => Promise<{ ok: boolean; error?: string }>
     }
   }
 }
