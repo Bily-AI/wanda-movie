@@ -3,13 +3,16 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@renderer/stores/auth'
+import { changePassword } from '@renderer/services/authApi'
 
 const auth = useAuthStore()
 const router = useRouter()
-const mode = ref<'login' | 'register'>('login')
+const mode = ref<'login' | 'register' | 'changePwd'>('login')
 const username = ref('')
 const password = ref('')
 const cardCode = ref('')
+const newPassword = ref('')
+const confirmPassword = ref('')
 const submitting = ref(false)
 const remember = ref(false)
 
@@ -27,6 +30,14 @@ onMounted(() => {
     }
   } catch { /* 记录损坏则忽略 */ }
 })
+
+function switchMode(next: 'login' | 'register' | 'changePwd') {
+  mode.value = next
+  auth.authError = ''
+  cardCode.value = ''
+  newPassword.value = ''
+  confirmPassword.value = ''
+}
 
 async function submit() {
   if (!username.value.trim() || !password.value) return
@@ -59,25 +70,79 @@ async function submit() {
     submitting.value = false
   }
 }
+
+// 修改密码:用 用户名 + 原密码 校验
+async function submitChangePwd() {
+  if (!username.value.trim() || !password.value) { auth.authError = '请输入用户名和原密码'; return }
+  if (!newPassword.value || newPassword.value.length < 6) { auth.authError = '新密码至少 6 位'; return }
+  if (newPassword.value !== confirmPassword.value) { auth.authError = '两次输入的新密码不一致'; return }
+  submitting.value = true
+  auth.authError = ''
+  try {
+    const res = await changePassword(username.value.trim(), password.value, newPassword.value)
+    if (res.ok) {
+      ElMessage.success('密码已修改,请用新密码登录')
+      // 用新密码回填,切回登录
+      password.value = newPassword.value
+      switchMode('login')
+    } else {
+      auth.authError = mapChangePwdCode(res.code)
+      ElMessage.error(auth.authError)
+    }
+  } catch (err) {
+    const e = err as { code?: string; message?: string }
+    auth.authError = `连接失败 [${e?.code ?? 'ERR'}] ${e?.message ?? String(err)}`
+    ElMessage.error(auth.authError)
+  } finally {
+    submitting.value = false
+  }
+}
+
+function mapChangePwdCode(code?: string): string {
+  switch (code) {
+    case 'BAD_LOGIN': return '用户名或原密码错误'
+    case 'PASSWORD_TOO_SHORT': return '新密码至少 6 位'
+    case 'USER_DISABLED': return '账号已被禁用'
+    default: return '修改失败,请检查网络'
+  }
+}
 </script>
 
 <template>
   <div class="login-page">
     <div class="login-box">
       <div class="login-tabs">
-        <button :class="{ active: mode === 'login' }" @click="mode = 'login'">登录</button>
-        <button :class="{ active: mode === 'register' }" @click="mode = 'register'">注册</button>
+        <button :class="{ active: mode === 'login' }" @click="switchMode('login')">登录</button>
+        <button :class="{ active: mode === 'register' }" @click="switchMode('register')">注册</button>
       </div>
-      <el-input v-model="username" placeholder="用户名" />
-      <el-input v-model="password" type="password" placeholder="密码" show-password @keyup.enter="submit" />
-      <el-input v-if="mode === 'register'" v-model="cardCode" placeholder="卡密(点卡或时长卡)" @keyup.enter="submit" />
-      <div v-if="mode === 'login'" class="login-remember">
-        <el-checkbox v-model="remember">记住密码</el-checkbox>
-      </div>
-      <p v-if="auth.authError" class="login-err">{{ auth.authError }}</p>
-      <el-button type="primary" :loading="submitting" :disabled="!username.trim() || !password || (mode === 'register' && !cardCode.trim())" @click="submit">
-        {{ mode === 'login' ? '登录' : '注册' }}
-      </el-button>
+
+      <!-- 登录 / 注册 -->
+      <template v-if="mode !== 'changePwd'">
+        <el-input v-model="username" placeholder="用户名" />
+        <el-input v-model="password" type="password" placeholder="密码" show-password @keyup.enter="submit" />
+        <el-input v-if="mode === 'register'" v-model="cardCode" placeholder="卡密(点卡或时长卡)" @keyup.enter="submit" />
+        <div v-if="mode === 'login'" class="login-remember">
+          <el-checkbox v-model="remember">记住密码</el-checkbox>
+        </div>
+        <p v-if="auth.authError" class="login-err">{{ auth.authError }}</p>
+        <el-button type="primary" :loading="submitting" :disabled="!username.trim() || !password || (mode === 'register' && !cardCode.trim())" @click="submit">
+          {{ mode === 'login' ? '登录' : '注册' }}
+        </el-button>
+        <p v-if="mode === 'login'" class="login-link"><span @click="switchMode('changePwd')">修改密码</span></p>
+      </template>
+
+      <!-- 修改密码 -->
+      <template v-else>
+        <el-input v-model="username" placeholder="用户名" />
+        <el-input v-model="password" type="password" placeholder="原密码" show-password />
+        <el-input v-model="newPassword" type="password" placeholder="新密码(至少6位)" show-password />
+        <el-input v-model="confirmPassword" type="password" placeholder="确认新密码" show-password @keyup.enter="submitChangePwd" />
+        <p v-if="auth.authError" class="login-err">{{ auth.authError }}</p>
+        <el-button type="primary" :loading="submitting" :disabled="!username.trim() || !password || !newPassword || !confirmPassword" @click="submitChangePwd">
+          确认修改
+        </el-button>
+        <p class="login-link"><span @click="switchMode('login')">返回登录</span></p>
+      </template>
     </div>
   </div>
 </template>
@@ -90,4 +155,7 @@ async function submit() {
 .login-tabs button.active { background: var(--app-accent, #2f6fed); color: #fff; }
 .login-remember { display: flex; margin: -2px 0; }
 .login-err { margin: 0; color: #f56c6c; font-size: 13px; }
+.login-link { margin: 0; text-align: center; font-size: 13px; }
+.login-link span { color: var(--app-accent, #2f6fed); cursor: pointer; }
+.login-link span:hover { text-decoration: underline; }
 </style>

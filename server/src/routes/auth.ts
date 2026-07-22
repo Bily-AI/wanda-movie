@@ -85,6 +85,25 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     return reply.send(sessionPayload(user, signToken({ userId: user.id }), cfg))
   })
 
+  // 用户改密码:登录页用,凭 用户名+原密码 校验(无需已登录 token)
+  app.post('/auth/change-password', {
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } }
+  }, async (req, reply) => {
+    const body = (req.body ?? {}) as { username?: string; oldPassword?: string; newPassword?: string }
+    const uname = body.username?.trim()
+    const oldPassword = body.oldPassword
+    const newPassword = body.newPassword
+    if (!uname || !oldPassword || !newPassword) return reply.code(400).send({ ok: false, code: 'BAD_REQUEST' })
+    if (String(newPassword).length < 6) return reply.send({ ok: false, code: 'PASSWORD_TOO_SHORT' })
+    const user = await prisma.user.findUnique({ where: { username: uname } })
+    if (!user || !(await bcrypt.compare(oldPassword, user.passwordHash))) {
+      return reply.send({ ok: false, code: 'BAD_LOGIN' })
+    }
+    if (user.disabledAt) return reply.send({ ok: false, code: 'USER_DISABLED' })
+    await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await bcrypt.hash(String(newPassword), 10) } })
+    return reply.send({ ok: true })
+  })
+
   app.post('/auth/heartbeat', async (req, reply) => {
     const auth = req.headers.authorization ?? ''
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''

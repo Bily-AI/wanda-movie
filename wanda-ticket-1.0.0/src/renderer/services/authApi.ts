@@ -20,6 +20,7 @@ export interface RedeemResult {
   subscriptionUntil?: string | null; plan?: string | null; code?: string
 }
 export interface DeductResult { ok: boolean; remainingPoints?: number; free?: boolean; code?: string }
+export interface ChangePasswordResult { ok: boolean; code?: string }
 
 const http = axios.create({ baseURL: AUTH_SERVER_BASE_URL, timeout: 10000 })
 const auth = (token: string) => ({ headers: { Authorization: `Bearer ${token}` }, validateStatus: () => true })
@@ -35,6 +36,10 @@ export async function login(username: string, password: string, fingerprint: str
 export async function redeemCard(token: string, cardCode: string): Promise<RedeemResult> {
   const { data } = await http.post('/cards/redeem', { cardCode }, auth(token))
   return data as RedeemResult
+}
+export async function changePassword(username: string, oldPassword: string, newPassword: string): Promise<ChangePasswordResult> {
+  const { data } = await http.post('/auth/change-password', { username, oldPassword, newPassword }, { validateStatus: () => true })
+  return data as ChangePasswordResult
 }
 export async function heartbeat(token: string): Promise<HeartbeatResult> {
   const { data } = await http.post('/auth/heartbeat', {}, auth(token))
