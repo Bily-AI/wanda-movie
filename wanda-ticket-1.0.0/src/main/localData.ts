@@ -11,6 +11,12 @@ import {
 } from '../shared/localData'
 
 function localDataDir(): string {
+  // 便携版:本地数据(账号/设置/日志)放到 exe 同目录的 data/,数据跟着 exe 走。
+  // 只放我们自己的数据,不动 Chromium 的缓存(那些仍在系统默认 userData,避免 data/ 里一堆缓存垃圾)。
+  const portableDir = process.env.PORTABLE_EXECUTABLE_DIR
+  if (portableDir) {
+    return join(portableDir, 'data')
+  }
   return join(app.getPath('userData'), 'local-data')
 }
 
