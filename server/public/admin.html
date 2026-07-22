@@ -97,7 +97,6 @@ td.actions { white-space: nowrap; }
   <div class="login-wrap" v-if="!token">
     <div class="login-box">
       <h2>后台管理登录</h2>
-      <p style="text-align:center;color:#999;font-size:12px;margin-bottom:16px">默认 admin / admin888</p>
       <input type="text" v-model="loginUser" placeholder="用户名" @keyup.enter="doLogin" />
       <input type="password" v-model="loginPwd" placeholder="密码" @keyup.enter="doLogin" />
       <button @click="doLogin">登录</button>
@@ -108,7 +107,22 @@ td.actions { white-space: nowrap; }
   <div v-else>
     <div class="header">
       <h1>后台管理系统</h1>
-      <button @click="logout">退出</button>
+      <div>
+        <button @click="openPwd">修改密码</button>
+        <button @click="logout" style="margin-left:8px">退出</button>
+      </div>
+    </div>
+
+    <!-- 修改密码弹窗 -->
+    <div v-if="showPwd" class="login-wrap" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99">
+      <div class="login-box">
+        <h2>修改密码</h2>
+        <input type="password" v-model="pwdForm.old" placeholder="当前密码" />
+        <input type="password" v-model="pwdForm.n1" placeholder="新密码(至少6位)" />
+        <input type="password" v-model="pwdForm.n2" placeholder="确认新密码" @keyup.enter="changePassword" />
+        <button @click="changePassword">确认修改</button>
+        <button @click="showPwd=false" style="background:#999;margin-top:8px">取消</button>
+      </div>
     </div>
 
     <div class="tabs">
@@ -667,6 +681,22 @@ createApp({
       }
     }
 
+    // 修改密码
+    const showPwd = ref(false)
+    const pwdForm = reactive({ old: '', n1: '', n2: '' })
+    function openPwd() { pwdForm.old = ''; pwdForm.n1 = ''; pwdForm.n2 = ''; showPwd.value = true }
+    async function changePassword() {
+      if (!pwdForm.old) { alert('请输入当前密码'); return }
+      if (!pwdForm.n1 || pwdForm.n1.length < 6) { alert('新密码至少6位'); return }
+      if (pwdForm.n1 !== pwdForm.n2) { alert('两次输入的新密码不一致'); return }
+      const data = await api('POST', '/admin/change-password', { oldPassword: pwdForm.old, newPassword: pwdForm.n1 })
+      if (data && data.ok) {
+        alert('密码已修改,请用新密码重新登录')
+        showPwd.value = false
+        logout()
+      }
+    }
+
     function logout() {
       token.value = ''
       cards.value = []
@@ -868,6 +898,7 @@ createApp({
       adminForm,
       replyForms,
       doLogin, logout, switchTab,
+      showPwd, pwdForm, openPwd, changePassword,
       generateCards, disableCard,
       disableUser, enableUser, adjustPoints, unbindUser,
       saveConfig,

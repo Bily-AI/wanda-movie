@@ -21,6 +21,21 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     return reply.send({ ok: true, token: signAdminToken(username) })
   })
 
+  // 修改当前管理员密码(需已登录 + 校验旧密码)
+  app.post('/admin/change-password', async (req, reply) => {
+    const username = requireAdmin(req, reply); if (!username) return
+    const { oldPassword, newPassword } = (req.body ?? {}) as { oldPassword?: string; newPassword?: string }
+    if (!oldPassword || !newPassword) return reply.code(400).send({ ok: false, code: 'BAD_REQUEST' })
+    if (String(newPassword).length < 6) return reply.send({ ok: false, code: 'PASSWORD_TOO_SHORT' })
+    const admin = await prisma.admin.findUnique({ where: { username } })
+    if (!admin || !(await bcrypt.compare(oldPassword, admin.passwordHash))) {
+      return reply.send({ ok: false, code: 'BAD_OLD_PASSWORD' })
+    }
+    await prisma.admin.update({ where: { username }, data: { passwordHash: await bcrypt.hash(String(newPassword), 10) } })
+    await writeLog(username, 'change-password')
+    return reply.send({ ok: true })
+  })
+
   app.get('/admin/users', async (req, reply) => {
     const admin = requireAdmin(req, reply); if (!admin) return
     const rows = await prisma.user.findMany({ orderBy: { id: 'desc' } })
