@@ -18,9 +18,9 @@ electronLanguages:
 win:
   target:
     - portable
-  artifactName: ${productName}-${version}.${ext}
+  artifactName: ${productName}.${ext}
 portable:
   # 单 exe 便携版:自解压运行;本地数据写到 exe 同目录的 data/(见 src/main/index.ts)
-  artifactName: ${productName}-${version}.${ext}
+  artifactName: ${productName}.${ext}
   unpackDirName: WandaTicket
   requestExecutionLevel: user
