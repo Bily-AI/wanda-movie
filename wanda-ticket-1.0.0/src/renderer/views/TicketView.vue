@@ -810,7 +810,7 @@ watch(
         <div v-else class="side-empty">{{ ticketStore.currentOrderMessage || '暂无订单' }}</div>
       </section>
 
-      <section class="context-panel panel side-panel">
+      <section class="context-panel panel side-panel activity-panel">
         <PaymentPanel
           :activities="paymentActivityOptions"
           :selected-activity="ticketStore.paymentActivity"
@@ -1182,6 +1182,11 @@ watch(
   min-width: 0;
   min-height: 86px;
   overflow: hidden;
+}
+
+/* 支付活动已是单行,取消 86px 最小高度,避免下方留空 */
+.activity-panel {
+  min-height: 0;
 }
 
 .context-card,
