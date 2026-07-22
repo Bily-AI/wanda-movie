@@ -44,3 +44,17 @@ export async function deductPoint(token: string, orderId: string): Promise<Deduc
   const { data } = await http.post('/points/deduct', { orderId }, auth(token))
   return data as DeductResult
 }
+
+export interface RemoteAiConfig {
+  baiduApiKey: string
+  baiduSecretKey: string
+  deepseekApiKey: string
+  deepseekBaseUrl: string
+  deepseekModel: string
+  deepseekEnabled: boolean
+}
+// 从后台拉取百度OCR/DeepSeek配置(登录用户),客户端本地使用
+export async function fetchAiConfig(token: string): Promise<RemoteAiConfig | null> {
+  const { data } = await http.get('/config/ai', auth(token))
+  return (data as { ok?: boolean; config?: RemoteAiConfig })?.ok ? (data as { config: RemoteAiConfig }).config : null
+}

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { toRaw } from 'vue'
 
 import { setWandaRequestParams } from '@renderer/services/wandaRequest'
+import { fetchAiConfig } from '@renderer/services/authApi'
 import {
   DEFAULT_LOCAL_DATA,
   type ProxyLocalData,
@@ -277,6 +278,24 @@ export const useSettingsStore = defineStore('settings', {
         wandaApp.writeLocalData('proxy', proxyData),
         wandaApp.writeLocalData('requestParams', requestParamsData)
       ])
+    },
+    // 从后台拉取百度OCR/DeepSeek密钥并写入本地设置(客户端不再手动配置)
+    async syncRemoteAiConfig(token: string) {
+      if (!token) return
+      try {
+        const cfg = await fetchAiConfig(token)
+        if (!cfg) return
+        this.baiduOcr = { apiKey: cfg.baiduApiKey || '', secretKey: cfg.baiduSecretKey || '' }
+        this.aiOcr = {
+          enabled: Boolean(cfg.deepseekEnabled),
+          baseUrl: cfg.deepseekBaseUrl || this.aiOcr.baseUrl,
+          model: cfg.deepseekModel || this.aiOcr.model,
+          apiKey: cfg.deepseekApiKey || ''
+        }
+        await this.saveSettings()
+      } catch {
+        /* 拉取失败忽略,沿用本地既有值 */
+      }
     },
     async clearCacheData() {
       const wandaApp = getWandaApp()

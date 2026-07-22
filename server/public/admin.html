@@ -312,6 +312,25 @@ td.actions { white-space: nowrap; }
       <!-- 配置 Tab -->
       <div v-if="tab==='config'">
         <div class="card">
+          <div style="font-weight:600;margin-bottom:12px">AI 配置(百度 OCR / DeepSeek)—— 客户端登录后自动拉取使用,用户不可见</div>
+          <div style="display:grid;grid-template-columns:120px 1fr;gap:10px 12px;align-items:center;max-width:640px">
+            <label style="color:#666">百度 API Key</label>
+            <input v-model="aiConfig.baiduApiKey" placeholder="百度 OCR API Key" style="padding:5px 8px;border:1px solid #d9d9d9;border-radius:4px" />
+            <label style="color:#666">百度 Secret Key</label>
+            <input v-model="aiConfig.baiduSecretKey" placeholder="百度 OCR Secret Key" style="padding:5px 8px;border:1px solid #d9d9d9;border-radius:4px" />
+            <label style="color:#666">DeepSeek 启用</label>
+            <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" v-model="aiConfig.deepseekEnabled" /> 启用 AI 文本识别</label>
+            <label style="color:#666">DeepSeek Key</label>
+            <input v-model="aiConfig.deepseekApiKey" placeholder="DeepSeek API Key" style="padding:5px 8px;border:1px solid #d9d9d9;border-radius:4px" />
+            <label style="color:#666">DeepSeek 接口</label>
+            <input v-model="aiConfig.deepseekBaseUrl" placeholder="https://api.deepseek.com/chat/completions" style="padding:5px 8px;border:1px solid #d9d9d9;border-radius:4px" />
+            <label style="color:#666">DeepSeek 模型</label>
+            <input v-model="aiConfig.deepseekModel" placeholder="deepseek-chat" style="padding:5px 8px;border:1px solid #d9d9d9;border-radius:4px" />
+            <div></div>
+            <div><button class="btn btn-primary" @click="saveAiConfig">保存 AI 配置</button></div>
+          </div>
+        </div>
+        <div class="card">
           <table>
             <thead>
               <tr><th>键</th><th>值</th><th>操作</th></tr>
@@ -594,6 +613,17 @@ createApp({
     // 卡密生成
     const cardForm = reactive({ count: 5, kind: 'point', points: 100, durationDays: 30 })
 
+    // AI 配置(百度OCR/DeepSeek)
+    const aiConfig = reactive({ baiduApiKey: '', baiduSecretKey: '', deepseekApiKey: '', deepseekBaseUrl: '', deepseekModel: '', deepseekEnabled: false })
+    async function loadAiConfig() {
+      const d = await api('GET', '/admin/ai-config')
+      if (d && d.config) Object.assign(aiConfig, d.config)
+    }
+    async function saveAiConfig() {
+      const d = await api('POST', '/admin/ai-config', { ...aiConfig })
+      if (d) alert('AI 配置已保存')
+    }
+
     // 管理员新建表单
     const adminForm = reactive({ username: '', password: '' })
     const generatedCodes = ref([])
@@ -667,7 +697,9 @@ createApp({
         if (d) ledger.value = d.items || []
       } else if (t === 'config') {
         const d = await api('GET', '/admin/config')
-        if (d) configs.value = (d.items || []).map(c => ({ ...c, editValue: c.value }))
+        // ai.* 键由上方「AI 配置」卡片管理,不在通用配置表里露明/密文
+        if (d) configs.value = (d.items || []).filter(c => !c.key.startsWith('ai.')).map(c => ({ ...c, editValue: c.value }))
+        await loadAiConfig()
       } else if (t === 'feedback') {
         const d = await api('GET', '/admin/feedback')
         if (d) feedbacks.value = d.items || []
@@ -832,6 +864,7 @@ createApp({
       pageSize, pages, totalPages,
       pagedCards, pagedUsers, pagedLedger, pagedFeedbacks, pagedAdmins, pagedLogs,
       cardForm, generatedCodes,
+      aiConfig, saveAiConfig,
       adminForm,
       replyForms,
       doLogin, logout, switchTab,

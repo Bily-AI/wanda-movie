@@ -295,119 +295,34 @@ async function handleClearCacheData() {
           <template #header>
             <div class="card-header">
               <el-icon><Key /></el-icon>
-              <span>百度 OCR 设置</span>
+              <span>识别配置(百度 OCR / AI)</span>
             </div>
           </template>
 
           <div class="setting-row setting-row--stack">
             <div class="setting-label">
-              <span class="setting-name">API Key</span>
-              <span class="setting-desc">图片识别调用百度 OCR 时使用，只保存在本地</span>
+              <span class="setting-name">配置来源</span>
+              <span class="setting-desc">百度 OCR 与 AI 文本识别的密钥由后台统一配置，登录后自动下发，无需手动填写。</span>
             </div>
-            <el-input
-              v-model="settingsStore.baiduOcr.apiKey"
-              placeholder="输入百度 OCR API Key"
-              show-password
-              clearable
-              @change="() => persistSettings('百度 OCR 设置已保存')"
-            />
-          </div>
-
-          <div class="setting-row setting-row--stack">
-            <div class="setting-label">
-              <span class="setting-name">Secret Key</span>
-              <span class="setting-desc">主进程读取后调用百度 OCR，不会暴露给页面请求</span>
-            </div>
-            <el-input
-              v-model="settingsStore.baiduOcr.secretKey"
-              placeholder="输入百度 OCR Secret Key"
-              show-password
-              clearable
-              @change="() => persistSettings('百度 OCR 设置已保存')"
-            />
           </div>
 
           <div class="setting-row">
             <div class="setting-label">
-              <span class="setting-name">配置状态</span>
-              <span class="setting-desc">未配置时图片识别会提示缺少百度 OCR 配置</span>
+              <span class="setting-name">图片识别(百度 OCR)</span>
             </div>
             <div class="setting-control">
-              <el-tag :type="settingsStore.baiduOcrConfigured ? 'success' : 'warning'">
-                {{ settingsStore.baiduOcrConfigured ? '已配置' : '未配置' }}
+              <el-tag :type="settingsStore.baiduOcrConfigured ? 'success' : 'info'">
+                {{ settingsStore.baiduOcrConfigured ? '已就绪' : '未配置' }}
               </el-tag>
             </div>
           </div>
-        </el-card>
-
-        <el-card class="settings-card settings-card--ai-ocr" shadow="never">
-          <template #header>
-            <div class="card-header">
-              <el-icon><Key /></el-icon>
-              <span>AI OCR 解析设置</span>
-            </div>
-          </template>
 
           <div class="setting-row">
             <div class="setting-label">
-              <span class="setting-name">启用 AI 兜底</span>
-              <span class="setting-desc">本地解析缺字段时再调用，不替代万达真实数据</span>
+              <span class="setting-name">AI 文本识别(DeepSeek)</span>
             </div>
             <div class="setting-control">
-              <el-switch
-                v-model="settingsStore.aiOcr.enabled"
-                @change="() => persistSettings('AI OCR 设置已保存')"
-              />
-            </div>
-          </div>
-
-          <div class="setting-row setting-row--stack">
-            <div class="setting-label">
-              <span class="setting-name">Base URL</span>
-              <span class="setting-desc">默认使用旧版 DeepSeek 兼容接口，可按需替换</span>
-            </div>
-            <el-input
-              v-model="settingsStore.aiOcr.baseUrl"
-              placeholder="https://api.deepseek.com/chat/completions"
-              clearable
-              @change="() => persistSettings('AI OCR 设置已保存')"
-            />
-          </div>
-
-          <div class="setting-row setting-row--stack">
-            <div class="setting-label">
-              <span class="setting-name">模型名</span>
-              <span class="setting-desc">默认 deepseek-chat，只用于整理 OCR 文本</span>
-            </div>
-            <el-input
-              v-model="settingsStore.aiOcr.model"
-              placeholder="deepseek-chat"
-              clearable
-              @change="() => persistSettings('AI OCR 设置已保存')"
-            />
-          </div>
-
-          <div class="setting-row setting-row--stack">
-            <div class="setting-label">
-              <span class="setting-name">API Key</span>
-              <span class="setting-desc">只保存在本地，由主进程调用 AI 接口</span>
-            </div>
-            <el-input
-              v-model="settingsStore.aiOcr.apiKey"
-              placeholder="输入 AI OCR API Key"
-              show-password
-              clearable
-              @change="() => persistSettings('AI OCR 设置已保存')"
-            />
-          </div>
-
-          <div class="setting-row">
-            <div class="setting-label">
-              <span class="setting-name">配置状态</span>
-              <span class="setting-desc">未启用或缺少密钥时会跳过 AI 兜底</span>
-            </div>
-            <div class="setting-control">
-              <el-tag :type="settingsStore.aiOcrConfigured ? 'success' : 'warning'">
+              <el-tag :type="settingsStore.aiOcrConfigured ? 'success' : 'info'">
                 {{ settingsStore.aiOcrConfigured ? '已启用' : '未启用' }}
               </el-tag>
             </div>

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { register, login, redeemCard, heartbeat, type AuthConfig } from '@renderer/services/authApi'
+import { useSettingsStore } from '@renderer/stores/settings'
 
 const TOKEN_KEY = 'wanda_auth_token'
 const DEFAULT_CONFIG: AuthConfig = { deductPerPayment: 1, heartbeatSec: 60, blockWhenExpired: true, blockWhenNoPoints: true }
@@ -50,6 +51,7 @@ export const useAuthStore = defineStore('auth', {
       this.applyLogin(res.token!, res.remainingPoints ?? 0, res.expireAt ?? null, res.subscriptionUntil ?? null, res.plan ?? null, res.config!)
       localStorage.setItem(TOKEN_KEY, res.token!)
       this.startHeartbeat()
+      void useSettingsStore().syncRemoteAiConfig(res.token!)
       return true
     },
     async redeem(cardCode: string) {
@@ -70,6 +72,7 @@ export const useAuthStore = defineStore('auth', {
         if (res.ok) {
           this.applyLogin(token, res.remainingPoints ?? 0, res.expireAt ?? null, res.subscriptionUntil ?? null, res.plan ?? null, res.config!)
           this.startHeartbeat()
+          void useSettingsStore().syncRemoteAiConfig(token)
         } else { this.logout() }
       } catch { /* 离线冷启动:保留 token,等联网 */ }
     },
