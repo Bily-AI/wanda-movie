@@ -10,7 +10,7 @@ module.exports = {
   apps: [
     {
       name: 'wanda-auth',
-      script: 'dist/server.js',
+      script: 'dist/src/server.js',
       cwd: __dirname,
       node_args: '--env-file=.env',
       instances: 1,

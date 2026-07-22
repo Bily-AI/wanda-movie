@@ -4,5 +4,5 @@
     "outDir": "dist", "rootDir": ".", "strict": true, "esModuleInterop": true,
     "skipLibCheck": true, "resolveJsonModule": true
   },
-  "include": ["src", "prisma", "scripts", "test"]
+  "include": ["src", "scripts"]
 }

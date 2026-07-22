@@ -41,8 +41,10 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(feedbackRoutes)
   await app.register(statsRoutes)
   await app.register(aiConfigRoutes)
-  const currentDir = dirname(fileURLToPath(import.meta.url))
-  await app.register(fastifyStatic, { root: join(currentDir, '../public'), prefix: '/' })
+  // 静态目录(后台 admin.html + 热更新包):用工作目录定位,dev 与 pm2 均以 server 根为 cwd。
+  // 不能用 import.meta.url 相对路径 —— 编译后 app.js 在 dist/src/,相对 ../public 会指错。
+  const publicDir = join(process.cwd(), 'public')
+  await app.register(fastifyStatic, { root: publicDir, prefix: '/' })
   app.get('/admin', async (_req, reply) => reply.sendFile('admin.html'))
   await ensureDefaultAdmin()
   return app
