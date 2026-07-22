@@ -429,9 +429,15 @@ function handleRemoveSelectedSeat(seat: Parameters<typeof ticketStore.toggleSeat
 }
 
 function handleCouponSelectionChange(values: string[]): void {
-  ticketStore.selectedCoupons = values
+  // 券只能用一张:多选时只保留最新点的那张
+  let next = values
+  if (values.length > 1) {
+    const added = values.filter((v) => !ticketStore.selectedCoupons.includes(v))
+    next = added.length > 0 ? [added[added.length - 1]] : [values[values.length - 1]]
+  }
+  ticketStore.selectedCoupons = next
   // 券与支付卡互斥:选了券就清空支付卡
-  if (values.length > 0) {
+  if (next.length > 0) {
     ticketStore.selectedPaymentCards = []
   }
   void ticketStore.refreshSelectedCouponPreview()
