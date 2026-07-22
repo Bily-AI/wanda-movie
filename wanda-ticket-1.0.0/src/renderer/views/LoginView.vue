@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@renderer/stores/auth'
@@ -11,6 +11,22 @@ const username = ref('')
 const password = ref('')
 const cardCode = ref('')
 const submitting = ref(false)
+const remember = ref(false)
+
+const REMEMBER_KEY = 'wanda_login_remember'
+
+// 启动时回填已记住的账号密码
+onMounted(() => {
+  try {
+    const raw = localStorage.getItem(REMEMBER_KEY)
+    if (raw) {
+      const saved = JSON.parse(raw) as { username?: string; password?: string }
+      username.value = saved.username || ''
+      password.value = saved.password || ''
+      remember.value = true
+    }
+  } catch { /* 记录损坏则忽略 */ }
+})
 
 async function submit() {
   if (!username.value.trim() || !password.value) return
@@ -20,7 +36,17 @@ async function submit() {
     const ok = mode.value === 'login'
       ? await auth.login(username.value, password.value)
       : await auth.register(username.value, password.value, cardCode.value)
-    if (ok) { ElMessage.success(mode.value === 'login' ? '登录成功' : '注册成功'); router.replace('/ticket') }
+    if (ok) {
+      // 登录模式:按「记住密码」保存或清除本地凭据
+      if (mode.value === 'login') {
+        if (remember.value) {
+          localStorage.setItem(REMEMBER_KEY, JSON.stringify({ username: username.value.trim(), password: password.value }))
+        } else {
+          localStorage.removeItem(REMEMBER_KEY)
+        }
+      }
+      ElMessage.success(mode.value === 'login' ? '登录成功' : '注册成功'); router.replace('/ticket')
+    }
     else ElMessage.error(auth.authError)
   } catch (err) {
     // 网络不通/服务器没起/请求超时都会抛到这里 —— 之前没接住,按钮会一直转圈且无提示
@@ -45,6 +71,9 @@ async function submit() {
       <el-input v-model="username" placeholder="用户名" />
       <el-input v-model="password" type="password" placeholder="密码" show-password @keyup.enter="submit" />
       <el-input v-if="mode === 'register'" v-model="cardCode" placeholder="卡密(点卡或时长卡)" @keyup.enter="submit" />
+      <div v-if="mode === 'login'" class="login-remember">
+        <el-checkbox v-model="remember">记住密码</el-checkbox>
+      </div>
       <p v-if="auth.authError" class="login-err">{{ auth.authError }}</p>
       <el-button type="primary" :loading="submitting" :disabled="!username.trim() || !password || (mode === 'register' && !cardCode.trim())" @click="submit">
         {{ mode === 'login' ? '登录' : '注册' }}
@@ -59,5 +88,6 @@ async function submit() {
 .login-tabs { display: flex; gap: 8px; }
 .login-tabs button { flex: 1; padding: 8px; border: none; background: #eef1f6; border-radius: 6px; cursor: pointer; color: #6b7280; }
 .login-tabs button.active { background: var(--app-accent, #2f6fed); color: #fff; }
+.login-remember { display: flex; margin: -2px 0; }
 .login-err { margin: 0; color: #f56c6c; font-size: 13px; }
 </style>
