@@ -80,8 +80,8 @@ watch(
 
 const activityEnabled = computed(() => props.activities.length > 0 && Boolean(props.selectedActivity))
 const selectedActivityItem = computed(() => props.activities.find((item) => item.value === props.selectedActivity) ?? null)
-const cheapestActivity = computed(() => findCheapestActivity(props.activities))
-const displayPriceText = computed(() => selectedActivityItem.value?.priceText || cheapestActivity.value?.priceText || '')
+// 只有选了活动才显示活动价;「无活动」时为空,不再错误回退显示最便宜活动的价
+const displayPriceText = computed(() => selectedActivityItem.value?.priceText || '')
 
 function handleActivityEnabledChange(value: boolean): void {
   if (!value) {
