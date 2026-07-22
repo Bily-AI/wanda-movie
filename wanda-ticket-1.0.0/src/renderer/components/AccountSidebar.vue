@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { Delete, DocumentCopy, Edit, FolderAdd, Lock, Refresh, Search, Sort, Upload, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -186,6 +186,25 @@ const currentGroupLabel = computed(() => {
   }
   return accountsStore.groups.find((group) => group.id === id)?.name || '全部分组'
 })
+
+// 分组名重命名(hover 显示可编辑,点击进入编辑)
+const editingGroup = ref(false)
+const groupNameInput = ref('')
+const groupNameInputRef = ref<HTMLInputElement | null>(null)
+const canEditGroup = computed(
+  () => Boolean(accountsStore.selectedGroupId) && accountsStore.groups.some((group) => group.id === accountsStore.selectedGroupId)
+)
+function startEditGroup(): void {
+  if (!canEditGroup.value) return
+  groupNameInput.value = currentGroupLabel.value
+  editingGroup.value = true
+  void nextTick(() => groupNameInputRef.value?.focus())
+}
+async function saveGroupName(): Promise<void> {
+  if (!editingGroup.value) return
+  editingGroup.value = false
+  await accountsStore.renameGroup(accountsStore.selectedGroupId, groupNameInput.value)
+}
 
 function handleToggleSelectAll(): void {
   if (allAccountsChecked.value) {
@@ -599,7 +618,25 @@ async function confirmImportAccounts(): Promise<void> {
           >
             全选
           </el-checkbox>
-          <span class="account-list-group-label">{{ currentGroupLabel }}</span>
+          <span
+            v-if="!editingGroup"
+            class="account-list-group-label"
+            :class="{ 'is-editable': canEditGroup }"
+            :title="canEditGroup ? '点击重命名分组' : ''"
+            @click="startEditGroup"
+          >
+            {{ currentGroupLabel }}
+            <el-icon v-if="canEditGroup" class="group-edit-icon"><Edit /></el-icon>
+          </span>
+          <input
+            v-else
+            ref="groupNameInputRef"
+            v-model="groupNameInput"
+            class="account-list-group-input"
+            maxlength="20"
+            @keyup.enter="saveGroupName"
+            @blur="saveGroupName"
+          />
         </div>
         <div class="account-row-list">
           <button
@@ -1090,6 +1127,42 @@ async function confirmImportAccounts(): Promise<void> {
 .account-list-group-label {
   color: var(--app-muted);
   font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.account-list-group-label.is-editable {
+  cursor: pointer;
+  padding: 1px 4px;
+  border-radius: 4px;
+  transition: background-color 0.15s;
+}
+
+.account-list-group-label.is-editable:hover {
+  background-color: var(--app-hover, #eef1f6);
+  color: var(--app-accent);
+}
+
+.group-edit-icon {
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.account-list-group-label.is-editable:hover .group-edit-icon {
+  opacity: 0.8;
+}
+
+.account-list-group-input {
+  width: 96px;
+  font-size: 12px;
+  padding: 1px 5px;
+  border: 1px solid var(--app-accent, #2f6fed);
+  border-radius: 4px;
+  outline: none;
+  color: var(--app-text);
+  background: var(--app-surface, #fff);
 }
 
 .account-list-toolbar :deep(.el-button) {

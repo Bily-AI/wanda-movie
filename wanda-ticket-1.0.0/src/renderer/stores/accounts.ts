@@ -378,6 +378,14 @@ export const useAccountsStore = defineStore('accounts', {
       this.loginForm.message = '分组创建成功'
       return id
     },
+    async renameGroup(id: string, name: string) {
+      const trimmed = name.trim()
+      if (!trimmed) return
+      const index = this.groups.findIndex((group) => group.id === id)
+      if (index === -1) return
+      this.groups[index] = { ...this.groups[index], name: trimmed }
+      await this.saveAccounts()
+    },
     async moveAccountToGroup(accountId: string, groupId: string) {
       const index = this.accounts.findIndex((acc) => acc.id === accountId)
       if (index !== -1) {
