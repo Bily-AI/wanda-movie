@@ -102,17 +102,14 @@ sudo ufw allow 443/tcp
 
 ## 8. 客户端指向服务器(关键,不然客户端还是连本地)
 
-客户端里后端地址目前写死为本地。你要改成 VPS 地址后**重新打包客户端**发给用户:
+客户端后端地址已统一到**一个文件**。改地址后**重新打包客户端**发给用户:
 
-- 文件 `wanda-ticket-1.0.0/src/renderer/config/authServer.ts`
-  把 `http://127.0.0.1:3000` 改成:
+- 只改这一处:`wanda-ticket-1.0.0/src/shared/serverConfig.ts`
+  把 `SERVER_BASE_URL` 从 `http://127.0.0.1:3000` 改成:
   - 有域名+HTTPS:`https://api.你的域名.com`
   - 只用 IP:`http://103.97.201.139:3000`
-- 文件 `wanda-ticket-1.0.0/src/main/portableUpdate.ts`
-  把 `UPDATE_FEED_BASE` 的 `http://127.0.0.1:3000/updates` 改成同样的服务器地址 `.../updates`
+  (登录/积分/反馈/统计接口 + 热更新地址都会自动跟着变,不用再动别的文件)
 - 然后 `cd wanda-ticket-1.0.0 && npm run pack:win` 重新出便携 exe。
-
-> 我可以帮你把这两处改成「读环境变量/配置」的形式,打包时一处改全生效。需要的话说一声。
 
 ## 9. (可选但推荐)Nginx + HTTPS
 
