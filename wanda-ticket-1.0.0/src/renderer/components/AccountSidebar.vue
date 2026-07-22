@@ -1146,12 +1146,13 @@ async function confirmImportAccounts(): Promise<void> {
 
 .group-edit-icon {
   font-size: 12px;
-  opacity: 0;
+  opacity: 0.6;
+  color: var(--app-accent);
   transition: opacity 0.15s;
 }
 
 .account-list-group-label.is-editable:hover .group-edit-icon {
-  opacity: 0.8;
+  opacity: 1;
 }
 
 .account-list-group-input {
