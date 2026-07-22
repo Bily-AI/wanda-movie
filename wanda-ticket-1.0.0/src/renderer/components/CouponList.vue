@@ -100,7 +100,7 @@ function toggleSelection(value: string) {
 .table-list {
   display: flex;
   flex-direction: column;
-  padding: 8px 16px 10px;
+  padding: 0;
 }
 
 .table-header {
