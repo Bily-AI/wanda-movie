@@ -6,7 +6,12 @@
 //
 // 本地开发:必须用 127.0.0.1,不要用 localhost —— Electron/Chromium 会把
 // localhost 优先解析成 IPv6 ::1,而后端只监听 IPv4(0.0.0.0),会导致「连接服务器失败」。
-export const SERVER_BASE_URL = 'http://127.0.0.1:3000'
+//
+// 按环境自动切换:npm run dev 连本地,打包版(pack:win)自动连线上,无需手改。
+// import.meta.env.PROD 由 electron-vite 在主进程/渲染进程构建时静态替换。
+const PROD_SERVER_URL = 'https://fast.761775970.xyz'
+const DEV_SERVER_URL = 'http://127.0.0.1:3000'
+export const SERVER_BASE_URL = import.meta.env.PROD ? PROD_SERVER_URL : DEV_SERVER_URL
 
 // 认证 / 积分 / 反馈 / 统计 等 REST 接口基址(渲染进程用)
 export const AUTH_SERVER_BASE_URL = SERVER_BASE_URL

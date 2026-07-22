@@ -8,7 +8,7 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["node", "electron"]
+    "types": ["node", "electron", "vite/client"]
   },
   "include": [
     "electron.vite.config.ts",
