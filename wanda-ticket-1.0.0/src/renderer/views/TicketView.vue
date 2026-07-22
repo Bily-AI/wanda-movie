@@ -1302,12 +1302,23 @@ watch(
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 12px;
+  gap: 8px;
+  padding: 4px 10px;
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: var(--app-surface);
   box-shadow: var(--shadow-panel);
+}
+
+/* 底部操作栏整体缩小:按钮更矮、字号更小 */
+.bottom-actions :deep(.el-button) {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.bottom-actions :deep(.el-button .el-icon) {
+  font-size: 13px;
 }
 
 .bottom-ocr-state {
@@ -1315,7 +1326,7 @@ watch(
   min-width: 0;
   text-align: center;
   color: #168a3d;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
