@@ -2810,7 +2810,7 @@ export const useTicketStore = defineStore('ticket', {
         }
       }
     },
-    async cancelCurrentOrder() {
+    async cancelCurrentOrder(options: { keepSeats?: boolean } = {}) {
       const account = useAccountsStore().currentAccount
 
       if (this.orderCancelling) {
@@ -2850,10 +2850,12 @@ export const useTicketStore = defineStore('ticket', {
         }
 
         useLogsStore().addLog('订单', phone, `订单已取消：${orderId}`)
-        this.currentOrderMessage = '订单已取消'
+        this.currentOrderMessage = options.keepSeats ? '已释放原座位，可直接重新选座' : '订单已取消'
         this.clearCurrentOrderPaymentContext()
-        // 取消订单后一并清空座位勾选，避免残留高亮
-        this.clearSeatSelection(true)
+        // 默认清空座位勾选避免残留高亮;改座场景(keepSeats)保留勾选,便于在原基础上调整
+        if (!options.keepSeats) {
+          this.clearSeatSelection(true)
+        }
       } catch (error) {
         if (
           requestSerial !== this.orderRequestSerial ||
@@ -2874,14 +2876,22 @@ export const useTicketStore = defineStore('ticket', {
         }
       }
     },
-    toggleSeat(seat: SeatNode) {
-      if (this.hasPendingCurrentOrder) {
-        this.currentOrderMessage = '已有待处理订单，请先取消当前订单后再调整座位'
+    async toggleSeat(seat: SeatNode) {
+      if (seat.status === 'occupied') {
         return
       }
 
-      if (seat.status === 'occupied') {
-        return
+      // 已下单(座位在万达服务器被锁):点座位时自动释放旧单再改座,保留原勾选,无需手动「取消订单」。
+      // 万达 API 层面座位由订单占用,换座必须先释放旧单 —— 这里只是把释放动作自动化。
+      if (this.hasPendingCurrentOrder) {
+        if (this.orderCancelling) {
+          return
+        }
+        await this.cancelCurrentOrder({ keepSeats: true })
+        // 取消失败(如账号不匹配)仍处于待处理状态,则不改动座位
+        if (this.hasPendingCurrentOrder) {
+          return
+        }
       }
 
       const exists = this.selectedSeatNodes.some((item) => item.id === seat.id)
