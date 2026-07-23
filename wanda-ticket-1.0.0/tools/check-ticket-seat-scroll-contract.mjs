@@ -25,10 +25,9 @@ assert.equal(
 for (const marker of [
   '.ticket-center {\n  overflow-x: hidden;\n  overflow-y: auto;',
   'scrollbar-gutter: stable;',
-  '.seat-panel {\n  flex: 0 0 auto;\n  overflow: hidden;',
-  '.seat-stage {\n  flex: 0 0 auto;\n  min-width: 0;\n  min-height: 0;\n  padding-top: 12px;\n  display: grid;\n  grid-template-columns: minmax(0, 1fr);',
+  '.seat-panel {\n  flex: 1 1 auto;\n  min-height: 0;\n  overflow: hidden;',
+  '.seat-stage {\n  flex: 1 1 auto;\n  min-width: 0;\n  min-height: 0;\n  padding-top: 12px;\n  display: grid;\n  grid-template-columns: minmax(0, 1fr);',
   '.seat-scroll {\n  align-self: stretch;\n  justify-self: stretch;',
-  'max-height: 60vh;',
   'overflow: auto;',
   'scrollbar-gutter: stable both-edges;'
 ]) {

@@ -1141,14 +1141,15 @@ watch(
 }
 
 .seat-panel {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
 .seat-stage {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   padding-top: 12px;
@@ -1164,7 +1165,6 @@ watch(
   min-width: 0;
   min-height: 0;
   width: 100%;
-  max-height: 60vh;
   overflow: auto;
   scrollbar-gutter: stable both-edges;
   overscroll-behavior: contain;
