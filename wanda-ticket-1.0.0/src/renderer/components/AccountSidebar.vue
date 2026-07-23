@@ -494,7 +494,7 @@ async function handleCopyPhoneAndToken(): Promise<void> {
   if (!account) return
   contextMenuVisible.value = false
   try {
-    const text = `${account.phone}---${account.ck || ''}`
+    const text = `${account.phone}----${account.ck || ''}`
     await navigator.clipboard.writeText(text)
     ElMessage.success('账号及Token已复制')
   } catch {
@@ -808,7 +808,7 @@ async function confirmImportAccounts(): Promise<void> {
           </el-menu-item>
           <el-menu-item @click="handleCopyPhoneAndToken">
             <el-icon><DocumentCopy /></el-icon>
-            <span>复制账号---token</span>
+            <span>复制账号----token</span>
           </el-menu-item>
           <div class="el-menu-item-divider" />
           <el-menu-item @click="handleImportAccounts">

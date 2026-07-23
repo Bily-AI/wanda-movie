@@ -313,13 +313,11 @@ assertIncludes(
   '兑换券必须按旧包优先使用 typeCode'
 )
 
-assertBlockContains(
+// 二次确认弹窗已按用户要求移除:提交支付按钮直接触发真实支付接口(不再经 popconfirm)
+assertIncludes(
   'src/renderer/views/TicketView.vue',
   ticketView,
-  '<el-popconfirm',
-  '</el-popconfirm>',
-  ['提交支付', '@confirm="ticketStore.submitCurrentOrderPayment"', '真实支付接口'],
-  '提交支付按钮必须经确认弹窗触发真实支付接口'
+  '@click="ticketStore.submitCurrentOrderPayment"'
 )
 
 for (const label of [

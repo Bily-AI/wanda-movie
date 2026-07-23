@@ -892,55 +892,31 @@ watch(
       >
         取消选择
       </el-button>
-      <el-popconfirm
-        title="确认创建电影票订单？"
-        confirm-button-text="确认"
-        cancel-button-text="取消"
-        @confirm="ticketStore.createCurrentOrder"
+      <el-button
+        type="success"
+        :loading="ticketStore.orderCreating"
+        :disabled="ticketStore.selectedSeatCount === 0 || ticketStore.orderCreating || ticketStore.hasPendingCurrentOrder"
+        @click="ticketStore.createCurrentOrder"
       >
-        <template #reference>
-          <el-button
-            type="success"
-            :loading="ticketStore.orderCreating"
-            :disabled="ticketStore.selectedSeatCount === 0 || ticketStore.orderCreating || ticketStore.hasPendingCurrentOrder"
-          >
-            确认选座
-          </el-button>
-        </template>
-      </el-popconfirm>
-      <el-popconfirm
+        确认选座
+      </el-button>
+      <el-button
         v-if="ticketStore.hasPendingCurrentOrder"
-        title="确认取消当前真实订单？将调用真实取消接口释放座位，请确认。"
-        confirm-button-text="取消订单"
-        cancel-button-text="返回"
-        @confirm="ticketStore.cancelCurrentOrder"
+        type="danger"
+        :loading="ticketStore.orderCancelling"
+        :disabled="ticketStore.orderCancelling || ticketStore.currentOrderFinalized"
+        @click="ticketStore.cancelCurrentOrder"
       >
-        <template #reference>
-          <el-button
-            type="danger"
-            :loading="ticketStore.orderCancelling"
-            :disabled="ticketStore.orderCancelling || ticketStore.currentOrderFinalized"
-          >
-            取消订单
-          </el-button>
-        </template>
-      </el-popconfirm>
-      <el-popconfirm
-        title="确认提交支付？将调用真实支付接口，请确认订单和账号无误。"
-        confirm-button-text="提交支付"
-        cancel-button-text="取消"
-        @confirm="ticketStore.submitCurrentOrderPayment"
+        取消订单
+      </el-button>
+      <el-button
+        type="primary"
+        :loading="ticketStore.submittingPayment"
+        :disabled="!ticketStore.canSubmitCurrentOrderPayment || !authStore.canPay"
+        @click="ticketStore.submitCurrentOrderPayment"
       >
-        <template #reference>
-          <el-button
-            type="primary"
-            :loading="ticketStore.submittingPayment"
-            :disabled="!ticketStore.canSubmitCurrentOrderPayment || !authStore.canPay"
-          >
-            提交支付
-          </el-button>
-        </template>
-      </el-popconfirm>
+        提交支付
+      </el-button>
       <span v-if="!authStore.canPay" class="pay-blocked-tip">{{ payBlockedTip }}</span>
     </footer>
 
@@ -963,22 +939,14 @@ watch(
       <el-empty v-else description="暂无支付参数" :image-size="56" />
       <template #footer>
         <el-button @click="payInfoDialogVisible = false">关闭</el-button>
-        <el-popconfirm
-          title="确认打开支付宝支付？如已开启自动支付，窗口可能尝试自动填写。"
-          confirm-button-text="打开支付宝"
-          cancel-button-text="取消"
-          @confirm="handleOpenTicketAlipayPayment"
+        <el-button
+          type="primary"
+          :loading="openingAlipay"
+          :disabled="!ticketAppPayParam"
+          @click="handleOpenTicketAlipayPayment"
         >
-          <template #reference>
-            <el-button
-              type="primary"
-              :loading="openingAlipay"
-              :disabled="!ticketAppPayParam"
-            >
-              打开支付宝支付
-            </el-button>
-          </template>
-        </el-popconfirm>
+          打开支付宝支付
+        </el-button>
       </template>
     </el-dialog>
 

@@ -61,7 +61,8 @@ const logTypeOptions = computed(() => {
 })
 
 const filteredLogs = computed(() => {
-  let rows = [...logsStore.records].reverse()
+  // records 已是最新在前(addLog 用 unshift),不再 reverse,默认按日期倒序展示
+  let rows = [...logsStore.records]
 
   if (logType.value) {
     rows = rows.filter((item) => item.type === logType.value)
