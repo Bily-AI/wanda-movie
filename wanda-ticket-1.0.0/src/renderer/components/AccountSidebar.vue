@@ -14,9 +14,12 @@ import { queryOrderList } from '@renderer/services/seatApi'
 import { checkLoginStatus } from '@renderer/services/wandaAuthApi'
 import { useAccountsStore } from '@renderer/stores/accounts'
 import { useLogsStore } from '@renderer/stores/logs'
+import { useAuthStore } from '@renderer/stores/auth'
+import { consumePoints } from '@renderer/services/authApi'
 import type { WandaAccount } from '@shared/localData'
 
 const DEFAULT_WANDA_USER_IDENTIFIER = 'YYDDJDKYHA'
+const auth = useAuthStore()
 
 const accountsStore = useAccountsStore()
 const logsStore = useLogsStore()
@@ -57,13 +60,50 @@ async function handleCopyExportText(): Promise<void> {
   }
 }
 
-function handleBatchExportAccounts(): void {
+async function handleBatchExportAccounts(): Promise<void> {
   if (accountsStore.selectedCount === 0) {
     return
   }
 
+  try {
+    await ElMessageBox.confirm('批量导出将扣除 0.1 积分(时长卡用户免扣),确定继续?', '批量导出账号', {
+      confirmButtonText: '确定导出',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+  } catch {
+    return // 用户取消
+  }
+
+  if (!auth.token) {
+    ElMessage.error('请先登录平台账号')
+    return
+  }
+
+  const res = await consumePoints(auth.token, 'export')
+  if (!res.ok) {
+    ElMessage.error(mapConsumeCode(res.code))
+    return
+  }
+  if (typeof res.remainingPoints === 'number') {
+    auth.remainingPoints = res.remainingPoints
+  }
+  if (!res.free) {
+    ElMessage.success('已扣除 0.1 积分')
+  }
+
   exportText.value = accountsStore.exportAccountsToText(accountsStore.selectedAccountIds)
   exportDialogVisible.value = true
+}
+
+function mapConsumeCode(code?: string): string {
+  switch (code) {
+    case 'NO_POINTS': return '积分不足,无法导出'
+    case 'EXPIRED': return '账号已过期,无法导出'
+    case 'USER_DISABLED': return '账号已被禁用'
+    case 'UNAUTHORIZED': return '登录已失效,请重新登录'
+    default: return '导出失败,请检查网络'
+  }
 }
 
 async function handleBatchDeleteAccounts(): Promise<void> {

@@ -20,6 +20,7 @@ export interface RedeemResult {
   subscriptionUntil?: string | null; plan?: string | null; code?: string
 }
 export interface DeductResult { ok: boolean; remainingPoints?: number; free?: boolean; code?: string }
+export interface ConsumeResult { ok: boolean; remainingPoints?: number; free?: boolean; code?: string }
 export interface ChangePasswordResult { ok: boolean; code?: string }
 
 const http = axios.create({ baseURL: AUTH_SERVER_BASE_URL, timeout: 10000 })
@@ -48,6 +49,11 @@ export async function heartbeat(token: string): Promise<HeartbeatResult> {
 export async function deductPoint(token: string, orderId: string): Promise<DeductResult> {
   const { data } = await http.post('/points/deduct', { orderId }, auth(token))
   return data as DeductResult
+}
+// 消耗积分(导出等动作,金额由服务端定)
+export async function consumePoints(token: string, action: string): Promise<ConsumeResult> {
+  const { data } = await http.post('/points/consume', { action }, auth(token))
+  return data as ConsumeResult
 }
 
 export interface RemoteAiConfig {

@@ -11,7 +11,7 @@ model User {
   id                Int       @id @default(autoincrement())
   username          String    @unique
   passwordHash      String
-  remainingPoints   Int       @default(0)
+  remainingPoints   Float     @default(0)
   expireAt          DateTime?              // 账号总有效期,过期停用
   subscriptionUntil DateTime?              // 时长订阅到期(null=无订阅);有效期内出票免点
   plan              String?                // 显示用套餐名:包月/包季/包年/时长Nd
@@ -49,10 +49,10 @@ model PointLedger {
   id        Int      @id @default(autoincrement())
   userId    Int
   user      User     @relation(fields: [userId], references: [id])
-  delta     Int
+  delta     Float
   reason    String
   orderId   String   @unique
-  balance   Int
+  balance   Float
   createdAt DateTime @default(now())
 }
 
