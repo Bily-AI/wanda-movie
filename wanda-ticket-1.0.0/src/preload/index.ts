@@ -111,6 +111,8 @@ export interface WandaAppApi {
   onUpdateProgress: (listener: (payload: UpdateProgressPayload) => void) => () => void
   onUpdateError: (listener: (payload: UpdateErrorPayload) => void) => () => void
   startUpdate: () => Promise<{ ok: boolean; error?: string }>
+  openUpdateDownload: () => Promise<{ ok: boolean }>
+  openUpdateFolder: () => Promise<{ ok: boolean }>
 }
 
 const wandaApp: WandaAppApi = {
@@ -167,7 +169,9 @@ const wandaApp: WandaAppApi = {
     ipcRenderer.on(IPC_CHANNELS.UPDATE_ERROR, wrapped)
     return () => ipcRenderer.removeListener(IPC_CHANNELS.UPDATE_ERROR, wrapped)
   },
-  startUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATE_START_DOWNLOAD)
+  startUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATE_START_DOWNLOAD),
+  openUpdateDownload: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATE_OPEN_DOWNLOAD),
+  openUpdateFolder: () => ipcRenderer.invoke(IPC_CHANNELS.UPDATE_OPEN_FOLDER)
 }
 
 contextBridge.exposeInMainWorld('wandaApp', wandaApp)

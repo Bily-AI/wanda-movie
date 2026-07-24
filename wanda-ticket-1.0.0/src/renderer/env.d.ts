@@ -73,6 +73,8 @@ declare global {
       onUpdateProgress: (listener: (payload: UpdateProgressPayload) => void) => () => void
       onUpdateError: (listener: (payload: UpdateErrorPayload) => void) => () => void
       startUpdate: () => Promise<{ ok: boolean; error?: string }>
+      openUpdateDownload: () => Promise<{ ok: boolean }>
+      openUpdateFolder: () => Promise<{ ok: boolean }>
     }
   }
 }

@@ -35,12 +35,16 @@ export const IPC_CHANNELS = {
   UPDATE_AVAILABLE: 'update:available',
   UPDATE_PROGRESS: 'update:progress',
   UPDATE_ERROR: 'update:error',
-  UPDATE_START_DOWNLOAD: 'update:start-download'
+  UPDATE_START_DOWNLOAD: 'update:start-download',
+  UPDATE_OPEN_DOWNLOAD: 'update:open-download',
+  UPDATE_OPEN_FOLDER: 'update:open-folder'
 } as const
 
 export interface UpdateAvailablePayload {
   version: string
   notes?: string
+  failedBefore?: boolean
+  downloadUrl?: string
 }
 export interface UpdateProgressPayload {
   percent: number

@@ -1,7 +1,7 @@
-import { app, ipcMain, type BrowserWindow } from 'electron'
+import { app, ipcMain, shell, type BrowserWindow } from 'electron'
 import { spawn } from 'node:child_process'
 import { createWriteStream } from 'node:fs'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { get as httpGet } from 'node:http'
 import { get as httpsGet } from 'node:https'
 import { dirname, join } from 'node:path'
@@ -71,6 +71,35 @@ function download(url: string, dest: string, onProgress?: (percent: number, rece
   })
 }
 
+function resolveDlUrl(manifest: UpdateManifest): string {
+  const rawUrl = manifest.url || ''
+  return /^https?:\/\//i.test(rawUrl) ? rawUrl : `${UPDATE_FEED_BASE}/${rawUrl.replace(/^\/+/, '')}`
+}
+
+// 更新尝试标记:应用更新前记录「要更新到哪个版本」,下次启动若仍是旧版即判定自动更新失败
+function stateFilePath(exeDir: string): string {
+  return join(exeDir, 'data', 'update', 'update-state.json')
+}
+async function readUpdateState(exeDir: string): Promise<{ attemptedVersion?: string } | null> {
+  try {
+    return JSON.parse(await readFile(stateFilePath(exeDir), 'utf8'))
+  } catch {
+    return null
+  }
+}
+async function writeUpdateState(exeDir: string, attemptedVersion: string): Promise<void> {
+  const p = stateFilePath(exeDir)
+  await mkdir(dirname(p), { recursive: true })
+  await writeFile(p, JSON.stringify({ attemptedVersion }), 'utf8')
+}
+async function clearUpdateState(exeDir: string): Promise<void> {
+  try {
+    await rm(stateFilePath(exeDir))
+  } catch {
+    /* 不存在则忽略 */
+  }
+}
+
 function isNewerVersion(remote: string, local: string): boolean {
   const toParts = (v: string) => String(v).replace(/^v/i, '').split('.').map((n) => parseInt(n, 10) || 0)
   const r = toParts(remote)
@@ -111,6 +140,8 @@ export function setupPortableUpdate(getWindow: () => BrowserWindow | null): void
       win?.webContents.send(IPC_CHANNELS.UPDATE_PROGRESS, { percent: 100, done: true })
       // 给页面一点时间显示「即将重启」
       await new Promise((r) => setTimeout(r, 800))
+      // 应用更新前记标记:下次启动若仍是旧版即判定失败,转手动兜底,避免死循环
+      await writeUpdateState(exeDir, manifest.version)
       await applyUpdateAndRestart(exeFile, tmpExe)
       return { ok: true }
     } catch (err) {
@@ -118,6 +149,18 @@ export function setupPortableUpdate(getWindow: () => BrowserWindow | null): void
       win?.webContents.send(IPC_CHANNELS.UPDATE_ERROR, { message })
       return { ok: false, error: message }
     }
+  })
+
+  // 自动更新失败兜底:在浏览器打开下载页 / 打开 exe 所在文件夹,让用户手动替换
+  ipcMain.handle(IPC_CHANNELS.UPDATE_OPEN_DOWNLOAD, async () => {
+    if (!pending) return { ok: false }
+    await shell.openExternal(resolveDlUrl(pending.manifest))
+    return { ok: true }
+  })
+  ipcMain.handle(IPC_CHANNELS.UPDATE_OPEN_FOLDER, async () => {
+    if (!pending) return { ok: false }
+    await shell.openPath(pending.exeDir)
+    return { ok: true }
   })
 
   if (!app.isPackaged) return
@@ -128,12 +171,25 @@ export function setupPortableUpdate(getWindow: () => BrowserWindow | null): void
   void (async () => {
     try {
       const manifest = await fetchJson(`${UPDATE_FEED_BASE}/version.json`)
-      if (!manifest?.version || !isNewerVersion(manifest.version, app.getVersion())) return
+      const current = app.getVersion()
+      const state = await readUpdateState(exeDir)
+
+      // 曾尝试更新,且当前版本已不低于目标 → 更新成功,清掉标记
+      if (state?.attemptedVersion && !isNewerVersion(state.attemptedVersion, current)) {
+        await clearUpdateState(exeDir)
+      }
+
+      if (!manifest?.version || !isNewerVersion(manifest.version, current)) return
       pending = { manifest, exeFile, exeDir }
+
+      // 曾尝试更新到这个版本却仍是旧版 → 自动更新在这台机器上没成功
+      const failedBefore = state?.attemptedVersion === manifest.version
 
       const notify = () => getWin()?.webContents.send(IPC_CHANNELS.UPDATE_AVAILABLE, {
         version: manifest.version,
-        notes: manifest.notes || ''
+        notes: manifest.notes || '',
+        failedBefore,
+        downloadUrl: resolveDlUrl(manifest)
       })
       const win = getWin()
       if (win && !win.webContents.isLoading()) notify()
