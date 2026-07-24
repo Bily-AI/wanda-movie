@@ -35,7 +35,7 @@ for (const marker of [
 }
 
 for (const marker of [
-  "import { computed } from 'vue'",
+  "import { computed, onBeforeUnmount, onMounted, ref } from 'vue'",
   'const mapStyle = computed<Record<string, string>>(() => {',
   'const maxX = maxSeatCoordinate((seat) => seat.coordx)',
   'const maxY = maxSeatCoordinate((seat) => seat.coordy)',

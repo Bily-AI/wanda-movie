@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+
 interface PaymentDisplayItem {
   key: string
   label: string
@@ -8,6 +10,7 @@ interface PaymentDisplayItem {
   balanceText?: string
   typeText?: string
   expiryText?: string
+  count?: number
 }
 
 const props = defineProps<{
@@ -16,6 +19,9 @@ const props = defineProps<{
   loading: boolean
   seatCount: number
 }>()
+
+// 聚合后每行是一种券,可兑总张数 = 各种券张数之和
+const totalCount = computed(() => props.items.reduce((sum, item) => sum + (item.count ?? 1), 0))
 
 const emit = defineEmits<{
   'update:selectedValues': [value: string[]]
@@ -36,7 +42,7 @@ function toggleSelection(value: string) {
   <section class="side-panel-body">
     <header class="side-panel-header">
       <span>兑换券</span>
-      <span class="side-panel-count">已选 {{ selectedValues.length }} 张 | 可兑 {{ items.length }} / 需 {{ seatCount }} 张</span>
+      <span class="side-panel-count">已选 {{ selectedValues.length }} 张 | 可兑 {{ totalCount }} / 需 {{ seatCount }} 张</span>
     </header>
 
     <div v-if="items.length" class="table-list">
@@ -48,7 +54,9 @@ function toggleSelection(value: string) {
           :class="{ 'is-selected': selectedValues.includes(item.value) }"
           @click="toggleSelection(item.value)"
         >
-          <div class="col-name" :title="item.label">{{ item.label }}</div>
+          <div class="col-name" :title="item.label">
+            {{ item.label }}<span v-if="(item.count ?? 1) > 1" class="col-count">×{{ item.count }}</span>
+          </div>
           <div class="col-type" :title="item.typeText">{{ item.typeText || '-' }}</div>
           <div class="col-expiry" :title="item.expiryText">{{ item.expiryText || '-' }}</div>
         </div>
@@ -148,6 +156,21 @@ function toggleSelection(value: string) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.col-count {
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--el-color-primary);
+}
+
+.table-row.is-selected .col-count {
+  color: var(--el-color-primary);
+  background: #fff;
 }
 
 .col-type {

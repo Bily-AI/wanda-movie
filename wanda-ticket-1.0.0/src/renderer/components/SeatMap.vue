@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { SeatNode } from '@shared/wandaTicketTypes'
 
 const props = defineProps<{
@@ -17,6 +17,34 @@ const seatGap = 4
 const rowLabelWidth = 24
 const mapPadding = 4
 
+// 自适应缩放:观测外层容器(.seat-scroll)尺寸,窗口大就把座位图放大铺满
+const fitRef = ref<HTMLElement | null>(null)
+const containerWidth = ref(0)
+const containerHeight = ref(0)
+let resizeObserver: ResizeObserver | null = null
+
+function measureContainer(): void {
+  const el = fitRef.value?.parentElement
+  if (el) {
+    containerWidth.value = el.clientWidth
+    containerHeight.value = el.clientHeight
+  }
+}
+
+onMounted(() => {
+  const el = fitRef.value?.parentElement
+  if (el && typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(() => measureContainer())
+    resizeObserver.observe(el)
+  }
+  measureContainer()
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
+})
+
 function maxSeatCoordinate(projector: (seat: SeatNode) => number): number {
   return props.seats.reduce((max, seat) => Math.max(max, projector(seat)), 0)
 }
@@ -29,6 +57,25 @@ function minSeatCoordinate(projector: (seat: SeatNode) => number): number {
 const originX = computed(() => (props.seats.length ? minSeatCoordinate((seat) => seat.coordx) : 0))
 const originY = computed(() => (props.seats.length ? minSeatCoordinate((seat) => seat.coordy) : 0))
 
+// 座位图自然尺寸(未缩放)
+const naturalSize = computed(() => {
+  const maxX = maxSeatCoordinate((seat) => seat.coordx)
+  const maxY = maxSeatCoordinate((seat) => seat.coordy)
+  const width = Math.max(560, mapPadding * 2 + rowLabelWidth + (maxX - originX.value) * (seatWidth + seatGap) + seatWidth)
+  const height = mapPadding * 2 + (maxY - originY.value) * (seatHeight + seatGap) + seatHeight
+  return { width, height }
+})
+
+// 缩放系数:只放大不缩小(小窗口保持原样滚动),窗口大则铺满,最多放大 2.4 倍
+const scaleFactor = computed(() => {
+  const { width, height } = naturalSize.value
+  if (!containerWidth.value || !containerHeight.value || width <= 0 || height <= 0) {
+    return 1
+  }
+  const raw = Math.min(containerWidth.value / width, containerHeight.value / height)
+  return Math.max(1, Math.min(raw, 2.4))
+})
+
 const mapStyle = computed<Record<string, string>>(() => {
   const maxX = maxSeatCoordinate((seat) => seat.coordx)
   const maxY = maxSeatCoordinate((seat) => seat.coordy)
@@ -37,9 +84,17 @@ const mapStyle = computed<Record<string, string>>(() => {
 
   return {
     width: `${Math.max(560, mapWidth)}px`,
-    height: `${mapHeight}px`
+    height: `${mapHeight}px`,
+    transform: `scale(${scaleFactor.value})`,
+    transformOrigin: 'top left'
   }
 })
+
+// 外层占位盒:预留缩放后的实际尺寸,保证滚动/居中正确(transform 不改变布局盒)
+const fitStyle = computed<Record<string, string>>(() => ({
+  width: `${naturalSize.value.width * scaleFactor.value}px`,
+  height: `${naturalSize.value.height * scaleFactor.value}px`
+}))
 
 function isSelected(seat: SeatNode): boolean {
   return props.selectedSeats.some((item) => item.id === seat.id)
@@ -80,26 +135,35 @@ function rowStyle(y: number): Record<string, string> {
 </script>
 
 <template>
-  <div class="seat-map" :style="mapStyle">
-    <span v-for="row in uniqueRows()" :key="row.y" class="row-label" :style="rowStyle(row.y)">
-      {{ row.label }}排
-    </span>
+  <div ref="fitRef" class="seat-map-fit" :style="fitStyle">
+    <div class="seat-map" :style="mapStyle">
+      <span v-for="row in uniqueRows()" :key="row.y" class="row-label" :style="rowStyle(row.y)">
+        {{ row.label }}排
+      </span>
 
-    <button
-      v-for="seat in seats"
-      :key="seat.id"
-      type="button"
-      :class="seatClass(seat)"
-      :style="seatStyle(seat)"
-      :disabled="seat.status === 'occupied'"
-      @click="emit('select', seat)"
-    >
-      {{ seat.columnLabel }}
-    </button>
+      <button
+        v-for="seat in seats"
+        :key="seat.id"
+        type="button"
+        :class="seatClass(seat)"
+        :style="seatStyle(seat)"
+        :disabled="seat.status === 'occupied'"
+        @click="emit('select', seat)"
+      >
+        {{ seat.columnLabel }}
+      </button>
+    </div>
   </div>
 </template>
 
 <style scoped>
+/* 缩放占位盒:居中显示,尺寸=缩放后的实际大小 */
+.seat-map-fit {
+  position: relative;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
 .seat-map {
   min-width: 560px;
   position: relative;

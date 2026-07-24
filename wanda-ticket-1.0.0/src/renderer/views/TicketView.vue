@@ -4,6 +4,7 @@ import { computed, nextTick, ref, toRaw, watch } from 'vue'
 import {
   Delete,
   Key,
+  LocationInformation,
   Picture,
   Refresh
 } from '@element-plus/icons-vue'
@@ -52,6 +53,7 @@ interface PaymentDisplayItem {
   balanceText?: string
   typeText?: string
   expiryText?: string
+  count?: number
 }
 
 interface PayInfoDisplayField {
@@ -314,34 +316,56 @@ function buildCouponMeta(coupon: (typeof ticketStore.coupons)[number]): string {
   )
 }
 
-const couponItems = computed<PaymentDisplayItem[]>(() =>
-  ticketStore.coupons.flatMap((coupon, index) => {
-    const value = coupon.code || coupon.couponNo || coupon.voucherNo
+const couponItems = computed<PaymentDisplayItem[]>(() => {
+  // 相同券(名称/类型/有效期一致)聚合成一行,显示张数;value 用组内第一张的真实券号(券单选,支付不受影响)
+  const groups = new Map<string, PaymentDisplayItem>()
 
+  ticketStore.coupons.forEach((coupon, index) => {
+    const value = coupon.code || coupon.couponNo || coupon.voucherNo
     if (!value) {
-      return []
+      return
     }
 
-    return [
-      {
-        key: `${value}-${index}`,
-        label: buildCouponLabel(coupon) || `兑换券 ${index + 1}`,
-        value,
-        meta: buildCouponMeta(coupon) || '-',
-        typeText: buildCouponType(coupon),
-        expiryText: formatCouponExpiryMeta(
-          coupon.validity,
-          asRecord(coupon.raw).validityDateShowMsg,
-          asRecord(coupon.raw).validity,
-          asRecord(coupon.raw).expireTime,
-          asRecord(coupon.raw).expireDate,
-          asRecord(coupon.raw).endTime,
-          asRecord(coupon.raw).end
-        ) || '-'
-      }
-    ]
+    const label = buildCouponLabel(coupon) || `兑换券 ${index + 1}`
+    const typeText = buildCouponType(coupon)
+    const expiryText =
+      formatCouponExpiryMeta(
+        coupon.validity,
+        asRecord(coupon.raw).validityDateShowMsg,
+        asRecord(coupon.raw).validity,
+        asRecord(coupon.raw).expireTime,
+        asRecord(coupon.raw).expireDate,
+        asRecord(coupon.raw).endTime,
+        asRecord(coupon.raw).end
+      ) || '-'
+
+    const groupKey = `${label}|${typeText}|${expiryText}`
+    const existing = groups.get(groupKey)
+
+    if (existing) {
+      existing.count = (existing.count ?? 1) + 1
+      return
+    }
+
+    groups.set(groupKey, {
+      key: groupKey,
+      label,
+      value, // 组内第一张的真实券号,选中即用它
+      meta: buildCouponMeta(coupon) || '-',
+      typeText,
+      expiryText,
+      count: 1
+    })
   })
-)
+
+  return Array.from(groups.values())
+})
+
+// 选中影院的详细地址(来自 city.json 的 CmAdd)
+const currentCinemaAddress = computed(() => {
+  const cinema = ticketStore.cinemaRecords.find((item) => item.id === ticketStore.query.cinema)
+  return cinema?.address || ''
+})
 
 const ticketCodes = computed(() => ticketStore.currentOrderPayInfo?.ticketCodes ?? [])
 const qrCodes = computed(() => ticketStore.currentOrderPayInfo?.qrCodes ?? [])
@@ -809,6 +833,11 @@ watch(
           <span><i class="legend-couple" />情侣区</span>
           <span><i class="legend-special" />特惠区</span>
         </div>
+
+        <div v-if="currentCinemaAddress" class="cinema-address" :title="currentCinemaAddress">
+          <el-icon><LocationInformation /></el-icon>
+          <span>{{ currentCinemaAddress }}</span>
+        </div>
       </section>
     </section>
 
@@ -1139,12 +1168,12 @@ watch(
 }
 
 .seat-toolbar {
-  min-height: 48px;
+  min-height: 36px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  padding: 0 24px 16px;
+  padding: 0 24px 4px;
   color: var(--app-subtle);
   font-size: 13px;
 }
@@ -1156,6 +1185,27 @@ watch(
   margin-right: 4px;
   border-radius: 3px;
   vertical-align: -2px;
+}
+
+/* 选中影院的详细地址 */
+.cinema-address {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 24px 2px;
+  color: var(--app-subtle);
+  font-size: 12px;
+  min-width: 0;
+}
+.cinema-address :deep(.el-icon) {
+  flex: 0 0 auto;
+  color: var(--app-accent);
+}
+.cinema-address span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .legend-normal { border: 2px solid #e6a23c; }
