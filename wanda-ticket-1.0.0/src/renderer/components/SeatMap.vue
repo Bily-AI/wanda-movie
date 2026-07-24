@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { SeatNode } from '@shared/wandaTicketTypes'
 
 const props = defineProps<{
@@ -25,10 +25,20 @@ let resizeObserver: ResizeObserver | null = null
 
 function measureContainer(): void {
   const el = fitRef.value?.parentElement
-  if (el) {
-    containerWidth.value = el.clientWidth
-    containerHeight.value = el.clientHeight
-  }
+  if (!el) return
+  const w = el.clientWidth
+  const h = el.clientHeight
+  // 只接受 >0 的测量值,避免布局未稳定时的瞬时 0 把缩放卡在 1
+  if (w > 0) containerWidth.value = w
+  if (h > 0) containerHeight.value = h
+}
+
+// 用两帧 rAF 在布局(flex 撑满)稳定后再测量,确保拿到真实可用空间
+function scheduleMeasure(): void {
+  requestAnimationFrame(() => {
+    measureContainer()
+    requestAnimationFrame(() => measureContainer())
+  })
 }
 
 onMounted(() => {
@@ -37,8 +47,11 @@ onMounted(() => {
     resizeObserver = new ResizeObserver(() => measureContainer())
     resizeObserver.observe(el)
   }
-  measureContainer()
+  scheduleMeasure()
 })
+
+// 换场次/影院导致座位变化 → 容器可能重建,重新测量
+watch(() => props.seats, () => scheduleMeasure())
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
