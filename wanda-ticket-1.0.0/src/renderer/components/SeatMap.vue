@@ -79,13 +79,18 @@ const naturalSize = computed(() => {
   return { width, height }
 })
 
-// 缩放系数:只放大不缩小(小窗口保持原样滚动),窗口大则铺满,最多放大 2.4 倍
+// 缩放系数:只放大不缩小(小窗口保持原样滚动),窗口大则铺满,最多放大 2.4 倍。
+// 以「宽度」为主(容器宽度测量可靠);高度只作可选上限(测到才用),
+// 避免复杂布局里高度瞬时测不到就把缩放卡死在 1。
 const scaleFactor = computed(() => {
   const { width, height } = naturalSize.value
-  if (!containerWidth.value || !containerHeight.value || width <= 0 || height <= 0) {
+  if (!containerWidth.value || width <= 0) {
     return 1
   }
-  const raw = Math.min(containerWidth.value / width, containerHeight.value / height)
+  let raw = containerWidth.value / width
+  if (containerHeight.value > 0 && height > 0) {
+    raw = Math.min(raw, containerHeight.value / height)
+  }
   return Math.max(1, Math.min(raw, 2.4))
 })
 
