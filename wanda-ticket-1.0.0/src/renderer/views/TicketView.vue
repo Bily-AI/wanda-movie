@@ -1165,6 +1165,9 @@ watch(
   overflow: auto;
   scrollbar-gutter: stable both-edges;
   overscroll-behavior: contain;
+  /* 座位图在可用空间内水平+垂直居中(缩放后仍留白时空白对称,看着占满);
+     内容超出时 margin auto 自动归零、从左上滚动,不会裁切 */
+  display: flex;
 }
 
 .seat-toolbar {

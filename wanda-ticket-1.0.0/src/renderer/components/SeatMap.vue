@@ -170,10 +170,12 @@ function rowStyle(y: number): Record<string, string> {
 </template>
 
 <style scoped>
-/* 缩放占位盒:居中显示,尺寸=缩放后的实际大小 */
+/* 缩放占位盒:尺寸=缩放后的实际大小;margin auto 在座位区内水平+垂直居中,
+   内容超出时自动归零从左上滚动;flex 子项不收缩 */
 .seat-map-fit {
   position: relative;
-  margin: 0 auto;
+  margin: auto;
+  flex: 0 0 auto;
   overflow: hidden;
 }
 
