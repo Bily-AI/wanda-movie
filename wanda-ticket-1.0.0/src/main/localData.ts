@@ -1,6 +1,7 @@
 import { app, ipcMain } from 'electron'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 
 import { IPC_CHANNELS, type LocalDataWriteResult } from '../shared/ipc'
 import {
@@ -10,14 +11,57 @@ import {
   type LocalDataMap
 } from '../shared/localData'
 
-function localDataDir(): string {
-  // 便携版:本地数据(账号/设置/日志)放到 exe 同目录的 data/,数据跟着 exe 走。
-  // 只放我们自己的数据,不动 Chromium 的缓存(那些仍在系统默认 userData,避免 data/ 里一堆缓存垃圾)。
-  const portableDir = process.env.PORTABLE_EXECUTABLE_DIR
-  if (portableDir) {
-    return join(portableDir, 'data')
+let cachedDataDir: string | null = null
+
+// 目录里是否已有账号数据(用来判断"真正存数据的那个目录")
+function hasAccountData(dir: string): boolean {
+  try {
+    return existsSync(join(dir, 'accounts.json'))
+  } catch {
+    return false
   }
-  return join(app.getPath('userData'), 'local-data')
+}
+
+// 稳定指针文件:记录上次真正存数据的目录路径(放 userData,不随便携目录/环境变量变动)
+function dataDirPointerPath(): string {
+  return join(app.getPath('userData'), 'data-dir.txt')
+}
+
+export function localDataDir(): string {
+  if (cachedDataDir) {
+    return cachedDataDir
+  }
+
+  // 便携版:数据放 exe 同目录 data/,跟着 exe 走;非便携:userData/local-data。
+  // 关键:热更新重启后 PORTABLE_EXECUTABLE_DIR 可能失效,导致读到空目录 → 误判"账号全没了"。
+  // 所以按候选顺序找"已有账号数据"的目录,即使环境变量丢了也能找回原数据。
+  const portableDir = process.env.PORTABLE_EXECUTABLE_DIR
+  const portableFile = process.env.PORTABLE_EXECUTABLE_FILE
+  const userLocal = join(app.getPath('userData'), 'local-data')
+  const primary = portableDir ? join(portableDir, 'data') : userLocal
+
+  const candidates: string[] = []
+  if (portableDir) candidates.push(join(portableDir, 'data'))
+  if (portableFile) candidates.push(join(dirname(portableFile), 'data'))
+  candidates.push(userLocal)
+  try {
+    const saved = readFileSync(dataDirPointerPath(), 'utf-8').trim()
+    if (saved) candidates.push(saved)
+  } catch {
+    /* 无指针则忽略 */
+  }
+
+  const chosen = candidates.find((dir) => hasAccountData(dir)) ?? primary
+  cachedDataDir = chosen
+
+  // 记录选定目录,便于日后即使环境变量丢失也能找回
+  try {
+    writeFileSync(dataDirPointerPath(), chosen, 'utf-8')
+  } catch {
+    /* 忽略写入失败 */
+  }
+
+  return chosen
 }
 
 function localDataPath(name: LocalDataFileName): string {
@@ -206,11 +250,20 @@ export async function readLocalDataFile<T extends LocalDataFileName>(name: T): P
   } catch (error) {
     const defaults = await defaultLocalData(name)
 
-    if (!isMissingFileError(error)) {
-      await backupBrokenFile(name)
+    // 文件缺失(首次运行/空目录):返回默认,但不写入(避免在错误目录里造空文件)
+    if (isMissingFileError(error)) {
+      return defaults
     }
 
-    await writeLocalDataFile(name, defaults)
+    // 文件损坏(JSON 解析失败):备份坏文件后重建默认,原数据留在 .bak 可恢复
+    if (error instanceof SyntaxError) {
+      await backupBrokenFile(name)
+      await writeLocalDataFile(name, defaults)
+      return defaults
+    }
+
+    // 其它错误(文件被占用/IO 抖动等):绝不覆盖!仅本次返回默认,原文件原样保留,下次重启即可恢复
+    // —— 这是之前"更新后账号全没了"的元凶:读失败就把空默认写回,把真数据覆盖掉。
     return defaults
   }
 }

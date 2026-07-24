@@ -596,16 +596,10 @@ async function confirmImportAccounts(): Promise<void> {
         </el-select>
         <el-input
           v-model="accountsStore.searchKeyword"
+          class="account-search"
           size="small"
-          placeholder="搜索账号/手机号"
+          placeholder="搜索账号/手机/备注"
           :prefix-icon="Search"
-        />
-        <el-button
-          size="small"
-          :icon="Refresh"
-          :loading="refreshingAccountSummaries"
-          aria-label="刷新账号摘要"
-          @click="handleRefreshAccountSummaries"
         />
       </div>
 
@@ -636,6 +630,14 @@ async function confirmImportAccounts(): Promise<void> {
             maxlength="20"
             @keyup.enter="saveGroupName"
             @blur="saveGroupName"
+          />
+          <el-button
+            class="account-refresh-btn"
+            size="small"
+            :icon="Refresh"
+            :loading="refreshingAccountSummaries"
+            aria-label="刷新账号摘要"
+            @click="handleRefreshAccountSummaries"
           />
         </div>
         <div class="account-row-list">
@@ -898,6 +900,11 @@ async function confirmImportAccounts(): Promise<void> {
 </template>
 
 <style scoped>
+/* 搜索框 placeholder 字体调小 */
+.account-search :deep(.el-input__inner)::placeholder {
+  font-size: 11px;
+}
+
 .account-sidebar {
   min-width: 0;
   min-height: 0;
@@ -947,7 +954,7 @@ async function confirmImportAccounts(): Promise<void> {
 
 .account-toolbar {
   display: grid;
-  grid-template-columns: 94px minmax(0, 1fr) 36px;
+  grid-template-columns: 94px minmax(0, 1fr);
   gap: 8px;
   padding: 10px 14px 2px;
 }
@@ -1168,6 +1175,11 @@ async function confirmImportAccounts(): Promise<void> {
 
 .account-list-toolbar :deep(.el-button) {
   margin: 0;
+}
+
+/* 刷新按钮靠右 */
+.account-refresh-btn {
+  margin-left: auto !important;
 }
 
 .account-row-list {

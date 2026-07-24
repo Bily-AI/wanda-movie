@@ -1,5 +1,6 @@
-import { app, BrowserWindow, ipcMain, session, shell, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, ipcMain, screen, session, shell, type IpcMainInvokeEvent } from 'electron'
 import { readFile } from 'node:fs/promises'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { networkInterfaces } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -9,7 +10,7 @@ import { getMachineFingerprint } from './machineId'
 import { registerAlipayHandlers } from './alipay'
 import { registerBaiduOcrHandlers } from './baiduOcr'
 import { registerElementCaptureHandlers } from './elementCapture'
-import { registerLocalDataHandlers } from './localData'
+import { localDataDir, registerLocalDataHandlers } from './localData'
 import { registerProxyHandlers } from './proxy'
 import { registerWandaHttpHandlers } from './wandaHttp'
 import { setupPortableUpdate } from './portableUpdate'
@@ -32,10 +33,72 @@ function loadRenderer(window: BrowserWindow, hash?: string): void {
   }
 }
 
+interface WindowState {
+  x?: number
+  y?: number
+  width: number
+  height: number
+  maximized?: boolean
+}
+
+function windowStatePath(): string {
+  return join(localDataDir(), 'window-state.json')
+}
+
+// 「记住窗口位置」开关(存在 settings.json 里,默认开启)
+function isRememberWindowOn(): boolean {
+  try {
+    const settings = JSON.parse(readFileSync(join(localDataDir(), 'settings.json'), 'utf8')) as { rememberWindow?: boolean }
+    return settings.rememberWindow !== false
+  } catch {
+    return true
+  }
+}
+
+function readWindowState(): WindowState | null {
+  try {
+    const state = JSON.parse(readFileSync(windowStatePath(), 'utf8')) as WindowState
+    if (typeof state.width !== 'number' || typeof state.height !== 'number') return null
+    return state
+  } catch {
+    return null
+  }
+}
+
+// 校验位置至少部分落在某个显示器内,避免上次在副屏、这次副屏没了导致窗口飞到屏幕外
+function isBoundsVisible(x: number, y: number, width: number, height: number): boolean {
+  return screen.getAllDisplays().some((display) => {
+    const wa = display.workArea
+    return x < wa.x + wa.width && x + width > wa.x && y < wa.y + wa.height && y + height > wa.y
+  })
+}
+
+function saveWindowState(window: BrowserWindow): void {
+  try {
+    if (!isRememberWindowOn() || window.isDestroyed()) return
+    const maximized = window.isMaximized()
+    const bounds = window.getNormalBounds()
+    writeFileSync(
+      windowStatePath(),
+      JSON.stringify({ x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height, maximized })
+    )
+  } catch {
+    /* 忽略写入失败 */
+  }
+}
+
 function createWindow(): void {
+  const saved = isRememberWindowOn() ? readWindowState() : null
+  const usePosition =
+    saved && typeof saved.x === 'number' && typeof saved.y === 'number'
+      ? isBoundsVisible(saved.x, saved.y, saved.width, saved.height)
+      : false
+
   const window = new BrowserWindow({
-    width: 1600,
-    height: 1000,
+    width: saved?.width ?? 1600,
+    height: saved?.height ?? 1000,
+    x: usePosition ? saved!.x : undefined,
+    y: usePosition ? saved!.y : undefined,
     minWidth: 1280,
     minHeight: 780,
     frame: false,
@@ -50,8 +113,17 @@ function createWindow(): void {
     }
   })
 
+  if (saved?.maximized) {
+    window.maximize()
+  }
+
   window.on('ready-to-show', () => {
     window.show()
+  })
+
+  // 记住窗口位置:关闭前保存当前位置/大小/最大化状态
+  window.on('close', () => {
+    saveWindowState(window)
   })
 
   window.on('closed', () => {
